@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from typing import Any, Dict
 
 from .base_pipeline import BasePruningPipeline
+from prune_methods.base import BasePruningMethod
 
 from ultralytics_pruning import YOLO
 from ultralytics_pruning.utils.torch_utils import get_flops, get_num_params
@@ -9,8 +12,14 @@ from ultralytics_pruning.utils.torch_utils import get_flops, get_num_params
 class PruningPipeline(BasePruningPipeline):
     """High level pipeline to orchestrate pruning of YOLO models."""
 
-    def __init__(self, model_path: str, data: str, workdir: str = "runs/pruning") -> None:
-        super().__init__(model_path, data, workdir)
+    def __init__(
+        self,
+        model_path: str,
+        data: str,
+        workdir: str = "runs/pruning",
+        pruning_method: BasePruningMethod | None = None,
+    ) -> None:
+        super().__init__(model_path, data, workdir, pruning_method)
         self.model: YOLO | None = None
 
     def load_model(self) -> None:
@@ -36,23 +45,26 @@ class PruningPipeline(BasePruningPipeline):
 
     def analyze_structure(self) -> None:
         """Analyze model structure to guide pruning."""
-        # Placeholder for user provided analysis logic
-        raise NotImplementedError
+        if self.pruning_method is None:
+            raise NotImplementedError
+        self.pruning_method.analyze_model()
 
     def generate_pruning_mask(self, ratio: float) -> None:
         """Generate pruning mask at ``ratio`` sparsity."""
-        # Placeholder for mask generation logic
-        raise NotImplementedError
+        if self.pruning_method is None:
+            raise NotImplementedError
+        self.pruning_method.generate_pruning_mask(ratio)
 
     def apply_pruning(self) -> None:
         """Apply the previously generated pruning mask to the model."""
-        # Placeholder for pruning application logic
-        raise NotImplementedError
+        if self.pruning_method is None:
+            raise NotImplementedError
+        self.pruning_method.apply_pruning()
 
     def reconfigure_model(self) -> None:
         """Reconfigure the model after pruning if necessary."""
-        # Optional step for layer reconfiguration
-        raise NotImplementedError
+        if self.pruning_method is None:
+            raise NotImplementedError
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         """Calculate parameter count and FLOPs after pruning."""

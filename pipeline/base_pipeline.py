@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import abc
 from pathlib import Path
 from typing import Any, Dict
+
+from prune_methods.base import BasePruningMethod
 
 
 class BasePruningPipeline(abc.ABC):
@@ -12,15 +16,26 @@ class BasePruningPipeline(abc.ABC):
     implementation only stores bookkeeping information.
     """
 
-    def __init__(self, model_path: str, data: str, workdir: str = "runs/pruning") -> None:
+    def __init__(
+        self,
+        model_path: str,
+        data: str,
+        workdir: str = "runs/pruning",
+        pruning_method: BasePruningMethod | None = None,
+    ) -> None:
         self.model_path = model_path
         self.data = data
         self.workdir = Path(workdir)
         self.workdir.mkdir(parents=True, exist_ok=True)
         self.model = None
+        self.pruning_method = pruning_method
         self.initial_stats: Dict[str, float] = {}
         self.pruned_stats: Dict[str, float] = {}
         self.metrics: Dict[str, Any] = {}
+
+    def set_pruning_method(self, method: BasePruningMethod) -> None:
+        """Attach a :class:`BasePruningMethod` instance to the pipeline."""
+        self.pruning_method = method
 
     @abc.abstractmethod
     def load_model(self) -> None:
@@ -65,4 +80,18 @@ class BasePruningPipeline(abc.ABC):
             "pruned": self.pruned_stats,
             "training": self.metrics,
         }
+
+    # ------------------------------------------------------------------
+    # Convenience wrappers around the pruning method
+    # ------------------------------------------------------------------
+    def visualize_results(self) -> None:
+        """Produce plots comparing the baseline and pruned model."""
+        if self.pruning_method is not None:
+            self.pruning_method.visualize_comparison()
+            self.pruning_method.visualize_pruned_filters()
+
+    def save_pruning_results(self, path: str | Path) -> None:
+        """Delegate result saving to the active pruning method."""
+        if self.pruning_method is not None:
+            self.pruning_method.save_results(path)
 
