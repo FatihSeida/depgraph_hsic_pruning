@@ -142,3 +142,14 @@ pipeline:
 These utilities follow SOLID design principles to keep the codebase easy to
 maintain.
 
+
+## Batch training script
+
+Use `train_experiments.py` to run all pruning methods across several ratios in one go:
+
+```bash
+python train_experiments.py --model yolov8n-seg.pt --data coco8.yaml \
+    --baseline-epochs 1 --finetune-epochs 3 --batch-size 16 --ratios 0.2 0.4 0.6 0.8
+```
+
+Add `--resume` to continue interrupted runs.
