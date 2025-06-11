@@ -9,33 +9,64 @@ added later.
 from __future__ import annotations
 
 
+import random
+from typing import List
+
+import torch
+from torch import nn
+from torch.nn.utils import prune
+
 from .base import BasePruningMethod
 
 
 class Method1(BasePruningMethod):
-    """Stub pruning method #1."""
+    """Pruning based on L1-norm of convolutional filters."""
 
-    def analyze_model(self) -> None:  # pragma: no cover - placeholder
-        pass
+    def __init__(self, model: any, workdir: str = "runs/pruning") -> None:
+        super().__init__(model, workdir)
+        self.layers: List[nn.Conv2d] = []
+        self.ratio = 0.0
 
-    def generate_pruning_mask(self, ratio: float) -> None:  # pragma: no cover
-        pass
+    def analyze_model(self) -> None:
+        """Collect convolution layers from the first 10 backbone modules."""
+        backbone = list(self.model.model[:10])
+        for module in backbone:
+            for m in module.modules():
+                if isinstance(m, nn.Conv2d):
+                    self.layers.append(m)
 
-    def apply_pruning(self) -> None:  # pragma: no cover
-        pass
+    def generate_pruning_mask(self, ratio: float) -> None:
+        self.ratio = ratio
+
+    def apply_pruning(self) -> None:
+        for conv in self.layers:
+            prune.ln_structured(conv, name="weight", amount=self.ratio, n=1, dim=0)
+            prune.remove(conv, "weight")
 
 
 class Method2(BasePruningMethod):
-    """Stub pruning method #2."""
+    """Random structured pruning of convolutional filters."""
 
-    def analyze_model(self) -> None:  # pragma: no cover - placeholder
-        pass
+    def __init__(self, model: any, workdir: str = "runs/pruning") -> None:
+        super().__init__(model, workdir)
+        self.layers: List[nn.Conv2d] = []
+        self.ratio = 0.0
 
-    def generate_pruning_mask(self, ratio: float) -> None:  # pragma: no cover
-        pass
+    def analyze_model(self) -> None:
+        """Collect convolution layers from the first 10 backbone modules."""
+        backbone = list(self.model.model[:10])
+        for module in backbone:
+            for m in module.modules():
+                if isinstance(m, nn.Conv2d):
+                    self.layers.append(m)
 
-    def apply_pruning(self) -> None:  # pragma: no cover
-        pass
+    def generate_pruning_mask(self, ratio: float) -> None:
+        self.ratio = ratio
+
+    def apply_pruning(self) -> None:
+        for conv in self.layers:
+            prune.random_structured(conv, name="weight", amount=self.ratio, dim=0)
+            prune.remove(conv, "weight")
 
 
 class Method3(BasePruningMethod):
