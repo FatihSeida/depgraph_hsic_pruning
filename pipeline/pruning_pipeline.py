@@ -37,22 +37,22 @@ class PruningPipeline(BasePruningPipeline):
     def analyze_structure(self) -> None:
         """Analyze model structure to guide pruning."""
         # Placeholder for user provided analysis logic
-        pass
+        raise NotImplementedError
 
     def generate_pruning_mask(self, ratio: float) -> None:
         """Generate pruning mask at ``ratio`` sparsity."""
         # Placeholder for mask generation logic
-        pass
+        raise NotImplementedError
 
     def apply_pruning(self) -> None:
         """Apply the previously generated pruning mask to the model."""
         # Placeholder for pruning application logic
-        pass
+        raise NotImplementedError
 
     def reconfigure_model(self) -> None:
         """Reconfigure the model after pruning if necessary."""
         # Optional step for layer reconfiguration
-        pass
+        raise NotImplementedError
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         """Calculate parameter count and FLOPs after pruning."""
