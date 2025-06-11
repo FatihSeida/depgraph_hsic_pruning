@@ -9,7 +9,7 @@ fine-tuning.
 Below is a minimal example that prunes a segmentation model pretrained on COCO.
 
 ```python
-from ultralytics_pruning.pipeline import PruningPipeline
+from pipeline import PruningPipeline
 
 pipeline = PruningPipeline("yolov8n-seg.pt", data="coco8.yaml")
 pipeline.load_model()
