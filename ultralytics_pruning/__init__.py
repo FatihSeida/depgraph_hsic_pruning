@@ -9,7 +9,7 @@ if not os.environ.get("OMP_NUM_THREADS"):
     os.environ["OMP_NUM_THREADS"] = "1"  # default for reduced CPU utilization during training
 
 from ultralytics_pruning.models import NAS, RTDETR, SAM, YOLO, YOLOE, FastSAM, YOLOWorld
-from ultralytics_pruning.pipeline.pruning_pipeline import PruningPipeline
+from pipeline import PruningPipeline
 from ultralytics_pruning.utils import ASSETS, SETTINGS
 from ultralytics_pruning.utils.checks import check_yolo as checks
 from ultralytics_pruning.utils.downloads import download
