@@ -5,6 +5,7 @@ from typing import Any, Dict
 from .base_pipeline import BasePruningPipeline
 from prune_methods.base import BasePruningMethod
 from helper import get_logger, Logger
+from .model_reconfig import AdaptiveLayerReconfiguration
 
 from ultralytics_pruning import YOLO
 from ultralytics_pruning.utils.torch_utils import get_flops, get_num_params
@@ -23,6 +24,7 @@ class PruningPipeline(BasePruningPipeline):
     ) -> None:
         super().__init__(model_path, data, workdir, pruning_method, logger)
         self.model: YOLO | None = None
+        self.reconfigurator = AdaptiveLayerReconfiguration(logger=self.logger)
 
     def load_model(self) -> None:
         """Load the YOLO model from ``self.model_path``."""
@@ -74,6 +76,8 @@ class PruningPipeline(BasePruningPipeline):
         if self.pruning_method is None:
             raise NotImplementedError
         self.logger.info("Reconfiguring pruned model")
+        if self.model is not None:
+            self.reconfigurator.reconfigure_model(self.model)
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         """Calculate parameter count and FLOPs after pruning."""
