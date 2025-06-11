@@ -1,0 +1,68 @@
+import abc
+from pathlib import Path
+from typing import Any, Dict
+
+
+class BasePruningPipeline(abc.ABC):
+    """Base class for building custom pruning pipelines.
+
+    Each method is an extension point that lets you integrate specific
+    pruning logic or training code.  Subclasses are expected to override all
+    abstract methods to provide concrete behaviour.  The default
+    implementation only stores bookkeeping information.
+    """
+
+    def __init__(self, model_path: str, data: str, workdir: str = "runs/pruning") -> None:
+        self.model_path = model_path
+        self.data = data
+        self.workdir = Path(workdir)
+        self.workdir.mkdir(parents=True, exist_ok=True)
+        self.model = None
+        self.initial_stats: Dict[str, float] = {}
+        self.pruned_stats: Dict[str, float] = {}
+        self.metrics: Dict[str, Any] = {}
+
+    @abc.abstractmethod
+    def load_model(self) -> None:
+        """Load the model located at :pyattr:`self.model_path`."""
+
+    @abc.abstractmethod
+    def calc_initial_stats(self) -> Dict[str, float]:
+        """Return parameter count and FLOPs before pruning."""
+
+    @abc.abstractmethod
+    def pretrain(self, **train_kwargs: Any) -> Dict[str, Any]:
+        """Optionally pretrain the model and record metrics."""
+
+    @abc.abstractmethod
+    def analyze_structure(self) -> None:
+        """Analyze model structure to guide pruning decisions."""
+
+    @abc.abstractmethod
+    def generate_pruning_mask(self, ratio: float) -> None:
+        """Create a pruning mask with the given sparsity ``ratio``."""
+
+    @abc.abstractmethod
+    def apply_pruning(self) -> None:
+        """Apply the previously generated pruning mask."""
+
+    @abc.abstractmethod
+    def reconfigure_model(self) -> None:
+        """Reconfigure the model after pruning, if necessary."""
+
+    @abc.abstractmethod
+    def calc_pruned_stats(self) -> Dict[str, float]:
+        """Return parameter count and FLOPs after pruning."""
+
+    @abc.abstractmethod
+    def finetune(self, **train_kwargs: Any) -> Dict[str, Any]:
+        """Finetune the pruned model and record metrics."""
+
+    def record_metrics(self) -> Dict[str, Any]:
+        """Return accumulated training and pruning metrics."""
+        return {
+            "initial": self.initial_stats,
+            "pruned": self.pruned_stats,
+            "training": self.metrics,
+        }
+
