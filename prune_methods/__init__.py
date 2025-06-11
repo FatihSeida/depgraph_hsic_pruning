@@ -1,9 +1,9 @@
 """Pruning method interfaces and placeholders."""
 
 from .base import BasePruningMethod
+from .l1_norm import L1NormPruningMethod
+from .random_pruning import RandomPruningMethod
 from .methods import (
-    Method1,
-    Method2,
     Method3,
     Method4,
     Method5,
@@ -14,8 +14,8 @@ from .methods import (
 
 __all__ = [
     "BasePruningMethod",
-    "Method1",
-    "Method2",
+    "L1NormPruningMethod",
+    "RandomPruningMethod",
     "Method3",
     "Method4",
     "Method5",

@@ -17,8 +17,8 @@ from helper import ExperimentManager, get_logger
 from pipeline import PruningPipeline
 from prune_methods import (
     BasePruningMethod,
-    Method1,
-    Method2,
+    L1NormPruningMethod,
+    RandomPruningMethod,
     Method3,
     Method4,
     Method5,
@@ -136,7 +136,16 @@ def main() -> None:
         batch_size=args.batch_size,
         ratios=args.ratios,
     )
-    methods = [Method1, Method2, Method3, Method4, Method5, Method6, Method7, Method8]
+    methods = [
+        L1NormPruningMethod,
+        RandomPruningMethod,
+        Method3,
+        Method4,
+        Method5,
+        Method6,
+        Method7,
+        Method8,
+    ]
     runner = ExperimentRunner(
         args.model,
         args.data,
