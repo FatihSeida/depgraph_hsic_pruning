@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 from .base_pipeline import BasePruningPipeline
 from prune_methods.base import BasePruningMethod
+from helper import get_logger, Logger
 
 from ultralytics_pruning import YOLO
 from ultralytics_pruning.utils.torch_utils import get_flops, get_num_params
@@ -18,18 +19,21 @@ class PruningPipeline(BasePruningPipeline):
         data: str,
         workdir: str = "runs/pruning",
         pruning_method: BasePruningMethod | None = None,
+        logger: Logger | None = None,
     ) -> None:
-        super().__init__(model_path, data, workdir, pruning_method)
+        super().__init__(model_path, data, workdir, pruning_method, logger)
         self.model: YOLO | None = None
 
     def load_model(self) -> None:
         """Load the YOLO model from ``self.model_path``."""
+        self.logger.info("Loading model from %s", self.model_path)
         self.model = YOLO(self.model_path)
 
     def calc_initial_stats(self) -> Dict[str, float]:
         """Calculate parameter count and FLOPs before pruning."""
         if self.model is None:
             raise ValueError("Model is not loaded")
+        self.logger.info("Calculating initial statistics")
         params = get_num_params(self.model.model)
         flops = get_flops(self.model.model)
         self.initial_stats = {"parameters": params, "flops": flops}
@@ -39,6 +43,7 @@ class PruningPipeline(BasePruningPipeline):
         """Optional pretraining step to run before pruning."""
         if self.model is None:
             raise ValueError("Model is not loaded")
+        self.logger.info("Pretraining model")
         metrics = self.model.train(data=self.data, **train_kwargs)
         self.metrics["pretrain"] = metrics
         return metrics or {}
@@ -47,29 +52,34 @@ class PruningPipeline(BasePruningPipeline):
         """Analyze model structure to guide pruning."""
         if self.pruning_method is None:
             raise NotImplementedError
+        self.logger.info("Analyzing model structure")
         self.pruning_method.analyze_model()
 
     def generate_pruning_mask(self, ratio: float) -> None:
         """Generate pruning mask at ``ratio`` sparsity."""
         if self.pruning_method is None:
             raise NotImplementedError
+        self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         self.pruning_method.generate_pruning_mask(ratio)
 
     def apply_pruning(self) -> None:
         """Apply the previously generated pruning mask to the model."""
         if self.pruning_method is None:
             raise NotImplementedError
+        self.logger.info("Applying pruning mask")
         self.pruning_method.apply_pruning()
 
     def reconfigure_model(self) -> None:
         """Reconfigure the model after pruning if necessary."""
         if self.pruning_method is None:
             raise NotImplementedError
+        self.logger.info("Reconfiguring pruned model")
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         """Calculate parameter count and FLOPs after pruning."""
         if self.model is None:
             raise ValueError("Model is not loaded")
+        self.logger.info("Calculating pruned statistics")
         params = get_num_params(self.model.model)
         flops = get_flops(self.model.model)
         self.pruned_stats = {"parameters": params, "flops": flops}
@@ -79,12 +89,14 @@ class PruningPipeline(BasePruningPipeline):
         """Finetune the pruned model."""
         if self.model is None:
             raise ValueError("Model is not loaded")
+        self.logger.info("Finetuning pruned model")
         metrics = self.model.train(data=self.data, **train_kwargs)
         self.metrics["finetune"] = metrics
         return metrics or {}
 
     def record_metrics(self) -> Dict[str, Any]:
         """Return a dictionary containing training and pruning statistics."""
+        self.logger.info("Recording metrics")
         return {
             "initial": self.initial_stats,
             "pruned": self.pruned_stats,

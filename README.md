@@ -127,3 +127,18 @@ nc: 80  # number of classes
 
 See the `ultralytics_pruning/cfg/datasets` directory for examples.
 
+## Helper utilities
+
+The ``helper`` package bundles small components used across the pruning
+pipeline:
+
+* ``ExperimentManager`` – records results for multiple pruning runs and
+  visualises comparisons.
+* ``MetricManager`` – collects training, computation and pruning metrics in a
+  structured format.
+* ``Logger`` – lightweight wrapper around :mod:`logging` used throughout the
+  pipeline and pruning methods.
+
+These utilities follow SOLID design principles to keep the codebase easy to
+maintain.
+

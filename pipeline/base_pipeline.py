@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from prune_methods.base import BasePruningMethod
+from helper import get_logger, Logger
 
 
 class BasePruningPipeline(abc.ABC):
@@ -22,6 +23,7 @@ class BasePruningPipeline(abc.ABC):
         data: str,
         workdir: str = "runs/pruning",
         pruning_method: BasePruningMethod | None = None,
+        logger: Logger | None = None,
     ) -> None:
         self.model_path = model_path
         self.data = data
@@ -29,12 +31,14 @@ class BasePruningPipeline(abc.ABC):
         self.workdir.mkdir(parents=True, exist_ok=True)
         self.model = None
         self.pruning_method = pruning_method
+        self.logger = logger or get_logger()
         self.initial_stats: Dict[str, float] = {}
         self.pruned_stats: Dict[str, float] = {}
         self.metrics: Dict[str, Any] = {}
 
     def set_pruning_method(self, method: BasePruningMethod) -> None:
         """Attach a :class:`BasePruningMethod` instance to the pipeline."""
+        self.logger.info("Setting pruning method: %s", method.__class__.__name__)
         self.pruning_method = method
 
     @abc.abstractmethod
@@ -87,11 +91,13 @@ class BasePruningPipeline(abc.ABC):
     def visualize_results(self) -> None:
         """Produce plots comparing the baseline and pruned model."""
         if self.pruning_method is not None:
+            self.logger.info("Visualizing pruning results")
             self.pruning_method.visualize_comparison()
             self.pruning_method.visualize_pruned_filters()
 
     def save_pruning_results(self, path: str | Path) -> None:
         """Delegate result saving to the active pruning method."""
         if self.pruning_method is not None:
+            self.logger.info("Saving pruning results to %s", path)
             self.pruning_method.save_results(path)
 
