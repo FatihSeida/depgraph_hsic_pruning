@@ -1,22 +1,17 @@
-from pathlib import Path
 from typing import Any, Dict
+
+from .base_pipeline import BasePruningPipeline
 
 from ultralytics_pruning import YOLO
 from ultralytics_pruning.utils.torch_utils import get_flops, get_num_params
 
 
-class PruningPipeline:
+class PruningPipeline(BasePruningPipeline):
     """High level pipeline to orchestrate pruning of YOLO models."""
 
     def __init__(self, model_path: str, data: str, workdir: str = "runs/pruning") -> None:
-        self.model_path = model_path
-        self.data = data
-        self.workdir = Path(workdir)
-        self.workdir.mkdir(parents=True, exist_ok=True)
+        super().__init__(model_path, data, workdir)
         self.model: YOLO | None = None
-        self.initial_stats: Dict[str, float] = {}
-        self.pruned_stats: Dict[str, float] = {}
-        self.metrics: Dict[str, Any] = {}
 
     def load_model(self) -> None:
         """Load the YOLO model from ``self.model_path``."""
