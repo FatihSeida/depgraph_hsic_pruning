@@ -14,7 +14,13 @@ from __future__ import annotations
 
 import abc
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
+
+import torch
+
+import matplotlib.pyplot as plt
+
+from helper import get_logger, Logger
 
 
 class BasePruningMethod(abc.ABC):
@@ -26,6 +32,8 @@ class BasePruningMethod(abc.ABC):
         self.workdir.mkdir(parents=True, exist_ok=True)
         self.initial_stats: Dict[str, float] = {}
         self.pruned_stats: Dict[str, float] = {}
+        self.logger: Logger = get_logger()
+        self.masks: List[torch.Tensor] = []
 
     # ------------------------------------------------------------------
     # Core pruning steps to be implemented by subclasses
@@ -56,11 +64,34 @@ class BasePruningMethod(abc.ABC):
         default implementation is empty.
         """
 
-        pass
+        if not self.initial_stats or not self.pruned_stats:
+            return
+        labels = ["baseline", "pruned"]
+        params = [self.initial_stats.get("parameters", 0), self.pruned_stats.get("parameters", 0)]
+        flops = [self.initial_stats.get("flops", 0), self.pruned_stats.get("flops", 0)]
+
+        fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+        axes[0].bar(labels, params)
+        axes[0].set_title("Parameters")
+        axes[1].bar(labels, flops)
+        axes[1].set_title("FLOPs")
+        plt.tight_layout()
+        plt.savefig(self.workdir / "comparison.png")
+        plt.close()
 
     def visualize_pruned_filters(self) -> None:
         """Visualize which filters were removed by pruning."""
-        pass
+        if not self.masks:
+            return
+        pruned = [mask.numel() - int(mask.sum()) for mask in self.masks]
+        layers = list(range(len(pruned)))
+        plt.figure()
+        plt.bar(layers, pruned)
+        plt.xlabel("Layer")
+        plt.ylabel("Pruned Filters")
+        plt.tight_layout()
+        plt.savefig(self.workdir / "pruned_filters.png")
+        plt.close()
 
     def save_results(self, path: str | Path) -> None:
         """Persist pruning results to ``path``.
@@ -69,4 +100,10 @@ class BasePruningMethod(abc.ABC):
         reproducing the pruning procedure.
         """
 
-        pass
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "initial": self.initial_stats,
+            "pruned": self.pruned_stats,
+        }
+        torch.save(data, path)
