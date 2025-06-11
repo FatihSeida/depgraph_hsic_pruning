@@ -3,8 +3,7 @@ from typing import Dict, Any, Tuple, Optional, List
 import logging
 import time
 
-import numpy as np
-import torch
+from .base_metric import BaseMetric
 
 try:
     import psutil
