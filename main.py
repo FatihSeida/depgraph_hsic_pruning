@@ -172,6 +172,9 @@ class ExperimentRunner:
                 self.manager.add_result(method_name, ratio, pipeline.record_metrics())
 
         self.manager.compare_pruning_methods()
+        # Visualize training metrics across ratios and methods
+        self.manager.plot_line("training.mAP")
+        self.manager.plot_heatmap("training.mAP")
 
 
 def parse_args() -> argparse.Namespace:
