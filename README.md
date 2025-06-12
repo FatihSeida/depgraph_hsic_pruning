@@ -21,17 +21,28 @@ Ultralytics' format with `train`, `val` and `nc` fields.
 
 ```python
 from pipeline import PruningPipeline
+from pruning_pipeline.step import (
+    LoadModelStep,
+    CalcStatsStep,
+    TrainStep,
+    AnalyzeModelStep,
+    GenerateMasksStep,
+    ApplyPruningStep,
+)
 
-pipeline = PruningPipeline("yolov8n-seg.pt", data="coco8.yaml")
-pipeline.load_model()
-pipeline.calc_initial_stats()
-pipeline.pretrain(epochs=1)
-pipeline.analyze_structure()
-pipeline.generate_pruning_mask(ratio=0.2)
-pipeline.apply_pruning()
-pipeline.calc_pruned_stats()
-pipeline.finetune(epochs=3)
-print(pipeline.record_metrics())
+steps = [
+    LoadModelStep(),
+    CalcStatsStep("initial"),
+    TrainStep("pretrain", epochs=1),
+    AnalyzeModelStep(),
+    GenerateMasksStep(ratio=0.2),
+    ApplyPruningStep(),
+    CalcStatsStep("pruned"),
+]
+
+pipeline = PruningPipeline("yolov8n-seg.pt", data="coco8.yaml", steps=steps)
+context = pipeline.run_pipeline()
+print(context.metrics)
 ```
 
 ## Package structure
@@ -92,29 +103,37 @@ A complete workflow typically looks like the following:
 
 ```python
 from pipeline import PruningPipeline
+from pruning_pipeline.step import (
+    LoadModelStep,
+    CalcStatsStep,
+    TrainStep,
+    AnalyzeModelStep,
+    GenerateMasksStep,
+    ApplyPruningStep,
+    ReconfigureModelStep,
+)
+
+steps = [
+    LoadModelStep(),
+    CalcStatsStep("initial"),
+    TrainStep("pretrain", epochs=1),
+    AnalyzeModelStep(),
+    GenerateMasksStep(ratio=0.2),
+    ApplyPruningStep(),
+    ReconfigureModelStep(),
+    CalcStatsStep("pruned"),
+    TrainStep("finetune", epochs=3),
+]
 
 pipeline = PruningPipeline(
     model_path="yolov8n-seg.pt",
     data="coco8.yaml",  # dataset YAML with 'train', 'val' and 'nc'
-    workdir="runs/pruning"
+    workdir="runs/pruning",
+    steps=steps,
 )
 
-pipeline.load_model()
-initial = pipeline.calc_initial_stats()
-print(f"Initial stats: {initial}")
-
-pipeline.pretrain(epochs=1)
-
-pipeline.analyze_structure()
-pipeline.generate_pruning_mask(ratio=0.2)
-
-pipeline.apply_pruning()
-pipeline.reconfigure_model()
-pruned = pipeline.calc_pruned_stats()
-print(f"After pruning: {pruned}")
-
-pipeline.finetune(epochs=3)
-print(pipeline.record_metrics())
+context = pipeline.run_pipeline()
+print(context.record_metrics())
 ```
 
 The YAML file describing the dataset should have at least the following keys:
