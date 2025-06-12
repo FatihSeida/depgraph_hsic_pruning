@@ -1,0 +1,46 @@
+import os
+import sys
+import types
+import importlib
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+
+def test_step_imports_via_pipeline():
+    # Stub heavy dependencies
+    sys.modules['torch'] = types.ModuleType('torch')
+    sys.modules['torch.nn'] = types.ModuleType('torch.nn')
+    up = types.ModuleType('ultralytics_pruning')
+    utils = types.ModuleType('ultralytics_pruning.utils')
+    torch_utils = types.ModuleType('ultralytics_pruning.utils.torch_utils')
+    torch_utils.get_flops = lambda *a, **k: 0
+    torch_utils.get_num_params = lambda *a, **k: 0
+    utils.torch_utils = torch_utils
+    up.utils = utils
+    up.YOLO = lambda *a, **k: None
+    sys.modules['ultralytics_pruning'] = up
+    sys.modules['ultralytics_pruning.utils'] = utils
+    sys.modules['ultralytics_pruning.utils.torch_utils'] = torch_utils
+    base = types.ModuleType('prune_methods.base')
+    class BasePruningMethod:  # pragma: no cover - placeholder
+        pass
+    base.BasePruningMethod = BasePruningMethod
+    sys.modules['prune_methods.base'] = base
+
+    pipeline = importlib.import_module('pipeline')
+
+    mapping = {
+        'LoadModelStep': 'load_model',
+        'TrainStep': 'train',
+        'AnalyzeModelStep': 'analyze',
+        'GenerateMasksStep': 'generate_masks',
+        'ApplyPruningStep': 'apply_pruning',
+        'ReconfigureModelStep': 'reconfigure',
+        'CalcStatsStep': 'calc_stats',
+        'CompareModelsStep': 'compare',
+    }
+
+    for cls_name, mod_name in mapping.items():
+        cls = getattr(pipeline, cls_name)
+        mod = importlib.import_module(f'pipeline.step.{mod_name}')
+        assert getattr(mod, cls_name) is cls
