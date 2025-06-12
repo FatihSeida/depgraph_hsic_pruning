@@ -1,0 +1,25 @@
+# Dataset parameters
+path: "D:/Akademik/Image Segmentation Model/YOLO/JSON2YOLO-main/JSON2YOLO-main"  # Dataset root directory
+train: new_dir/train/images  # Training images (relative to 'path')
+val: new_dir/val/images     # Validation images (relative to 'path')
+test: new_dir/images/test  # Optional test images (relative to 'path')
+
+# Number of classes
+nc: 4  # Number of segmentation classes (excluding background)
+
+# Class names
+names:
+  0: explant
+  1: fungi
+  2: bakteri
+  3: callus
+
+# Pruning configuration
+pruning:
+  enabled: true            # Enable/disable pruning
+  method: 'l1_norm'        # Pruning method: l1_norm, hierarchical
+  prune_interval: 10       # Prune every N epochs
+  prune_percentage: 10.0   # Percentage of filters to prune (1-30%)
+  start_layer: 0           # First layer to prune (inclusive)
+  end_layer: 9             # Last layer to prune (inclusive)
+  retrain_epochs: 5        # Number of epochs to retrain after pruning
