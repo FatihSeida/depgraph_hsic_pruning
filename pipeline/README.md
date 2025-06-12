@@ -8,7 +8,7 @@ This directory implements a modular pruning workflow used throughout the project
 - **`pruning_pipeline.py`** – Default implementation built around Ultralytics' YOLO models. It accepts a list of steps and executes them in order via `run_pipeline()`.
 - **`context.py`** – Declares `PipelineContext`, a dataclass that holds objects shared across steps such as the model instance, statistics and training metrics.
 - **`model_reconfig.py`** – Provides utilities for adjusting layer shapes after pruning. `AdaptiveLayerReconfiguration` is used by `PruningPipeline` when `ReconfigureModelStep` is executed.
-- **`step/`** – Contains concrete `PipelineStep` subclasses that perform small actions. Examples include `LoadModelStep`, `TrainStep`, `AnalyzeModelStep` and more.
+- **`step/`** – Contains concrete `PipelineStep` subclasses that perform small actions. Examples include `LoadModelStep`, `TrainStep`, `MonitorComputationStep`, `AnalyzeModelStep` and more.
 
 ## PipelineContext
 
@@ -58,13 +58,17 @@ A typical set of steps might look as follows:
 
 1. `LoadModelStep()`
 2. `CalcStatsStep("initial")`
-3. `TrainStep("pretrain", epochs=1, plots=False)`
-4. `AnalyzeModelStep()`
-5. `GenerateMasksStep(ratio=0.2)`
-6. `ApplyPruningStep()`
-7. `ReconfigureModelStep()`
-8. `CalcStatsStep("pruned")`
-9. `TrainStep("finetune", epochs=3, plots=False)`
+3. `MonitorComputationStep("pretrain")` *(start before training)*
+4. `TrainStep("pretrain", epochs=1, plots=False)`
+5. `MonitorComputationStep("pretrain")` *(stop after training)*
+6. `AnalyzeModelStep()`
+7. `GenerateMasksStep(ratio=0.2)`
+8. `ApplyPruningStep()`
+9. `ReconfigureModelStep()`
+10. `CalcStatsStep("pruned")`
+11. `MonitorComputationStep("finetune")` *(start before training)*
+12. `TrainStep("finetune", epochs=3, plots=False)`
+13. `MonitorComputationStep("finetune")` *(stop after training)*
 
 `PruningPipeline` will execute them sequentially, passing the same context object to each. Statistics and metrics are accumulated inside `context` and can be retrieved at the end via `pipeline.record_metrics()` or directly from `context.metrics`.
 
