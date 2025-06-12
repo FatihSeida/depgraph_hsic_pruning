@@ -22,24 +22,12 @@ from prune_methods import (
     BasePruningMethod,
     L1NormPruningMethod,
     RandomPruningMethod,
-    Method3,
-    Method4,
-    Method5,
-    Method6,
-    Method7,
-    Method8,
 )
 
 
 METHODS_MAP = {
     "l1": L1NormPruningMethod,
     "random": RandomPruningMethod,
-    "method3": Method3,
-    "method4": Method4,
-    "method5": Method5,
-    "method6": Method6,
-    "method7": Method7,
-    "method8": Method8,
 }
 
 
