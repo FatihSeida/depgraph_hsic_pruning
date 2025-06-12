@@ -9,14 +9,20 @@ from typing import Optional
 class Logger:
     """Simple wrapper around :mod:`logging` providing a shared logger."""
 
-    def __init__(self, name: str = "pruning") -> None:
+    def __init__(self, name: str = "pruning", log_file: Optional[str] = None) -> None:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
-        if not self.logger.handlers:
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+        if not any(isinstance(h, logging.StreamHandler) for h in self.logger.handlers):
             handler = logging.StreamHandler()
-            formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
+
+        if log_file is not None and not any(isinstance(h, logging.FileHandler) for h in self.logger.handlers):
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
 
     def info(self, msg: str, *args, **kwargs) -> None:
         self.logger.info(msg, *args, **kwargs)
@@ -34,8 +40,12 @@ class Logger:
         self.logger.setLevel(level)
 
 
-def get_logger(name: str = "pruning", level: int = logging.INFO) -> Logger:
+def get_logger(
+    name: str = "pruning",
+    level: int = logging.INFO,
+    log_file: Optional[str] = None,
+) -> Logger:
     """Return a :class:`Logger` configured with ``name`` and ``level``."""
-    log = Logger(name)
+    log = Logger(name, log_file=log_file)
     log.set_level(level)
     return log
