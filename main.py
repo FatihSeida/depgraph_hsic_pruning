@@ -59,6 +59,12 @@ def execute_pipeline(
     logger=None,
 ) -> PruningPipeline:
     """Run a full pruning pipeline for ``method_cls`` at ``ratio``."""
+    workdir.mkdir(parents=True, exist_ok=True)
+    log_file = workdir / "pipeline.log"
+    if logger is None:
+        logger = get_logger(log_file=str(log_file))
+    else:
+        get_logger(log_file=str(log_file))
     pipeline = PruningPipeline(model_path, data=data, workdir=str(workdir), logger=logger)
     pipeline.load_model()
     if method_cls is not None:

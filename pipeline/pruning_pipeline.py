@@ -73,6 +73,7 @@ class PruningPipeline(BasePruningPipeline):
         self.logger.info("Pretraining model")
         train_kwargs.setdefault("plots", False)
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
+        self.logger.debug(metrics)
         self.metrics["pretrain"] = metrics
         return metrics or {}
 
@@ -122,6 +123,7 @@ class PruningPipeline(BasePruningPipeline):
         self.logger.info("Finetuning pruned model")
         train_kwargs.setdefault("plots", False)
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
+        self.logger.debug(metrics)
         self.metrics["finetune"] = metrics
         return metrics or {}
 
