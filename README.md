@@ -176,6 +176,9 @@ The dataset defaults to `biotech_model_train.yaml` if `--data` is not supplied.
 
 Add `--resume` to continue interrupted runs.
 
+Each run directory will contain a `pipeline.log` file capturing detailed
+training and pruning output for the selected ratio.
+
 Use `--device` to select the training device (defaults to `cuda:0`).
 
 ## Panduan Setup Lingkungan (Bahasa Indonesia)
