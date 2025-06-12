@@ -45,6 +45,7 @@ class TrainConfig:
     batch_size: int = 16
     ratios: List[float] = field(default_factory=lambda: [0.2, 0.4, 0.6, 0.8])
     device: str | int | list = 0
+    reuse_baseline: bool = False
 
 
 def execute_pipeline(
@@ -70,14 +71,15 @@ def execute_pipeline(
     if method_cls is not None:
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
     pipeline.calc_initial_stats()
-    pipeline.pretrain(
-        epochs=config.baseline_epochs,
-        batch=config.batch_size,
-        project=str(workdir),
-        name="baseline" if method_cls is None else "pretrain",
-        resume=resume,
-        device=config.device,
-    )
+    if config.baseline_epochs > 0:
+        pipeline.pretrain(
+            epochs=config.baseline_epochs,
+            batch=config.batch_size,
+            project=str(workdir),
+            name="baseline" if method_cls is None else "pretrain",
+            resume=resume,
+            device=config.device,
+        )
     if method_cls is not None:
         pipeline.analyze_structure()
         pipeline.generate_pruning_mask(ratio)
@@ -123,6 +125,29 @@ class ExperimentRunner:
 
     def run(self) -> None:
         """Execute all pruning experiments."""
+        baseline_weights = self.model_path
+        if self.config.reuse_baseline:
+            baseline_dir = self.workdir / "baseline"
+            baseline_dir.mkdir(parents=True, exist_ok=True)
+            base_cfg = TrainConfig(
+                baseline_epochs=self.config.baseline_epochs,
+                finetune_epochs=self.config.finetune_epochs,
+                batch_size=self.config.batch_size,
+                ratios=[0],
+                device=self.config.device,
+            )
+            execute_pipeline(
+                self.model_path,
+                self.data,
+                None,
+                0,
+                base_cfg,
+                baseline_dir,
+                resume=self.resume,
+                logger=self.logger,
+            )
+            baseline_weights = baseline_dir / "baseline" / "weights" / "best.pt"
+
         for method_cls in self.methods:
             method_name = method_cls.__name__
             self.logger.info("Running method: %s", method_name)
@@ -130,11 +155,18 @@ class ExperimentRunner:
                 run_name = f"{method_name}_r{ratio}"
                 run_dir = self.workdir / run_name
                 pipeline = execute_pipeline(
-                    self.model_path,
+                    baseline_weights if self.config.reuse_baseline else self.model_path,
                     self.data,
                     method_cls,
                     ratio,
-                    self.config,
+                    TrainConfig(
+                        baseline_epochs=0 if self.config.reuse_baseline else self.config.baseline_epochs,
+                        finetune_epochs=self.config.finetune_epochs,
+                        batch_size=self.config.batch_size,
+                        ratios=[ratio],
+                        device=self.config.device,
+                        reuse_baseline=self.config.reuse_baseline,
+                    ),
                     run_dir,
                     resume=self.resume,
                     logger=self.logger,
@@ -169,6 +201,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--methods", nargs="+", default=list(METHODS_MAP.keys()), help="Pruning methods to evaluate")
     parser.add_argument("--runs-dir", default="experiments", help="Root directory for comparison runs")
     parser.add_argument("--no-baseline", action="store_true", help="Skip baseline training in comparison mode")
+    parser.add_argument("--reuse-baseline", action="store_true", help="Train baseline once and reuse for all pruning runs")
     parser.add_argument("--debug", action="store_true", help="Enable verbose output")
     parser.add_argument("--continue", dest="cont", action="store_true", help="Continue incomplete runs")
     parser.add_argument("--compare", action="store_true", help="Run comparison across methods")
@@ -199,7 +232,8 @@ def run_comparison(args: argparse.Namespace) -> None:
 
     # Baseline training
     baseline_dir: Path | None = None
-    if not args.no_baseline:
+    baseline_weights = args.model
+    if not args.no_baseline and args.reuse_baseline:
         baseline_dir = base_dir / "baseline"
         baseline_dir.mkdir(parents=True, exist_ok=True)
         config = TrainConfig(
@@ -219,6 +253,7 @@ def run_comparison(args: argparse.Namespace) -> None:
             resume=args.resume,
             logger=logger,
         )
+        baseline_weights = baseline_dir / "baseline" / "weights" / "best.pt"
         with csv_path.open("a", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["baseline", 0, baseline_dir.as_posix()])
@@ -233,14 +268,15 @@ def run_comparison(args: argparse.Namespace) -> None:
             if args.cont and complete_flag.exists():
                 continue
             config = TrainConfig(
-                baseline_epochs=args.baseline_epochs,
+                baseline_epochs=0 if args.reuse_baseline and not args.no_baseline else args.baseline_epochs,
                 finetune_epochs=args.finetune_epochs,
                 batch_size=args.batch_size,
                 ratios=[ratio],
                 device=args.device,
+                reuse_baseline=args.reuse_baseline,
             )
             execute_pipeline(
-                args.model,
+                baseline_weights if args.reuse_baseline and not args.no_baseline else args.model,
                 args.data,
                 method_cls,
                 ratio,
@@ -295,6 +331,7 @@ def main() -> None:
         batch_size=args.batch_size,
         ratios=args.ratios,
         device=args.device,
+        reuse_baseline=args.reuse_baseline,
     )
     methods = [METHODS_MAP[m] for m in args.methods]
     logger = get_logger(level=logging.DEBUG if args.debug else logging.INFO)
