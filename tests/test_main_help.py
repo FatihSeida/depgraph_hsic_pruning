@@ -95,6 +95,9 @@ def test_device_argument_passed(monkeypatch):
         def save_pruning_results(self, path):
             pass
 
+        def save_metrics_csv(self, path):
+            return Path(path)
+
     monkeypatch.setattr(main, 'PruningPipeline', DummyPipeline)
     main.execute_pipeline('m', 'd', None, 0.2, main.TrainConfig(device=args.device), Path('w'))
     assert calls['pretrain']['device'] == 'cpu'

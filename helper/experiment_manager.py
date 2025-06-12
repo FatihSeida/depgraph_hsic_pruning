@@ -15,9 +15,19 @@ class ExperimentManager:
         self.workdir.mkdir(parents=True, exist_ok=True)
         self.results: List[Dict[str, Any]] = []
 
-    def add_result(self, method: str, ratio: float, metrics: Dict[str, Any]) -> None:
-        """Record the metrics for a pruning experiment."""
-        self.results.append({"method": method, "ratio": ratio, "metrics": metrics})
+    def add_result(
+        self,
+        method: str,
+        ratio: float,
+        metrics: Dict[str, Any],
+        csv_path: str | Path | None = None,
+    ) -> None:
+        """Record the metrics and CSV location for a pruning experiment."""
+
+        entry: Dict[str, Any] = {"method": method, "ratio": ratio, "metrics": metrics}
+        if csv_path is not None:
+            entry["csv"] = str(csv_path)
+        self.results.append(entry)
 
     def compare_pruning_methods(self) -> None:
         """Visualize mAP against pruning ratio for all experiments."""

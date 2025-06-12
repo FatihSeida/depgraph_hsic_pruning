@@ -23,6 +23,7 @@ class TrainStep(PipelineStep):
         context.logger.info("Training model (%s)", self.phase)
         self.train_kwargs.setdefault("plots", False)
         metrics = context.model.train(data=context.data, **self.train_kwargs)
+        context.metrics_mgr.record_training(metrics or {})
         context.metrics[self.phase] = metrics or {}
 
 __all__ = ["TrainStep"]
