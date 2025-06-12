@@ -174,3 +174,6 @@ python main.py --model yolov8n-seg.pt --data coco8.yaml \
 ```
 
 Add `--resume` to continue interrupted runs.
+
+The training device is chosen automatically by PyTorch and cannot be set via a
+command-line option.

@@ -164,7 +164,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--methods", nargs="+", default=list(METHODS_MAP.keys()), help="Pruning methods to evaluate")
     parser.add_argument("--runs-dir", default="experiments", help="Root directory for comparison runs")
-    parser.add_argument("--device", default="cpu", help="Computation device")
     parser.add_argument("--no-baseline", action="store_true", help="Skip baseline training in comparison mode")
     parser.add_argument("--debug", action="store_true", help="Enable verbose output")
     parser.add_argument("--continue", dest="cont", action="store_true", help="Continue incomplete runs")

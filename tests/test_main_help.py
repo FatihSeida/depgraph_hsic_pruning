@@ -44,3 +44,33 @@ def test_main_help_shows_options(capsys, monkeypatch):
         '--ratios',
     ]:
         assert opt in help_text
+
+
+def test_device_argument_removed(capsys, monkeypatch):
+    """Passing --device should result in a parser error."""
+    sys.modules['torch'] = types.ModuleType('torch')
+    sys.modules['torch.nn'] = types.ModuleType('torch.nn')
+
+    up = types.ModuleType('ultralytics_pruning')
+    utils = types.ModuleType('ultralytics_pruning.utils')
+    torch_utils = types.ModuleType('ultralytics_pruning.utils.torch_utils')
+    torch_utils.get_flops = lambda *a, **k: 0
+    torch_utils.get_num_params = lambda *a, **k: 0
+    utils.torch_utils = torch_utils
+    up.utils = utils
+    up.YOLO = lambda *a, **k: None
+    sys.modules['ultralytics_pruning'] = up
+    sys.modules['ultralytics_pruning.utils'] = utils
+    sys.modules['ultralytics_pruning.utils.torch_utils'] = torch_utils
+    mpl = types.ModuleType('matplotlib')
+    plt = types.ModuleType('matplotlib.pyplot')
+    sys.modules['matplotlib'] = mpl
+    sys.modules['matplotlib.pyplot'] = plt
+
+    main = importlib.import_module('main')
+    monkeypatch.setattr(sys, 'argv', ['main.py', '--model', 'm', '--data', 'd', '--device', 'cpu'])
+    with pytest.raises(SystemExit) as exc:
+        main.parse_args()
+    err = capsys.readouterr().err
+    assert exc.value.code != 0
+    assert '--device' in err
