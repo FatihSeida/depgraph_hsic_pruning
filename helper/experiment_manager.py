@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, List
+import numbers
 
 
 class ExperimentManager:
@@ -64,7 +65,7 @@ class ExperimentManager:
                 value = value[p]
             else:
                 return None
-        if isinstance(value, (int, float)):
+        if isinstance(value, numbers.Number):
             return float(value)
         return None
 
