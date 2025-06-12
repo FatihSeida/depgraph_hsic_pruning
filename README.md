@@ -175,4 +175,4 @@ python main.py --model yolov8n-seg.pt --data coco8.yaml \
 
 Add `--resume` to continue interrupted runs.
 
-Use `--device` to select the training device. The default is `cuda:0`.
+Use `--device` to select the training device (defaults to `cuda:0`).
