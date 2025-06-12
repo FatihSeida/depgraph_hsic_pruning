@@ -3,6 +3,7 @@ import sys
 import types
 import importlib
 import pytest
+from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -42,12 +43,13 @@ def test_main_help_shows_options(capsys, monkeypatch):
         '--finetune-epochs',
         '--batch-size',
         '--ratios',
+        '--device',
     ]:
         assert opt in help_text
 
 
-def test_device_argument_removed(capsys, monkeypatch):
-    """Passing --device should result in a parser error."""
+def test_device_argument_passed(monkeypatch):
+    """--device should be parsed and forwarded to the pipeline."""
     sys.modules['torch'] = types.ModuleType('torch')
     sys.modules['torch.nn'] = types.ModuleType('torch.nn')
 
@@ -69,8 +71,31 @@ def test_device_argument_removed(capsys, monkeypatch):
 
     main = importlib.import_module('main')
     monkeypatch.setattr(sys, 'argv', ['main.py', '--model', 'm', '--data', 'd', '--device', 'cpu'])
-    with pytest.raises(SystemExit) as exc:
-        main.parse_args()
-    err = capsys.readouterr().err
-    assert exc.value.code != 0
-    assert '--device' in err
+    args = main.parse_args()
+    assert args.device == 'cpu'
+
+    calls = {}
+
+    class DummyPipeline:
+        def __init__(self, *a, **k):
+            self.model = types.SimpleNamespace(model=object())
+
+        def load_model(self):
+            pass
+
+        def calc_initial_stats(self):
+            pass
+
+        def pretrain(self, **kw):
+            calls['pretrain'] = kw
+
+        def visualize_results(self):
+            pass
+
+        def save_pruning_results(self, path):
+            pass
+
+    monkeypatch.setattr(main, 'PruningPipeline', DummyPipeline)
+    main.execute_pipeline('m', 'd', None, 0.2, main.TrainConfig(device=args.device), Path('w'))
+    assert calls['pretrain']['device'] == 'cpu'
+
