@@ -135,7 +135,7 @@ pipeline = PruningPipeline(
 )
 
 context = pipeline.run_pipeline()
-print(context.record_metrics())
+print(pipeline.record_metrics())
 ```
 
 The YAML file describing the dataset should have at least the following keys:

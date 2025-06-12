@@ -66,7 +66,7 @@ A typical set of steps might look as follows:
 8. `CalcStatsStep("pruned")`
 9. `TrainStep("finetune", epochs=3)`
 
-`PruningPipeline` will execute them sequentially, passing the same context object to each. Statistics and metrics are accumulated inside `context` and can be retrieved at the end via `context.record_metrics()`.
+`PruningPipeline` will execute them sequentially, passing the same context object to each. Statistics and metrics are accumulated inside `context` and can be retrieved at the end via `pipeline.record_metrics()` or directly from `context.metrics`.
 
 This modular structure makes it easy to customise or extend the pruning process by defining new step classes or reordering existing ones.
 
