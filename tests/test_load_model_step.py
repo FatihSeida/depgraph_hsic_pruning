@@ -5,12 +5,12 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from pruning_pipeline.context import PipelineContext
+from pipeline.context import PipelineContext
 
 dummy = MagicMock(name="YOLO")
 module = types.SimpleNamespace(YOLO=MagicMock(return_value=dummy))
 sys.modules.setdefault("ultralytics_pruning", module)
-from pruning_pipeline.step.load_model import LoadModelStep
+from pipeline.step.load_model import LoadModelStep
 
 
 def test_load_model_step_updates_context():
