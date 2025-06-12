@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Metric recording utilities for pruning experiments."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List
 import csv
@@ -49,6 +49,13 @@ class MetricManager:
 
     def record_training(self, metrics: Dict[str, Any]) -> None:
         """Store training metrics filtered by :data:`TRAINING_METRIC_FIELDS`."""
+        if not isinstance(metrics, dict):
+            if is_dataclass(metrics):
+                metrics = asdict(metrics)
+            elif hasattr(metrics, "__dict__"):
+                metrics = metrics.__dict__
+            else:
+                metrics = {}
         for field in TRAINING_METRIC_FIELDS:
             if field in metrics:
                 self.training[field] = metrics[field]
