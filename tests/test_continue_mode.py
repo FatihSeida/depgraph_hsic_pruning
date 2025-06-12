@@ -31,7 +31,6 @@ def _prepare_args(tmp_dir, cont):
     return types.SimpleNamespace(
         model="m.pt",
         data="d.yaml",
-        device="cpu",
         runs_dir="experiments",
         methods=["l1"],
         ratios=[0.2],
