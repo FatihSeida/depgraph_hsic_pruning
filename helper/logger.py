@@ -40,6 +40,15 @@ class Logger:
         self.logger.setLevel(level)
 
 
+def add_file_handler(logger: Logger, log_file: str) -> None:
+    """Attach a :class:`logging.FileHandler` to ``logger`` if missing."""
+    if not any(isinstance(h, logging.FileHandler) for h in logger.logger.handlers):
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        handler = logging.FileHandler(log_file)
+        handler.setFormatter(formatter)
+        logger.logger.addHandler(handler)
+
+
 def get_logger(
     name: str = "pruning",
     level: int = logging.INFO,

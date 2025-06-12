@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Iterable, List, Type
 import logging
 
-from helper import ExperimentManager, get_logger, Logger
+from helper import ExperimentManager, get_logger, Logger, add_file_handler
 from pipeline import PruningPipeline, MonitorComputationStep
 from prune_methods import (
     BasePruningMethod,
@@ -65,7 +65,7 @@ def execute_pipeline(
     if logger is None:
         logger = get_logger(log_file=str(log_file))
     else:
-        get_logger(log_file=str(log_file))
+        add_file_handler(logger, str(log_file))
     pipeline = PruningPipeline(model_path, data=data, workdir=str(workdir), logger=logger)
     pipeline.load_model()
     if method_cls is not None:
