@@ -14,8 +14,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Type
+import logging
 
-from helper import ExperimentManager, get_logger
+from helper import ExperimentManager, get_logger, Logger
 from pipeline import PruningPipeline
 from prune_methods import (
     BasePruningMethod,
@@ -114,6 +115,7 @@ class ExperimentRunner:
         workdir: str = "runs/experiments",
         *,
         resume: bool = False,
+        logger: Logger | None = None,
     ) -> None:
         self.model_path = model_path
         self.data = data
@@ -122,7 +124,7 @@ class ExperimentRunner:
         self.workdir = Path(workdir)
         self.workdir.mkdir(parents=True, exist_ok=True)
         self.resume = resume
-        self.logger = get_logger()
+        self.logger = logger or get_logger()
         self.manager = ExperimentManager(Path(model_path).stem, workdir)
 
     def run(self) -> None:
@@ -301,6 +303,7 @@ def main() -> None:
         device=args.device,
     )
     methods = [METHODS_MAP[m] for m in args.methods]
+    logger = get_logger(level=logging.DEBUG if args.debug else logging.INFO)
     runner = ExperimentRunner(
         args.model,
         args.data,
@@ -308,6 +311,7 @@ def main() -> None:
         config,
         workdir=args.workdir,
         resume=args.resume,
+        logger=logger,
     )
     runner.run()
 
