@@ -12,6 +12,8 @@ fine-tuning.
 ```bash
 pip install -r requirements.txt
 ```
+The requirements file now includes the `ultralytics` package (YOLOv8) so it will
+be installed automatically.
 
 ### Quick start
 
@@ -199,6 +201,6 @@ pip install -r requirements.txt
 ```
 
 File `requirements.txt` sudah mencakup library penting seperti
-`ultralytics-thop` yang menyediakan modul `thop`. Pastikan perintah di atas
-dijalankan di dalam environment yang telah diaktifkan agar seluruh fitur proyek
-dapat berfungsi dengan baik.
+`ultralytics` dan `ultralytics-thop` yang menyediakan modul `thop`.
+Pastikan perintah di atas dijalankan di dalam environment yang telah
+diaktifkan agar seluruh fitur proyek dapat berfungsi dengan baik.

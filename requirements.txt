@@ -12,3 +12,4 @@ psutil
 py-cpuinfo
 pandas>=1.1.4
 ultralytics-thop>=2.0.0
+ultralytics>=8.0.0
