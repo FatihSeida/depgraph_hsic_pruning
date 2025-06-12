@@ -166,10 +166,10 @@ maintain.
 
 ## Batch training script
 
-Use `train_experiments.py` to run all pruning methods across several ratios in one go:
+Use `main.py` to run all pruning methods across several ratios in one go:
 
 ```bash
-python train_experiments.py --model yolov8n-seg.pt --data coco8.yaml \
+python main.py --model yolov8n-seg.pt --data coco8.yaml \
     --baseline-epochs 1 --finetune-epochs 3 --batch-size 16 --ratios 0.2 0.4 0.6 0.8
 ```
 
