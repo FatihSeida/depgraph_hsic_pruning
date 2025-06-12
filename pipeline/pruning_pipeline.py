@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List
+from pathlib import Path
 
 from .base_pipeline import BasePruningPipeline
 from prune_methods.base import BasePruningMethod
-from helper import get_logger, Logger
+from helper import get_logger, Logger, MetricManager
 from .model_reconfig import AdaptiveLayerReconfiguration
 from .context import PipelineContext
 from .step import PipelineStep
@@ -27,6 +28,8 @@ class PruningPipeline(BasePruningPipeline):
     ) -> None:
         super().__init__(model_path, data, workdir, pruning_method, logger)
         self.model: YOLO | None = None
+        self.metrics_mgr = MetricManager()
+        self.metrics_csv: Path | None = None
         self.reconfigurator = AdaptiveLayerReconfiguration(logger=self.logger)
         self.steps: List[PipelineStep] = list(steps or [])
 
@@ -42,6 +45,7 @@ class PruningPipeline(BasePruningPipeline):
             pruning_method=self.pruning_method,
             logger=self.logger,
         )
+        context.metrics_mgr = self.metrics_mgr
         for step in self.steps:
             step.run(context)
         # sync results back to the pipeline instance
@@ -49,6 +53,8 @@ class PruningPipeline(BasePruningPipeline):
         self.initial_stats = context.initial_stats
         self.pruned_stats = context.pruned_stats
         self.metrics = context.metrics
+        self.metrics_mgr = context.metrics_mgr
+        self.metrics_csv = self.metrics_mgr.to_csv(self.workdir / "metrics.csv")
         return context
 
     def load_model(self) -> None:
@@ -64,6 +70,10 @@ class PruningPipeline(BasePruningPipeline):
         params = get_num_params(self.model.model)
         flops = get_flops(self.model.model)
         self.initial_stats = {"parameters": params, "flops": flops}
+        self.metrics_mgr.record_pruning({
+            "parameters": {"original": params},
+            "flops": {"original": flops},
+        })
         return self.initial_stats
 
     def pretrain(self, *, device: str | int | list = 0, **train_kwargs: Any) -> Dict[str, Any]:
@@ -74,6 +84,7 @@ class PruningPipeline(BasePruningPipeline):
         train_kwargs.setdefault("plots", False)
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self.logger.debug(metrics)
+        self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics
         return metrics or {}
 
@@ -114,6 +125,20 @@ class PruningPipeline(BasePruningPipeline):
         params = get_num_params(self.model.model)
         flops = get_flops(self.model.model)
         self.pruned_stats = {"parameters": params, "flops": flops}
+        orig_params = self.initial_stats.get("parameters", params)
+        orig_flops = self.initial_stats.get("flops", flops)
+        self.metrics_mgr.record_pruning({
+            "parameters": {
+                "pruned": params,
+                "reduction": orig_params - params,
+                "reduction_percent": ((orig_params - params) / orig_params * 100) if orig_params else 0,
+            },
+            "flops": {
+                "pruned": flops,
+                "reduction": orig_flops - flops,
+                "reduction_percent": ((orig_flops - flops) / orig_flops * 100) if orig_flops else 0,
+            },
+        })
         return self.pruned_stats
 
     def finetune(self, *, device: str | int | list = 0, **train_kwargs: Any) -> Dict[str, Any]:
@@ -124,6 +149,7 @@ class PruningPipeline(BasePruningPipeline):
         train_kwargs.setdefault("plots", False)
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self.logger.debug(metrics)
+        self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics
         return metrics or {}
 
@@ -135,4 +161,11 @@ class PruningPipeline(BasePruningPipeline):
             "pruned": self.pruned_stats,
             "training": self.metrics,
         }
+
+    def save_metrics_csv(self, path: str | Path) -> Path:
+        """Persist recorded metrics to ``path`` using :class:`MetricManager`."""
+
+        self.logger.info("Saving metrics CSV to %s", path)
+        self.metrics_csv = self.metrics_mgr.to_csv(path)
+        return self.metrics_csv
 

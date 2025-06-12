@@ -58,7 +58,7 @@ def execute_pipeline(
     *,
     resume: bool = False,
     logger=None,
-) -> PruningPipeline:
+) -> tuple[PruningPipeline, Path]:
     """Run a full pruning pipeline for ``method_cls`` at ``ratio``."""
     workdir.mkdir(parents=True, exist_ok=True)
     log_file = workdir / "pipeline.log"
@@ -96,7 +96,8 @@ def execute_pipeline(
         )
     pipeline.visualize_results()
     pipeline.save_pruning_results(workdir / "results")
-    return pipeline
+    csv_path = pipeline.save_metrics_csv(workdir / "metrics.csv")
+    return pipeline, csv_path
 
 
 class ExperimentRunner:
@@ -135,7 +136,7 @@ class ExperimentRunner:
             ratios=[0],
             device=self.config.device,
         )
-        execute_pipeline(
+        _, _ = execute_pipeline(
             self.model_path,
             self.data,
             None,
@@ -153,7 +154,7 @@ class ExperimentRunner:
             for ratio in self.config.ratios:
                 run_name = f"{method_name}_r{ratio}"
                 run_dir = self.workdir / run_name
-                pipeline = execute_pipeline(
+                pipeline, csv_path = execute_pipeline(
                     baseline_weights,
                     self.data,
                     method_cls,
@@ -169,7 +170,7 @@ class ExperimentRunner:
                     resume=self.resume,
                     logger=self.logger,
                 )
-                self.manager.add_result(method_name, ratio, pipeline.record_metrics())
+                self.manager.add_result(method_name, ratio, pipeline.record_metrics(), csv_path)
 
         self.manager.compare_pruning_methods()
         # Visualize training metrics across ratios and methods

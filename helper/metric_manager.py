@@ -3,7 +3,9 @@ from __future__ import annotations
 """Metric recording utilities for pruning experiments."""
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List
+import csv
 
 
 TRAINING_METRIC_FIELDS = [
@@ -75,3 +77,29 @@ class MetricManager:
             "computation": self.computation,
             "pruning": self.pruning,
         }
+
+    # ------------------------------------------------------------------
+    # Persistence helpers
+    # ------------------------------------------------------------------
+    def to_csv(self, path: str | Path) -> Path:
+        """Write recorded metrics to ``path`` as a single-row CSV."""
+
+        def _flatten(d: Dict[str, Any], prefix: str = "", out: Dict[str, Any] | None = None) -> Dict[str, Any]:
+            if out is None:
+                out = {}
+            for key, val in d.items():
+                name = f"{prefix}.{key}" if prefix else key
+                if isinstance(val, dict):
+                    _flatten(val, name, out)
+                else:
+                    out[name] = val
+            return out
+
+        flat = _flatten(self.as_dict())
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=sorted(flat))
+            writer.writeheader()
+            writer.writerow({k: flat.get(k, "") for k in sorted(flat)})
+        return path
