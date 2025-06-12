@@ -6,8 +6,8 @@ from .base_pipeline import BasePruningPipeline
 from prune_methods.base import BasePruningMethod
 from helper import get_logger, Logger
 from .model_reconfig import AdaptiveLayerReconfiguration
-from pruning_pipeline.context import PipelineContext
-from pruning_pipeline.step import PipelineStep
+from .context import PipelineContext
+from .step import PipelineStep
 
 from ultralytics_pruning import YOLO
 from ultralytics_pruning.utils.torch_utils import get_flops, get_num_params

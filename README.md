@@ -21,7 +21,7 @@ Ultralytics' format with `train`, `val` and `nc` fields.
 
 ```python
 from pipeline import PruningPipeline
-from pruning_pipeline.step import (
+from pipeline.step import (
     LoadModelStep,
     CalcStatsStep,
     TrainStep,
@@ -51,6 +51,8 @@ print(context.metrics)
 pipeline/
     base_pipeline.py   # abstract base class
     pruning_pipeline.py  # default implementation
+    context.py          # shared pipeline state
+    step/               # modular pipeline steps
 ultralytics_pruning/     # fork of the Ultralytics package
 ```
 
@@ -103,7 +105,7 @@ A complete workflow typically looks like the following:
 
 ```python
 from pipeline import PruningPipeline
-from pruning_pipeline.step import (
+from pipeline.step import (
     LoadModelStep,
     CalcStatsStep,
     TrainStep,
