@@ -13,6 +13,7 @@ __all__ = [
     "ReconfigureModelStep",
     "CalcStatsStep",
     "CompareModelsStep",
+    "MonitorComputationStep",
 ]
 
 
@@ -34,6 +35,7 @@ def __getattr__(name: str):
         "ReconfigureModelStep": "reconfigure",
         "CalcStatsStep": "calc_stats",
         "CompareModelsStep": "compare",
+        "MonitorComputationStep": "monitor_computation",
     }
     if name in step_modules:
         module = import_module(f"pipeline.step.{step_modules[name]}")

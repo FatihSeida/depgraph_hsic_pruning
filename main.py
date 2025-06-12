@@ -17,7 +17,7 @@ from typing import Iterable, List, Type
 import logging
 
 from helper import ExperimentManager, get_logger, Logger
-from pipeline import PruningPipeline
+from pipeline import PruningPipeline, MonitorComputationStep
 from prune_methods import (
     BasePruningMethod,
     L1NormPruningMethod,
@@ -72,6 +72,8 @@ def execute_pipeline(
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
     pipeline.calc_initial_stats()
     if config.baseline_epochs > 0:
+        monitor = MonitorComputationStep("pretrain")
+        monitor.start()
         pipeline.pretrain(
             epochs=config.baseline_epochs,
             batch=config.batch_size,
@@ -80,12 +82,19 @@ def execute_pipeline(
             resume=resume,
             device=config.device,
         )
+        mgr = getattr(pipeline, "metrics_mgr", None)
+        if mgr is None:
+            from helper import MetricManager
+            mgr = pipeline.metrics_mgr = MetricManager()
+        monitor.stop(mgr)
     if method_cls is not None:
         pipeline.analyze_structure()
         pipeline.generate_pruning_mask(ratio)
         pipeline.apply_pruning()
         pipeline.reconfigure_model()
         pipeline.calc_pruned_stats()
+        monitor = MonitorComputationStep("finetune")
+        monitor.start()
         pipeline.finetune(
             epochs=config.finetune_epochs,
             batch=config.batch_size,
@@ -94,6 +103,11 @@ def execute_pipeline(
             resume=resume,
             device=config.device,
         )
+        mgr = getattr(pipeline, "metrics_mgr", None)
+        if mgr is None:
+            from helper import MetricManager
+            mgr = pipeline.metrics_mgr = MetricManager()
+        monitor.stop(mgr)
     pipeline.visualize_results()
     pipeline.save_pruning_results(workdir / "results")
     csv_path = pipeline.save_metrics_csv(workdir / "metrics.csv")
