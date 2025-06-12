@@ -170,8 +170,7 @@ Use `main.py` to run all pruning methods across several ratios in one go:
 
 ```bash
 python main.py --model yolov8n-seg.pt \
-    --baseline-epochs 1 --finetune-epochs 3 --batch-size 16 --ratios 0.2 0.4 0.6 0.8 \
-    --reuse-baseline
+    --baseline-epochs 1 --finetune-epochs 3 --batch-size 16 --ratios 0.2 0.4 0.6 0.8
 ```
 The dataset defaults to `biotech_model_train.yaml` if `--data` is not supplied.
 
