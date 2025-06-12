@@ -152,7 +152,11 @@ def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Run multiple pruning experiments")
     parser.add_argument("--model", required=True, help="Path to the model weights")
-    parser.add_argument("--data", required=True, help="Dataset YAML describing train/val paths")
+    parser.add_argument(
+        "--data",
+        default="biotech_model_train.yaml",
+        help="Dataset YAML describing train/val paths",
+    )
     parser.add_argument("--workdir", default="runs/experiments", help="Output directory")
     parser.add_argument("--resume", action="store_true", help="Resume interrupted runs if possible")
     parser.add_argument("--baseline-epochs", type=int, default=1, help="Number of pretraining epochs")
