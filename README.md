@@ -53,7 +53,7 @@ pipeline/
     pruning_pipeline.py  # default implementation
     context.py          # shared pipeline state
     step/               # modular pipeline steps
-ultralytics_pruning/     # fork of the Ultralytics package
+ultralytics/     # fork of the Ultralytics package
 ```
 
 Importing from `pipeline` exposes both `BasePruningPipeline` and
@@ -146,7 +146,7 @@ val: path/to/val/images
 nc: 80  # number of classes
 ```
 
-See the `ultralytics_pruning/cfg/datasets` directory for examples.
+See the `ultralytics/cfg/datasets` directory for examples.
 
 ## Helper utilities
 

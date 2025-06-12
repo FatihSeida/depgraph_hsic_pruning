@@ -9,8 +9,8 @@ from .model_reconfig import AdaptiveLayerReconfiguration
 from .context import PipelineContext
 from .step import PipelineStep
 
-from ultralytics_pruning import YOLO
-from ultralytics_pruning.utils.torch_utils import get_flops, get_num_params
+from ultralytics import YOLO
+from ultralytics.utils.torch_utils import get_flops, get_num_params
 
 
 class PruningPipeline(BasePruningPipeline):

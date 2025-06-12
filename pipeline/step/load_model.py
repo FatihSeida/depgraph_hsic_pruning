@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ultralytics_pruning import YOLO
+from ultralytics import YOLO
 
 from ..context import PipelineContext
 from . import PipelineStep

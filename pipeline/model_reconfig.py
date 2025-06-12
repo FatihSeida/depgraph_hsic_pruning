@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from helper import get_logger, Logger
-from ultralytics_pruning import YOLO
+from ultralytics import YOLO
 
 
 class ModelReconfiguration:
