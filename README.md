@@ -40,7 +40,7 @@ steps = [
     CalcStatsStep("pruned"),
 ]
 
-pipeline = PruningPipeline("yolov8n-seg.pt", data="coco8.yaml", steps=steps)
+pipeline = PruningPipeline("yolov8n-seg.pt", data="biotech_model_train.yaml", steps=steps)
 context = pipeline.run_pipeline()
 print(context.metrics)
 ```
@@ -129,7 +129,7 @@ steps = [
 
 pipeline = PruningPipeline(
     model_path="yolov8n-seg.pt",
-    data="coco8.yaml",  # dataset YAML with 'train', 'val' and 'nc'
+    data="biotech_model_train.yaml",  # dataset YAML with 'train', 'val' and 'nc'
     workdir="runs/pruning",
     steps=steps,
 )
@@ -169,9 +169,10 @@ maintain.
 Use `main.py` to run all pruning methods across several ratios in one go:
 
 ```bash
-python main.py --model yolov8n-seg.pt --data coco8.yaml \
+python main.py --model yolov8n-seg.pt \
     --baseline-epochs 1 --finetune-epochs 3 --batch-size 16 --ratios 0.2 0.4 0.6 0.8
 ```
+The dataset defaults to `biotech_model_train.yaml` if `--data` is not supplied.
 
 Add `--resume` to continue interrupted runs.
 
