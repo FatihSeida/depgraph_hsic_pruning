@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Iterable, List
 
 from .base_pipeline import BasePruningPipeline
 from prune_methods.base import BasePruningMethod
 from helper import get_logger, Logger
 from .model_reconfig import AdaptiveLayerReconfiguration
+from pruning_pipeline.context import PipelineContext
+from pruning_pipeline.step import PipelineStep
 
 from ultralytics_pruning import YOLO
 from ultralytics_pruning.utils.torch_utils import get_flops, get_num_params
@@ -21,10 +23,33 @@ class PruningPipeline(BasePruningPipeline):
         workdir: str = "runs/pruning",
         pruning_method: BasePruningMethod | None = None,
         logger: Logger | None = None,
+        steps: Iterable[PipelineStep] | None = None,
     ) -> None:
         super().__init__(model_path, data, workdir, pruning_method, logger)
         self.model: YOLO | None = None
         self.reconfigurator = AdaptiveLayerReconfiguration(logger=self.logger)
+        self.steps: List[PipelineStep] = list(steps or [])
+
+    # ------------------------------------------------------------------
+    # Step-based execution
+    # ------------------------------------------------------------------
+    def run_pipeline(self) -> PipelineContext:
+        """Execute all configured steps in order."""
+        context = PipelineContext(
+            model_path=self.model_path,
+            data=self.data,
+            workdir=self.workdir,
+            pruning_method=self.pruning_method,
+            logger=self.logger,
+        )
+        for step in self.steps:
+            step.run(context)
+        # sync results back to the pipeline instance
+        self.model = context.model
+        self.initial_stats = context.initial_stats
+        self.pruned_stats = context.pruned_stats
+        self.metrics = context.metrics
+        return context
 
     def load_model(self) -> None:
         """Load the YOLO model from ``self.model_path``."""
