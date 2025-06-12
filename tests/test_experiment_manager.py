@@ -15,7 +15,7 @@ def test_compare_pruning_methods_without_matplotlib(monkeypatch, tmp_path):
     real_import = builtins.__import__
 
     def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "matplotlib.pyplot":
+        if name in {"matplotlib.pyplot", "seaborn"}:
             raise ImportError
         return real_import(name, globals, locals, fromlist, level)
 
@@ -32,7 +32,7 @@ def test_plot_functions_without_matplotlib(monkeypatch, tmp_path):
     real_import = builtins.__import__
 
     def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "matplotlib.pyplot":
+        if name in {"matplotlib.pyplot", "seaborn"}:
             raise ImportError
         return real_import(name, globals, locals, fromlist, level)
 

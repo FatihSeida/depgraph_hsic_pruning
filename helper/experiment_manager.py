@@ -101,6 +101,7 @@ class ExperimentManager:
         try:
             import matplotlib.pyplot as plt  # type: ignore
             import numpy as np  # type: ignore
+            import seaborn as sns  # type: ignore
         except ImportError:
             return
         methods = sorted({r["method"] for r in self.results})
@@ -113,12 +114,16 @@ class ExperimentManager:
             if val is not None:
                 matrix[i, j] = val
         plt.figure()
-        im = plt.imshow(matrix, aspect="auto", origin="lower")
-        plt.xticks(range(len(methods)), methods, rotation=45)
-        plt.yticks(range(len(ratios)), [str(r) for r in ratios])
+        sns.heatmap(
+            matrix,
+            annot=True,
+            cmap="YlGnBu",
+            xticklabels=methods,
+            yticklabels=[str(r) for r in ratios],
+            cbar_kws={"label": metric},
+        )
         plt.xlabel("method")
         plt.ylabel("ratio")
-        plt.colorbar(im, label=metric)
         plt.tight_layout()
         filename = metric.replace(".", "_") + "_heatmap.png"
         plt.savefig(self.workdir / filename)
