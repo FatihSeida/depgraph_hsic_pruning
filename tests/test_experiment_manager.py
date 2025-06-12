@@ -25,6 +25,38 @@ def test_compare_pruning_methods_without_matplotlib(monkeypatch, tmp_path):
     mgr.compare_pruning_methods()  # Should handle missing matplotlib gracefully
 
 
+def test_compare_pruning_methods_multiple_lines(monkeypatch, tmp_path):
+    mgr = ExperimentManager("yolo", workdir=tmp_path)
+    mgr.add_result("m1", 0.1, {"mAP": 0.2})
+    mgr.add_result("m1", 0.2, {"mAP": 0.3})
+    mgr.add_result("m2", 0.1, {"mAP": 0.25})
+
+    records = []
+
+    dummy = types.SimpleNamespace(
+        figure=lambda: None,
+        title=lambda *a, **k: None,
+        xlabel=lambda *a, **k: None,
+        ylabel=lambda *a, **k: None,
+        legend=lambda *a, **k: None,
+        tight_layout=lambda: None,
+        savefig=lambda *a, **k: None,
+        close=lambda *a, **k: None,
+    )
+
+    def plot(x, y, marker=None, label=None):
+        records.append({"x": x, "y": y, "label": label})
+
+    dummy.plot = plot
+
+    monkeypatch.setitem(sys.modules, "matplotlib.pyplot", dummy)
+
+    mgr.compare_pruning_methods()
+
+    assert len(records) == 2
+    assert {r["label"] for r in records} == {"m1", "m2"}
+
+
 def test_plot_functions_without_matplotlib(monkeypatch, tmp_path):
     mgr = ExperimentManager("yolo", workdir=tmp_path)
     mgr.add_result("m1", 0.1, {"training": {"mAP": 0.2}})

@@ -39,16 +39,21 @@ class ExperimentManager:
         except ImportError:
             # matplotlib is optional; skip plotting if unavailable
             return
-        ratios = [r["ratio"] for r in self.results]
-        maps = [r["metrics"].get("mAP", 0) for r in self.results]
-        labels = [r["method"] for r in self.results]
+        method_groups: Dict[str, List[tuple[float, float | None]]] = {}
+        for entry in self.results:
+            val = entry["metrics"].get("mAP")
+            method_groups.setdefault(entry["method"], []).append((entry["ratio"], val))
+
         plt.figure()
         plt.title("Pruning Comparison")
         plt.xlabel("Pruning ratio")
         plt.ylabel("mAP")
-        plt.plot(ratios, maps, marker="o")
-        for x, y, lbl in zip(ratios, maps, labels):
-            plt.text(x, y, lbl)
+        for method, vals in method_groups.items():
+            vals.sort(key=lambda x: x[0])
+            x = [v[0] for v in vals]
+            y = [v[1] if v[1] is not None else 0 for v in vals]
+            plt.plot(x, y, marker="o", label=method)
+        plt.legend()
         plt.tight_layout()
         plt.savefig(self.workdir / "comparison.png")
         plt.close()
