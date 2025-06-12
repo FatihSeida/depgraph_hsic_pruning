@@ -58,13 +58,13 @@ A typical set of steps might look as follows:
 
 1. `LoadModelStep()`
 2. `CalcStatsStep("initial")`
-3. `TrainStep("pretrain", epochs=1)`
+3. `TrainStep("pretrain", epochs=1, plots=False)`
 4. `AnalyzeModelStep()`
 5. `GenerateMasksStep(ratio=0.2)`
 6. `ApplyPruningStep()`
 7. `ReconfigureModelStep()`
 8. `CalcStatsStep("pruned")`
-9. `TrainStep("finetune", epochs=3)`
+9. `TrainStep("finetune", epochs=3, plots=False)`
 
 `PruningPipeline` will execute them sequentially, passing the same context object to each. Statistics and metrics are accumulated inside `context` and can be retrieved at the end via `pipeline.record_metrics()` or directly from `context.metrics`.
 
