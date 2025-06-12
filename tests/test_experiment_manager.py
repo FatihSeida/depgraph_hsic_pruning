@@ -22,3 +22,21 @@ def test_compare_pruning_methods_without_matplotlib(monkeypatch, tmp_path):
     monkeypatch.setattr(builtins, "__import__", fake_import)
 
     mgr.compare_pruning_methods()  # Should handle missing matplotlib gracefully
+
+
+def test_plot_functions_without_matplotlib(monkeypatch, tmp_path):
+    mgr = ExperimentManager("yolo", workdir=tmp_path)
+    mgr.add_result("m1", 0.1, {"training": {"mAP": 0.2}})
+    mgr.add_result("m2", 0.2, {"training": {"mAP": 0.3}})
+
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "matplotlib.pyplot":
+            raise ImportError
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    mgr.plot_line("training.mAP")
+    mgr.plot_heatmap("training.mAP")
