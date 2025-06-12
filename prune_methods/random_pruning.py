@@ -37,6 +37,12 @@ class RandomPruningMethod(BasePruningMethod):
             conv = getattr(parent, attr)
             num_prune = int(conv.out_channels * ratio)
             num_prune = min(max(num_prune, 0), conv.out_channels - 1)
+            self.logger.debug(
+                "Layer %s pruning %d/%d channels",
+                attr,
+                num_prune,
+                conv.out_channels,
+            )
             idx = torch.randperm(conv.out_channels)
             mask = torch.ones(conv.out_channels, dtype=torch.bool)
             if num_prune > 0:
@@ -48,7 +54,19 @@ class RandomPruningMethod(BasePruningMethod):
             conv = getattr(parent, attr)
             keep_idx = mask.nonzero(as_tuple=False).squeeze(1)
             if len(keep_idx) == conv.out_channels:
+                self.logger.debug(
+                    "Layer %s: %d -> %d channels (no pruning applied)",
+                    attr,
+                    conv.out_channels,
+                    len(keep_idx),
+                )
                 continue
+            self.logger.debug(
+                "Layer %s: %d -> %d channels",
+                attr,
+                conv.out_channels,
+                len(keep_idx),
+            )
             new_conv = nn.Conv2d(
                 conv.in_channels,
                 len(keep_idx),
