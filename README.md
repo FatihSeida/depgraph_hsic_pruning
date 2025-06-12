@@ -177,3 +177,25 @@ The dataset defaults to `biotech_model_train.yaml` if `--data` is not supplied.
 Add `--resume` to continue interrupted runs.
 
 Use `--device` to select the training device (defaults to `cuda:0`).
+
+## Panduan Setup Lingkungan (Bahasa Indonesia)
+
+Apabila Anda menggunakan server bersama dan tidak dapat menginstal paket secara
+global, buatlah *environment* terpisah dengan `conda`:
+
+```bash
+conda create -n depgraph-env python=3.8
+conda activate depgraph-env
+```
+
+Setelah environment aktif, jalankan perintah berikut untuk menginstal semua
+dependensi yang tercantum di `requirements.txt`:
+
+```bash
+pip install -r requirements.txt
+```
+
+File `requirements.txt` sudah mencakup library penting seperti
+`ultralytics-thop` yang menyediakan modul `thop`. Pastikan perintah di atas
+dijalankan di dalam environment yang telah diaktifkan agar seluruh fitur proyek
+dapat berfungsi dengan baik.
