@@ -55,6 +55,7 @@ class TrainConfig:
     finetune_epochs: int = 3
     batch_size: int = 16
     ratios: List[float] = field(default_factory=lambda: [0.2, 0.4, 0.6, 0.8])
+    device: str | int | list = 0
 
 
 def execute_pipeline(
@@ -80,6 +81,7 @@ def execute_pipeline(
         project=str(workdir),
         name="baseline" if method_cls is None else "pretrain",
         resume=resume,
+        device=config.device,
     )
     if method_cls is not None:
         pipeline.analyze_structure()
@@ -93,6 +95,7 @@ def execute_pipeline(
             project=str(workdir),
             name="finetune",
             resume=resume,
+            device=config.device,
         )
     pipeline.visualize_results()
     pipeline.save_pruning_results(workdir / "results")
@@ -155,6 +158,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--baseline-epochs", type=int, default=1, help="Number of pretraining epochs")
     parser.add_argument("--finetune-epochs", type=int, default=3, help="Number of finetuning epochs")
     parser.add_argument("--batch-size", type=int, default=16, help="Training batch size")
+    parser.add_argument("--device", default="cuda:0", help="Training device for YOLO")
     parser.add_argument(
         "--ratios",
         nargs="+",
@@ -203,6 +207,7 @@ def run_comparison(args: argparse.Namespace) -> None:
             finetune_epochs=args.finetune_epochs,
             batch_size=args.batch_size,
             ratios=[0],
+            device=args.device,
         )
         execute_pipeline(
             args.model,
@@ -232,6 +237,7 @@ def run_comparison(args: argparse.Namespace) -> None:
                 finetune_epochs=args.finetune_epochs,
                 batch_size=args.batch_size,
                 ratios=[ratio],
+                device=args.device,
             )
             execute_pipeline(
                 args.model,
@@ -288,6 +294,7 @@ def main() -> None:
         finetune_epochs=args.finetune_epochs,
         batch_size=args.batch_size,
         ratios=args.ratios,
+        device=args.device,
     )
     methods = [METHODS_MAP[m] for m in args.methods]
     runner = ExperimentRunner(

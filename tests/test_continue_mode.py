@@ -37,6 +37,7 @@ def _prepare_args(tmp_dir, cont):
         baseline_epochs=1,
         finetune_epochs=1,
         batch_size=1,
+        device="cuda:0",
         no_baseline=True,
         debug=False,
         cont=cont,

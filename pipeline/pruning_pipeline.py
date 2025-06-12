@@ -66,12 +66,12 @@ class PruningPipeline(BasePruningPipeline):
         self.initial_stats = {"parameters": params, "flops": flops}
         return self.initial_stats
 
-    def pretrain(self, **train_kwargs: Any) -> Dict[str, Any]:
+    def pretrain(self, *, device: str | int | list = 0, **train_kwargs: Any) -> Dict[str, Any]:
         """Optional pretraining step to run before pruning."""
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Pretraining model")
-        metrics = self.model.train(data=self.data, **train_kwargs)
+        metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self.metrics["pretrain"] = metrics
         return metrics or {}
 
@@ -114,12 +114,12 @@ class PruningPipeline(BasePruningPipeline):
         self.pruned_stats = {"parameters": params, "flops": flops}
         return self.pruned_stats
 
-    def finetune(self, **train_kwargs: Any) -> Dict[str, Any]:
+    def finetune(self, *, device: str | int | list = 0, **train_kwargs: Any) -> Dict[str, Any]:
         """Finetune the pruned model."""
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Finetuning pruned model")
-        metrics = self.model.train(data=self.data, **train_kwargs)
+        metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self.metrics["finetune"] = metrics
         return metrics or {}
 
