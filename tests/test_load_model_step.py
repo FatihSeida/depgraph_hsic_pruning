@@ -20,7 +20,7 @@ from pipeline.context import PipelineContext
 
 dummy = MagicMock(name="YOLO")
 module = types.SimpleNamespace(YOLO=MagicMock(return_value=dummy))
-sys.modules.setdefault("ultralytics_pruning", module)
+sys.modules["ultralytics_pruning"] = module
 from pipeline.step.load_model import LoadModelStep
 
 
