@@ -1,4 +1,12 @@
 from importlib import import_module
+import re
+
+
+def camel_to_snake(name: str) -> str:
+    """Convert CamelCase names to snake_case."""
+    s1 = re.sub("(.)([A-Z][a-z0-9]+)", r"\1_\2", name)
+    s2 = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1)
+    return s2.lower()
 
 __all__ = [
     "BasePruningPipeline",
@@ -35,6 +43,16 @@ def __getattr__(name: str):
         "CalcStatsStep",
         "CompareModelsStep",
     }:
-        module = import_module(f"pipeline.step.{name.lower()}")
+        module_name = camel_to_snake(name)
+        if module_name.endswith("_step"):
+            module_name = module_name[:-5]
+        try:
+            module = import_module(f"pipeline.step.{module_name}")
+        except ModuleNotFoundError:
+            if module_name.endswith("_model"):
+                module_name = module_name[:-6]
+            elif module_name.endswith("_models"):
+                module_name = module_name[:-7]
+            module = import_module(f"pipeline.step.{module_name}")
         return getattr(module, name)
     raise AttributeError(name)

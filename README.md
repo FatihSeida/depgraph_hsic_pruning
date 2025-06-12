@@ -20,8 +20,8 @@ below. The example expects the dataset to be defined in a YAML file following
 Ultralytics' format with `train`, `val` and `nc` fields.
 
 ```python
-from pipeline import PruningPipeline
-from pipeline.step import (
+from pipeline import (
+    PruningPipeline,
     LoadModelStep,
     CalcStatsStep,
     TrainStep,
@@ -57,7 +57,8 @@ ultralytics_pruning/     # fork of the Ultralytics package
 ```
 
 Importing from `pipeline` exposes both `BasePruningPipeline` and
-`PruningPipeline`.
+`PruningPipeline`. For convenience all step classes such as `LoadModelStep`
+or `TrainStep` are also available directly from the top-level package.
 
 ## Extending `BasePruningPipeline`
 
@@ -104,8 +105,8 @@ strategy.
 A complete workflow typically looks like the following:
 
 ```python
-from pipeline import PruningPipeline
-from pipeline.step import (
+from pipeline import (
+    PruningPipeline,
     LoadModelStep,
     CalcStatsStep,
     TrainStep,
