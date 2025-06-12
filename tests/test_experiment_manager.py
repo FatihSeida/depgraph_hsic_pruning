@@ -2,6 +2,7 @@ import builtins
 import os
 import sys
 import types
+import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -40,3 +41,9 @@ def test_plot_functions_without_matplotlib(monkeypatch, tmp_path):
 
     mgr.plot_line("training.mAP")
     mgr.plot_heatmap("training.mAP")
+
+
+def test_extract_metric_numpy_float(tmp_path):
+    mgr = ExperimentManager("yolo", workdir=tmp_path)
+    data = {"training": {"score": np.float32(0.75)}}
+    assert mgr._extract_metric(data, "training.score") == 0.75
