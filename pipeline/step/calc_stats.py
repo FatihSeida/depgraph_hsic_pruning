@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ultralytics_pruning.utils.torch_utils import get_flops, get_num_params
+from ultralytics.utils.torch_utils import get_flops, get_num_params
 
 from ..context import PipelineContext
 from . import PipelineStep
