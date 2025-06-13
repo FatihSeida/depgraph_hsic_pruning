@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-"""Dependency graph pruning method using HSIC-based importance."""
+"""Prune channel groups with HSIC-Lasso and a dependency graph.
+
+The method collects activation maps and labels during normal forward
+passes.  For every convolution channel an HSIC score measuring the
+dependence between the channel output and the target labels is
+computed.  These scores are combined with a sparse regression via
+``LassoLars`` to decide which channel groups should be removed.
+``torch-pruning``'s :class:`DependencyGraph` keeps tensor shapes
+consistent during pruning and its reparameterisation is stripped once
+pruning is finished.
+"""
 
 from typing import Any, Dict, List, Tuple
 
@@ -90,24 +100,27 @@ class DepgraphHSICMethod(BasePruningMethod):
         features = {idx: torch.cat(feats, dim=0) for idx, feats in self.activations.items()}
         y = torch.cat(self.labels, dim=0)
         group_feats: List[torch.Tensor] = []
+        hsic_values: List[torch.Tensor] = []
         group_info: List[Tuple[nn.Module, int]] = []
         for idx, layer in enumerate(self.layers):
             if idx not in features:
                 continue
             F = features[idx]
-            _ = self._hsic_scores(F, y)  # compute to follow procedure, value not stored
+            scores = self._hsic_scores(F, y)
             for j in range(F.shape[1]):
                 group_feats.append(F[:, j, :, :].mean(dim=(1, 2)))
+                hsic_values.append(scores[j])
                 group_info.append((layer, j))
         if not group_feats:
             raise RuntimeError("No feature activations recorded")
         X = torch.stack(group_feats, dim=1).cpu().numpy()
-        y_np = y.view(len(y), -1).cpu().numpy().ravel()
+        y_np = y.view(len(y), -1).mean(dim=1).cpu().numpy()
         lasso = LassoLars(alpha=0.001)
         lasso.fit(X, y_np)
         coef = torch.tensor(lasso.coef_)
-        num_prune = int(len(coef) * ratio)
-        prune_order = torch.argsort(coef.abs())[:num_prune]
+        importance = coef.abs() * torch.stack(hsic_values)
+        num_prune = int(len(importance) * ratio)
+        prune_order = torch.argsort(importance)[:num_prune]
         self.pruning_plan = {}
         for idx in prune_order.tolist():
             layer, ch = group_info[idx]
