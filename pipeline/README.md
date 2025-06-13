@@ -89,3 +89,6 @@ pipeline = PruningPipeline(
 )
 ```
 
+Make sure to record labels for every forward pass using
+``DepgraphHSICMethod.add_labels`` so that activations and targets stay aligned.
+

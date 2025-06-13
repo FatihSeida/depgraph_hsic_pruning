@@ -86,6 +86,11 @@ class DepgraphHSICMethod(BasePruningMethod):
         return H @ K @ H
 
     def _hsic_scores(self, F: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        if F.shape[0] != y.shape[0]:
+            raise RuntimeError(
+                "Mismatched number of activations and labels. Labels must be "
+                "recorded for every forward pass using add_labels()."
+            )
         B, C, H, W = F.shape
         Ky = self._rbf_kernel(y.unsqueeze(1))
         scores = []
