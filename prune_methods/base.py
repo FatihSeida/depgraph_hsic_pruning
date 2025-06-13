@@ -26,6 +26,8 @@ from helper import get_logger, Logger
 class BasePruningMethod(abc.ABC):
     """Abstract interface for pruning algorithms."""
 
+    requires_reconfiguration: bool = True
+
     def __init__(self, model: Any, workdir: str | Path = "runs/pruning") -> None:
         self.model = model
         self.workdir = Path(workdir)

@@ -22,12 +22,16 @@ from prune_methods import (
     BasePruningMethod,
     L1NormPruningMethod,
     RandomPruningMethod,
+    DepGraphPruningMethod,
+    TorchPruningRandomMethod,
 )
 
 
 METHODS_MAP = {
     "l1": L1NormPruningMethod,
     "random": RandomPruningMethod,
+    "depgraph": DepGraphPruningMethod,
+    "tp_random": TorchPruningRandomMethod,
 }
 
 # Default metrics visualized when no custom list is provided
