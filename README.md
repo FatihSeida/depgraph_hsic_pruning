@@ -35,7 +35,7 @@ from pipeline.step import (
 steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
-    TrainStep("pretrain", epochs=1, plots=False),
+    TrainStep("pretrain", epochs=1, plots=True),
     AnalyzeModelStep(),
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
@@ -120,13 +120,13 @@ from pipeline.step import (
 steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
-    TrainStep("pretrain", epochs=1, plots=False),
+    TrainStep("pretrain", epochs=1, plots=True),
     AnalyzeModelStep(),
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     ReconfigureModelStep(),
     CalcStatsStep("pruned"),
-    TrainStep("finetune", epochs=3, plots=False),
+    TrainStep("finetune", epochs=3, plots=True),
 ]
 
 pipeline = PruningPipeline(
