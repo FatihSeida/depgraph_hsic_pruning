@@ -20,22 +20,25 @@ sys.modules.setdefault("sklearn.linear_model", linear_model_stub)
 
 
 def test_new_methods_have_flag():
-    mod = __import__(
-        "prune_methods",
-        fromlist=[
-            "L1NormMethod",
-            "RandomMethod",
-            "DepgraphMethod",
-            "TorchRandomMethod",
-            "DepgraphHSICMethod",
-        ],
-    )
-    assert hasattr(mod, "L1NormMethod")
-    assert hasattr(mod, "RandomMethod")
+    names = [
+        "L1NormMethod",
+        "RandomMethod",
+        "DepgraphMethod",
+        "TorchRandomMethod",
+        "IsomorphicMethod",
+        "HSICLassoMethod",
+        "DepgraphHSICMethod",
+        "WeightedHybridMethod",
+    ]
+    mod = __import__("prune_methods", fromlist=names)
+    for name in names:
+        assert hasattr(mod, name)
     DepGraph = mod.DepgraphMethod
     Simple = mod.TorchRandomMethod
+    Iso = mod.IsomorphicMethod
     HSIC = mod.DepgraphHSICMethod
     assert DepGraph.requires_reconfiguration is False
     assert Simple.requires_reconfiguration is False
+    assert Iso.requires_reconfiguration is False
     assert HSIC.requires_reconfiguration is False
 
