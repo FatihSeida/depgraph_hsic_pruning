@@ -130,6 +130,40 @@ def execute_pipeline(
     if method_cls is not None:
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
         pipeline.analyze_structure()
+        if (
+            isinstance(pipeline.pruning_method, DepgraphHSICMethod)
+            and config.reuse_baseline
+            and config.baseline_epochs == 0
+        ):
+            try:
+                import yaml
+                import torch
+                from pathlib import Path
+
+                with open(data) as f:
+                    ds_cfg = yaml.safe_load(f)
+                base = Path(ds_cfg.get("path", Path(data).parent))
+                val = ds_cfg.get("val") or ds_cfg.get("train")
+                val_path = base / val if val is not None else base
+                if val_path.is_dir():
+                    imgs = sorted(val_path.glob("*.*"))
+                    img = imgs[0] if imgs else None
+                else:
+                    img = val_path if val_path.exists() else None
+                if img is not None:
+                    label_file = Path(str(img)).with_suffix(".txt").as_posix()
+                    label_file = label_file.replace("/images/", "/labels/")
+                    y = torch.tensor([])
+                    lf = Path(label_file)
+                    if lf.exists():
+                        with lf.open() as lf_f:
+                            labels = [float(line.split()[0]) for line in lf_f if line.strip()]
+                        if labels:
+                            y = torch.tensor(labels)
+                    pipeline.model.predict(source=str(img), device=config.device, batch=1)
+                    pipeline.pruning_method.add_labels(y)
+            except Exception as exc:  # pragma: no cover - best effort
+                logger.warning("short forward pass failed: %s", exc)
     pipeline.calc_initial_stats()
     if config.baseline_epochs > 0:
         monitor = MonitorComputationStep("pretrain")
