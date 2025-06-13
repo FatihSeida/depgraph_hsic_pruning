@@ -28,6 +28,7 @@ COMPUTATION_METRIC_FIELDS = [
     "ram_used_mb",
     "ram_total_mb",
     "ram_percent",
+    "avg_ram_used_mb",
     "power_usage_watts",
 ]
 
@@ -35,6 +36,7 @@ PRUNING_METRIC_FIELDS = {
     "parameters": ["original", "pruned", "reduction", "reduction_percent"],
     "flops": ["original", "pruned", "reduction", "reduction_percent"],
     "filters": ["original", "pruned", "reduction", "reduction_percent"],
+    "model_size_mb": ["original", "pruned", "reduction", "reduction_percent"],
     "compression_ratio": None,
 }
 

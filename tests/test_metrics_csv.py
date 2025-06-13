@@ -43,3 +43,4 @@ def test_metrics_csv_created(tmp_path):
     header = csv_path.read_text().splitlines()[0]
     assert 'training.mAP' in header
     assert 'pruning.parameters.original' in header
+    assert 'pruning.model_size_mb.original' in header
