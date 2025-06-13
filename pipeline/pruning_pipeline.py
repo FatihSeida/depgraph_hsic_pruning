@@ -81,7 +81,7 @@ class PruningPipeline(BasePruningPipeline):
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Pretraining model")
-        train_kwargs.setdefault("plots", False)
+        train_kwargs.setdefault("plots", True)
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
@@ -146,7 +146,7 @@ class PruningPipeline(BasePruningPipeline):
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Finetuning pruned model")
-        train_kwargs.setdefault("plots", False)
+        train_kwargs.setdefault("plots", True)
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
