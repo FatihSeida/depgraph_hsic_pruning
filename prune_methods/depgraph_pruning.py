@@ -15,16 +15,19 @@ class DepgraphMethod(BasePruningMethod):
     def __init__(self, model: Any, workdir: str = "runs/pruning") -> None:
         super().__init__(model, workdir)
         self.example_inputs = torch.randn(1, 3, 640, 640)
-        self.pruner: tp.pruner.algorithms.BasePruner | None = None
+        self.pruner: Any | None = None
 
     def analyze_model(self) -> None:
-        import torch_pruning as tp  # local import to avoid heavy dependency at module load
-        self.DG = tp.DependencyGraph().build_dependency(self.model, self.example_inputs)
+        """Build and store the dependency graph for ``self.model``."""
+        import torch_pruning as tp  # local import
+        self.DG = tp.DependencyGraph()
+        self.DG.build_dependency(self.model, self.example_inputs)
 
     def generate_pruning_mask(self, ratio: float) -> None:
-        import torch_pruning as tp  # local import
-        importance = tp.pruner.importance.MagnitudeImportance(p=2)
-        self.pruner = tp.pruner.algorithms.BasePruner(
+        import torch_pruning as tp
+        importance = tp.importance.MagnitudeImportance(p=2)
+        pruner_cls = getattr(tp, "MagnitudePruner", tp.pruner.algorithms.BasePruner)
+        self.pruner = pruner_cls(
             self.model,
             example_inputs=self.example_inputs,
             importance=importance,
