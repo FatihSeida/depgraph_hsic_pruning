@@ -36,7 +36,6 @@ class IsomorphicMethod(BasePruningMethod):
             self.model,
             example_inputs=self.example_inputs,
             importance=importance,
-            DG=self.DG,
             global_pruning=False,
             pruning_ratio=ratio,
             round_to=self.round_to,
