@@ -10,7 +10,7 @@ from torch import nn
 from .base import BasePruningMethod
 
 
-class RandomPruningMethod(BasePruningMethod):
+class RandomMethod(BasePruningMethod):
     """Pruning method that randomly removes convolution filters."""
 
     def __init__(self, model: any, workdir: str = "runs/pruning") -> None:

@@ -7,7 +7,7 @@ import torch
 from .base import BasePruningMethod
 
 
-class DepGraphPruningMethod(BasePruningMethod):
+class DepgraphMethod(BasePruningMethod):
     """Pruning using ``torch-pruning`` with a dependency graph."""
 
     requires_reconfiguration = False

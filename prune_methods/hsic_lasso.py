@@ -10,7 +10,7 @@ from torch import nn
 from .base import BasePruningMethod
 
 
-class HSICLassoPruningMethod(BasePruningMethod):
+class HSICLassoMethod(BasePruningMethod):
     """Prune channels using HSIC criterion with L1 sparsity."""
 
     def __init__(self, model: Any, workdir: str = "runs/pruning", gamma: float = 1.0) -> None:

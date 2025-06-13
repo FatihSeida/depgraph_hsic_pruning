@@ -14,9 +14,9 @@ sys.modules.setdefault("torch_pruning", types.ModuleType("torch_pruning"))
 
 
 def test_new_methods_have_flag():
-    mod = __import__("prune_methods", fromlist=["DepGraphPruningMethod", "TorchPruningRandomMethod"])
-    DepGraph = mod.DepGraphPruningMethod
-    Simple = mod.TorchPruningRandomMethod
+    mod = __import__("prune_methods", fromlist=["DepgraphMethod", "TorchRandomMethod"])
+    DepGraph = mod.DepgraphMethod
+    Simple = mod.TorchRandomMethod
     assert DepGraph.requires_reconfiguration is False
     assert Simple.requires_reconfiguration is False
 

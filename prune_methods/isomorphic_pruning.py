@@ -10,7 +10,7 @@ from torch import nn
 from .base import BasePruningMethod
 
 
-class IsomorphicPruningMethod(BasePruningMethod):
+class IsomorphicMethod(BasePruningMethod):
     """Pruning that preserves layer shapes via ``torch-pruning``."""
 
     requires_reconfiguration = False

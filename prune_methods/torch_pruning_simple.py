@@ -7,7 +7,7 @@ import torch
 from .base import BasePruningMethod
 
 
-class TorchPruningRandomMethod(BasePruningMethod):
+class TorchRandomMethod(BasePruningMethod):
     """Prune using ``torch-pruning`` with random importance."""
 
     requires_reconfiguration = False

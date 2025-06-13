@@ -10,7 +10,7 @@ from torch import nn
 from .base import BasePruningMethod
 
 
-class WeightedHybridPruningMethod(BasePruningMethod):
+class WeightedHybridMethod(BasePruningMethod):
     """Two-stage pruning: magnitude then redundancy reduction."""
 
     def __init__(self, model: Any, workdir: str = "runs/pruning", rate_norm: float = 0.5, rate_dist: float = 0.2) -> None:
