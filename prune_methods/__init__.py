@@ -10,6 +10,7 @@ __all__ = [
     "TorchPruningRandomMethod",
     "IsomorphicPruningMethod",
     "HSICLassoPruningMethod",
+    "DepgraphHSICMethod",
     "WeightedHybridPruningMethod",
 ]
 
@@ -29,6 +30,8 @@ def __getattr__(name: str):
         return import_module("prune_methods.isomorphic_pruning").IsomorphicPruningMethod
     if name == "HSICLassoPruningMethod":
         return import_module("prune_methods.hsic_lasso").HSICLassoPruningMethod
+    if name == "DepgraphHSICMethod":
+        return import_module("prune_methods.depgraph_hsic").DepgraphHSICMethod
     if name == "WeightedHybridPruningMethod":
         return import_module("prune_methods.weighted_hybrid").WeightedHybridPruningMethod
     raise AttributeError(name)
