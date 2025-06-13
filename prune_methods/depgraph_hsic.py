@@ -33,6 +33,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.DG = None
         self.handles: List[torch.utils.hooks.RemovableHandle] = []
         self.activations: Dict[int, List[torch.Tensor]] = {}
+        self.layer_shapes: Dict[int, Tuple[int, int]] = {}
         self.labels: List[torch.Tensor] = []
         self.layers: List[nn.Conv2d] = []
 
@@ -41,7 +42,16 @@ class DepgraphHSICMethod(BasePruningMethod):
     # ------------------------------------------------------------------
     def _activation_hook(self, idx: int):
         def hook(_module: nn.Module, _input: Tuple[torch.Tensor], output: torch.Tensor) -> None:
-            self.activations.setdefault(idx, []).append(output.detach())
+            target_shape = self.layer_shapes.get(idx)
+            if target_shape is None:
+                self.layer_shapes[idx] = output.shape[2:]
+                processed = output.detach()
+            else:
+                if output.shape[2:] != target_shape:
+                    processed = torch.nn.functional.adaptive_avg_pool2d(output, target_shape).detach()
+                else:
+                    processed = output.detach()
+            self.activations.setdefault(idx, []).append(processed)
         return hook
 
     def register_hooks(self) -> None:
@@ -97,7 +107,14 @@ class DepgraphHSICMethod(BasePruningMethod):
     def generate_pruning_mask(self, ratio: float) -> None:
         if not self.activations or not self.labels:
             raise RuntimeError("No activations/labels collected. Run a forward pass first.")
-        features = {idx: torch.cat(feats, dim=0) for idx, feats in self.activations.items()}
+        features = {}
+        for idx, feats in self.activations.items():
+            try:
+                features[idx] = torch.cat(feats, dim=0)
+            except RuntimeError:
+                target_shape = self.layer_shapes.get(idx)
+                pooled = [torch.nn.functional.adaptive_avg_pool2d(f, target_shape) if f.shape[2:] != target_shape else f for f in feats]
+                features[idx] = torch.cat(pooled, dim=0)
         y = torch.cat(self.labels, dim=0)
         group_feats: List[torch.Tensor] = []
         hsic_values: List[torch.Tensor] = []
