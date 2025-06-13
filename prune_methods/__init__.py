@@ -14,24 +14,21 @@ __all__ = [
     "WeightedHybridMethod",
 ]
 
+_MAPPING = {
+    "BasePruningMethod": ("prune_methods.base", "BasePruningMethod"),
+    "L1NormMethod": ("prune_methods.l1_norm", "L1NormMethod"),
+    "RandomMethod": ("prune_methods.random_pruning", "RandomMethod"),
+    "DepgraphMethod": ("prune_methods.depgraph_pruning", "DepgraphMethod"),
+    "TorchRandomMethod": ("prune_methods.torch_pruning_simple", "TorchRandomMethod"),
+    "IsomorphicMethod": ("prune_methods.isomorphic_pruning", "IsomorphicMethod"),
+    "HSICLassoMethod": ("prune_methods.hsic_lasso", "HSICLassoMethod"),
+    "DepgraphHSICMethod": ("prune_methods.depgraph_hsic", "DepgraphHSICMethod"),
+    "WeightedHybridMethod": ("prune_methods.weighted_hybrid", "WeightedHybridMethod"),
+}
+
 
 def __getattr__(name: str):
-    if name == "BasePruningMethod":
-        return import_module("prune_methods.base").BasePruningMethod
-    if name == "L1NormMethod":
-        return import_module("prune_methods.l1_norm").L1NormMethod
-    if name == "RandomMethod":
-        return import_module("prune_methods.random_pruning").RandomMethod
-    if name == "DepgraphMethod":
-        return import_module("prune_methods.depgraph_pruning").DepgraphMethod
-    if name == "TorchRandomMethod":
-        return import_module("prune_methods.torch_pruning_simple").TorchRandomMethod
-    if name == "IsomorphicMethod":
-        return import_module("prune_methods.isomorphic_pruning").IsomorphicMethod
-    if name == "HSICLassoMethod":
-        return import_module("prune_methods.hsic_lasso").HSICLassoMethod
-    if name == "DepgraphHSICMethod":
-        return import_module("prune_methods.depgraph_hsic").DepgraphHSICMethod
-    if name == "WeightedHybridMethod":
-        return import_module("prune_methods.weighted_hybrid").WeightedHybridMethod
+    if name in _MAPPING:
+        module, attr = _MAPPING[name]
+        return getattr(import_module(module), attr)
     raise AttributeError(name)
