@@ -225,7 +225,10 @@ measure channel dependence on the targets and ranks them using ``LassoLars``.
 Pruning is then applied through ``torch-pruning``'s ``DependencyGraph`` to keep
 tensor shapes consistent.
 
-Add `--resume` to continue interrupted runs.
+Add `--resume` to continue interrupted runs. If `weights/last.pt` is missing or
+`weights/best.pt` exists with `results.csv` showing that all configured epochs
+completed, training starts from scratch instead of resuming and a message is
+logged.
 Add `--heatmap-only` to generate heatmap visualizations without line plots.
 If baseline weights are already present in the working directory they will be
 reused by default, which skips the initial pretraining step. Disable this by
