@@ -38,7 +38,13 @@ def safe_name(value: str) -> str:
 
 @dataclass
 class TrainConfig:
-    """Configuration parameters for training."""
+    """Configuration parameters for training.
+
+    ``reuse_baseline`` controls whether the baseline weights should be loaded
+    from the previous run if available. When ``True`` and a ``best.pt`` file is
+    found in the baseline directory, pretraining is skipped and the weights are
+    reused.
+    """
 
     baseline_epochs: int = 1
     finetune_epochs: int = 3
@@ -142,27 +148,32 @@ class ExperimentRunner:
 
     def run(self) -> None:
         """Execute all pruning experiments."""
-        baseline_weights = self.model_path
         baseline_dir = self.workdir / "baseline"
         baseline_dir.mkdir(parents=True, exist_ok=True)
-        base_cfg = TrainConfig(
-            baseline_epochs=self.config.baseline_epochs,
-            finetune_epochs=self.config.finetune_epochs,
-            batch_size=self.config.batch_size,
-            ratios=[0],
-            device=self.config.device,
-        )
-        _, _ = execute_pipeline(
-            self.model_path,
-            self.data,
-            None,
-            0,
-            base_cfg,
-            baseline_dir,
-            resume=self.resume,
-            logger=self.logger,
-        )
-        baseline_weights = baseline_dir / "baseline" / "weights" / "best.pt"
+        weights_file = baseline_dir / "baseline" / "weights" / "best.pt"
+
+        if self.config.reuse_baseline and weights_file.exists():
+            baseline_weights = weights_file
+        else:
+            baseline_weights = self.model_path
+            base_cfg = TrainConfig(
+                baseline_epochs=self.config.baseline_epochs,
+                finetune_epochs=self.config.finetune_epochs,
+                batch_size=self.config.batch_size,
+                ratios=[0],
+                device=self.config.device,
+            )
+            execute_pipeline(
+                self.model_path,
+                self.data,
+                None,
+                0,
+                base_cfg,
+                baseline_dir,
+                resume=self.resume,
+                logger=self.logger,
+            )
+            baseline_weights = weights_file
 
         for method_cls in self.methods:
             method_name = method_cls.__name__
