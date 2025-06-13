@@ -204,6 +204,7 @@ python main.py --model yolov8n-seg.pt \
 The dataset defaults to `biotech_model_train.yaml` if `--data` is not supplied.
 
 Add `--resume` to continue interrupted runs.
+Add `--heatmap-only` to generate heatmap visualizations without line plots.
 If baseline weights are already present in the working directory they will be
 reused by default, which skips the initial pretraining step. Disable this by
 setting ``reuse_baseline=False`` in ``TrainConfig`` if fresh baseline training

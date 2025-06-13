@@ -160,7 +160,7 @@ class ExperimentRunner:
         self.manager = ExperimentManager(Path(model_path).stem, workdir)
         self.metrics = metrics or DEFAULT_PLOT_METRICS
 
-    def run(self) -> None:
+    def run(self, heatmap_only: bool = False) -> None:
         """Execute all pruning experiments."""
         baseline_dir = self.workdir / "baseline"
         baseline_dir.mkdir(parents=True, exist_ok=True)
@@ -216,8 +216,11 @@ class ExperimentRunner:
         self.manager.compare_pruning_methods()
         # Visualize training metrics across ratios and methods
         for metric in self.metrics:
-            self.manager.plot_line(metric)
-            self.manager.plot_heatmap(metric)
+            if heatmap_only:
+                self.manager.plot_heatmap(metric)
+            else:
+                self.manager.plot_line(metric)
+                self.manager.plot_heatmap(metric)
 
 
 def parse_args() -> argparse.Namespace:
@@ -248,6 +251,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--debug", action="store_true", help="Enable verbose output")
     parser.add_argument("--continue", dest="cont", action="store_true", help="Continue incomplete runs")
     parser.add_argument("--compare", action="store_true", help="Run comparison across methods")
+    parser.add_argument(
+        "--heatmap-only",
+        action="store_true",
+        help="Only generate heatmap visualizations",
+    )
     return parser.parse_args()
 
 
@@ -385,7 +393,7 @@ def main() -> None:
         resume=args.resume,
         logger=logger,
     )
-    runner.run()
+    runner.run(heatmap_only=args.heatmap_only)
 
 
 if __name__ == "__main__":
