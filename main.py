@@ -80,6 +80,33 @@ class TrainConfig:
     reuse_baseline: bool = True
 
 
+def _adjust_resume(phase_dir: Path, epochs: int, resume: bool, logger: Logger) -> bool:
+    """Return ``resume`` unless previous training completed."""
+
+    if not resume:
+        return resume
+    last_pt = phase_dir / "weights" / "last.pt"
+    best_pt = phase_dir / "weights" / "best.pt"
+    results = phase_dir / "results.csv"
+    if not last_pt.exists():
+        logger.info("training completed previously – starting a new run")
+        return False
+    if best_pt.exists() and results.exists():
+        try:
+            import csv
+
+            with results.open() as f:
+                rows = list(csv.DictReader(f))
+            if rows:
+                final_epoch = int(rows[-1].get("epoch", -1)) + 1
+                if final_epoch >= epochs:
+                    logger.info("training completed previously – starting a new run")
+                    return False
+        except Exception:
+            pass
+    return resume
+
+
 def execute_pipeline(
     model_path: str,
     data: str,
@@ -106,12 +133,14 @@ def execute_pipeline(
     if config.baseline_epochs > 0:
         monitor = MonitorComputationStep("pretrain")
         monitor.start()
+        phase = "baseline" if method_cls is None else "pretrain"
+        pretrain_resume = _adjust_resume(workdir / phase, config.baseline_epochs, resume, logger)
         pipeline.pretrain(
             epochs=config.baseline_epochs,
             batch=config.batch_size,
             project=str(workdir),
-            name="baseline" if method_cls is None else "pretrain",
-            resume=resume,
+            name=phase,
+            resume=pretrain_resume,
             device=config.device,
         )
         mgr = getattr(pipeline, "metrics_mgr", None)
@@ -127,12 +156,13 @@ def execute_pipeline(
         pipeline.calc_pruned_stats()
         monitor = MonitorComputationStep("finetune")
         monitor.start()
+        finetune_resume = _adjust_resume(workdir / "finetune", config.finetune_epochs, resume, logger)
         pipeline.finetune(
             epochs=config.finetune_epochs,
             batch=config.batch_size,
             project=str(workdir),
             name="finetune",
-            resume=resume,
+            resume=finetune_resume,
             device=config.device,
         )
         mgr = getattr(pipeline, "metrics_mgr", None)
