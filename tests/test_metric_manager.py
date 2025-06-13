@@ -16,3 +16,18 @@ def test_record_training_with_dataclass():
     assert mgr.training["mAP"] == 0.5
     assert mgr.training["precision"] == 0.7
     assert "other" not in mgr.training
+
+
+def test_record_training_with_ultralytics_fields():
+    mgr = MetricManager()
+    metrics = {
+        "metrics/precision": 0.1,
+        "metrics/recall": 0.2,
+        "metrics/mAP50": 0.3,
+        "metrics/mAP50-95": 0.4,
+    }
+    mgr.record_training(metrics)
+    assert mgr.training["precision"] == 0.1
+    assert mgr.training["recall"] == 0.2
+    assert mgr.training["mAP"] == 0.3
+    assert mgr.training["mAP50_95"] == 0.4

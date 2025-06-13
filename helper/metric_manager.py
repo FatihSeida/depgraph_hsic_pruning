@@ -10,6 +10,7 @@ import csv
 
 TRAINING_METRIC_FIELDS = [
     "mAP",
+    "mAP50_95",
     "precision",
     "recall",
     "box_loss",
@@ -17,6 +18,14 @@ TRAINING_METRIC_FIELDS = [
     "objectness_loss",
     "cls_loss",
 ]
+
+# Mapping of Ultralytics training output names to canonical fields
+ULTRALYTICS_FIELD_MAP = {
+    "metrics/precision": "precision",
+    "metrics/recall": "recall",
+    "metrics/mAP50": "mAP",
+    "metrics/mAP50-95": "mAP50_95",
+}
 
 COMPUTATION_METRIC_FIELDS = [
     "elapsed_seconds",
@@ -61,6 +70,19 @@ class MetricManager:
         for field in TRAINING_METRIC_FIELDS:
             if field in metrics:
                 self.training[field] = metrics[field]
+
+        # Handle alternate field names produced by Ultralytics
+        for key, value in metrics.items():
+            mapped = None
+            if key in ULTRALYTICS_FIELD_MAP:
+                mapped = ULTRALYTICS_FIELD_MAP[key]
+            else:
+                for k, v in ULTRALYTICS_FIELD_MAP.items():
+                    if key.startswith(k):
+                        mapped = v
+                        break
+            if mapped and mapped in TRAINING_METRIC_FIELDS:
+                self.training[mapped] = value
 
     def record_computation(self, metrics: Dict[str, Any]) -> None:
         """Store computation metrics filtered by :data:`COMPUTATION_METRIC_FIELDS`."""
