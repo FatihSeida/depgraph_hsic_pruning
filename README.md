@@ -202,6 +202,16 @@ python main.py --model yolov8n-seg.pt \
     --baseline-epochs 1 --finetune-epochs 3 --batch-size 16 --ratios 0.2 0.4 0.6 0.8
 ```
 The dataset defaults to `biotech_model_train.yaml` if `--data` is not supplied.
+Available values for `--methods`:
+
+* `l1`
+* `random`
+* `depgraph`
+* `depgraph_hsic`
+* `tp_random`
+* `isomorphic`
+* `hsic_lasso`
+* `whc`
 
 Add `--resume` to continue interrupted runs.
 Add `--heatmap-only` to generate heatmap visualizations without line plots.

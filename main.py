@@ -26,6 +26,7 @@ from prune_methods import (
     TorchRandomMethod,
     IsomorphicMethod,
     HSICLassoMethod,
+    DepgraphHSICMethod,
     WeightedHybridMethod,
 )
 
@@ -37,6 +38,7 @@ METHODS_MAP = {
     "tp_random": TorchRandomMethod,
     "isomorphic": IsomorphicMethod,
     "hsic_lasso": HSICLassoMethod,
+    "depgraph_hsic": DepgraphHSICMethod,
     "whc": WeightedHybridMethod,
 }
 
