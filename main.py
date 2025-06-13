@@ -129,6 +129,7 @@ def execute_pipeline(
     pipeline.load_model()
     if method_cls is not None:
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
+        pipeline.analyze_structure()
     pipeline.calc_initial_stats()
     if config.baseline_epochs > 0:
         monitor = MonitorComputationStep("pretrain")
@@ -149,7 +150,6 @@ def execute_pipeline(
             mgr = pipeline.metrics_mgr = MetricManager()
         monitor.stop(mgr)
     if method_cls is not None:
-        pipeline.analyze_structure()
         pipeline.generate_pruning_mask(ratio)
         pipeline.apply_pruning()
         pipeline.reconfigure_model()
