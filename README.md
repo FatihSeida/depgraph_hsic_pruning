@@ -182,6 +182,7 @@ Each run directory will contain a `pipeline.log` file capturing detailed
 training and pruning output for the selected ratio.
 
 Use `--device` to select the training device (defaults to `cuda:0`).
+Use `--plot-metrics` to specify which metrics are visualized after the runs.
 
 ## Panduan Setup Lingkungan (Bahasa Indonesia)
 

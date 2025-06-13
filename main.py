@@ -127,6 +127,7 @@ class ExperimentRunner:
         *,
         resume: bool = False,
         logger: Logger | None = None,
+        metrics: List[str] | None = None,
     ) -> None:
         self.model_path = model_path
         self.data = data
@@ -137,6 +138,7 @@ class ExperimentRunner:
         self.resume = resume
         self.logger = logger or get_logger()
         self.manager = ExperimentManager(Path(model_path).stem, workdir)
+        self.metrics = metrics or ["training.mAP"]
 
     def run(self) -> None:
         """Execute all pruning experiments."""
@@ -188,8 +190,9 @@ class ExperimentRunner:
 
         self.manager.compare_pruning_methods()
         # Visualize training metrics across ratios and methods
-        self.manager.plot_line("training.mAP")
-        self.manager.plot_heatmap("training.mAP")
+        for metric in self.metrics:
+            self.manager.plot_line(metric)
+            self.manager.plot_heatmap(metric)
 
 
 def parse_args() -> argparse.Namespace:
@@ -213,6 +216,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=[0.2, 0.4, 0.6, 0.8],
         help="Pruning ratios to evaluate",
+    )
+    parser.add_argument(
+        "--plot-metrics",
+        nargs="+",
+        default=["training.mAP"],
+        help="Metrics to visualize after runs",
     )
     parser.add_argument("--methods", nargs="+", default=list(METHODS_MAP.keys()), help="Pruning methods to evaluate")
     parser.add_argument("--runs-dir", default="experiments", help="Root directory for comparison runs")
@@ -356,6 +365,7 @@ def main() -> None:
         workdir=args.workdir,
         resume=args.resume,
         logger=logger,
+        metrics=args.plot_metrics,
     )
     runner.run()
 
