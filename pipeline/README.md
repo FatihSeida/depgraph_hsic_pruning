@@ -74,3 +74,18 @@ A typical set of steps might look as follows:
 
 This modular structure makes it easy to customise or extend the pruning process by defining new step classes or reordering existing ones.
 
+### Using ``DepgraphHSICMethod``
+
+Any pruning algorithm subclassing ``BasePruningMethod`` can be attached to the pipeline. ``DepgraphHSICMethod`` ranks channels via HSIC scores and prunes them through a dependency graph:
+
+```python
+from prune_methods import DepgraphHSICMethod
+
+pipeline = PruningPipeline(
+    "yolov8n-seg.pt",
+    data="dataset.yaml",
+    pruning_method=DepgraphHSICMethod(model),
+    steps=steps,
+)
+```
+
