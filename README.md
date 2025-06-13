@@ -161,9 +161,25 @@ pipeline:
   structured format.
 * ``Logger`` – lightweight wrapper around :mod:`logging` used throughout the
   pipeline and pruning methods.
+* ``plot_metric_heatmaps`` – create heatmaps of metrics grouped by pruning
+  method and ratio.
 
 These utilities follow SOLID design principles to keep the codebase easy to
 maintain.
+
+Example of generating heatmaps for pruning results:
+
+```python
+import pandas as pd
+from helper import plot_metric_heatmaps
+
+df = pd.DataFrame({
+    "pruning.method": ["l1", "l1", "l2", "l2"],
+    "pruning.ratio": [0.2, 0.4, 0.2, 0.4],
+    "FLOPsReduction": [0.1, 0.2, 0.3, 0.4],
+})
+plot_metric_heatmaps(df, ["FLOPsReduction"], "plots")
+```
 
 
 ## Batch training script
