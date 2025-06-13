@@ -44,6 +44,7 @@ def test_main_help_shows_options(capsys, monkeypatch):
         '--batch-size',
         '--ratios',
         '--device',
+        '--plot-metrics',
     ]:
         assert opt in help_text
 
