@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List
 import numbers
+import copy
 
 
 class ExperimentManager:
@@ -23,9 +24,18 @@ class ExperimentManager:
         metrics: Dict[str, Any],
         csv_path: str | Path | None = None,
     ) -> None:
-        """Record the metrics and CSV location for a pruning experiment."""
+        """Record the metrics and CSV location for a pruning experiment.
 
-        entry: Dict[str, Any] = {"method": method, "ratio": ratio, "metrics": metrics}
+        ``metrics`` is expected to be the complete dictionary returned by the
+        pruning pipeline.  A deep copy is stored to avoid accidental mutation of
+        the original data.
+        """
+
+        entry: Dict[str, Any] = {
+            "method": method,
+            "ratio": ratio,
+            "metrics": copy.deepcopy(metrics),
+        }
         if csv_path is not None:
             entry["csv"] = str(csv_path)
         self.results.append(entry)
@@ -68,6 +78,12 @@ class ExperimentManager:
         for p in parts:
             if isinstance(value, dict) and p in value:
                 value = value[p]
+            elif isinstance(value, (list, tuple)) and p.isdigit():
+                idx = int(p)
+                if 0 <= idx < len(value):
+                    value = value[idx]
+                else:
+                    return None
             else:
                 return None
         if isinstance(value, numbers.Number):
