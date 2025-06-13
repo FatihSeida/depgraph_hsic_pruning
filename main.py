@@ -109,7 +109,7 @@ def execute_pipeline(
             mgr = pipeline.metrics_mgr = MetricManager()
         monitor.stop(mgr)
     pipeline.visualize_results()
-    pipeline.save_pruning_results(workdir / "results")
+    pipeline.save_pruning_results(workdir / "results.pt")
     csv_path = pipeline.save_metrics_csv(workdir / "metrics.csv")
     return pipeline, csv_path
 
