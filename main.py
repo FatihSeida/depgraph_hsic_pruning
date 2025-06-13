@@ -20,24 +20,24 @@ from helper import ExperimentManager, get_logger, Logger, add_file_handler
 from pipeline import PruningPipeline, MonitorComputationStep
 from prune_methods import (
     BasePruningMethod,
-    L1NormPruningMethod,
-    RandomPruningMethod,
-    DepGraphPruningMethod,
-    TorchPruningRandomMethod,
-    IsomorphicPruningMethod,
-    HSICLassoPruningMethod,
-    WeightedHybridPruningMethod,
+    L1NormMethod,
+    RandomMethod,
+    DepgraphMethod,
+    TorchRandomMethod,
+    IsomorphicMethod,
+    HSICLassoMethod,
+    WeightedHybridMethod,
 )
 
 
 METHODS_MAP = {
-    "l1": L1NormPruningMethod,
-    "random": RandomPruningMethod,
-    "depgraph": DepGraphPruningMethod,
-    "tp_random": TorchPruningRandomMethod,
-    "isomorphic": IsomorphicPruningMethod,
-    "hsic_lasso": HSICLassoPruningMethod,
-    "whc": WeightedHybridPruningMethod,
+    "l1": L1NormMethod,
+    "random": RandomMethod,
+    "depgraph": DepgraphMethod,
+    "tp_random": TorchRandomMethod,
+    "isomorphic": IsomorphicMethod,
+    "hsic_lasso": HSICLassoMethod,
+    "whc": WeightedHybridMethod,
 }
 
 # Default metrics visualized when no custom list is provided

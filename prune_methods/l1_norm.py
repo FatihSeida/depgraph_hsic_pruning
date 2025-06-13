@@ -10,7 +10,7 @@ from torch import nn
 from .base import BasePruningMethod
 
 
-class L1NormPruningMethod(BasePruningMethod):
+class L1NormMethod(BasePruningMethod):
     """Pruning method that removes filters with the smallest L1-norm."""
 
     def __init__(self, model: any, workdir: str = "runs/pruning") -> None:
