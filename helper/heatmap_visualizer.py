@@ -5,6 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
+DEFAULT_METRICS = [
+    "pruning.flops.reduction_percent",
+    "pruning.parameters.reduction_percent",
+    "pruning.model_size_mb.reduction_percent",
+]
+
 import pandas as pd
 
 
@@ -44,3 +50,15 @@ def plot_metric_heatmaps(df: pd.DataFrame, metrics: List[str], output_dir: str) 
         filename = f"{safe_metric}_heatmap.png"
         plt.savefig(out_path / filename)
         plt.close()
+
+
+def plot_default_metric_heatmaps(df: pd.DataFrame, output_dir: str) -> None:
+    """Generate heatmaps for :data:`DEFAULT_METRICS`."""
+    plot_metric_heatmaps(df, DEFAULT_METRICS, output_dir)
+
+
+__all__ = [
+    "plot_metric_heatmaps",
+    "plot_default_metric_heatmaps",
+    "DEFAULT_METRICS",
+]
