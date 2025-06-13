@@ -154,13 +154,12 @@ class PruningPipeline(BasePruningPipeline):
         return metrics or {}
 
     def record_metrics(self) -> Dict[str, Any]:
-        """Return a dictionary containing training and pruning statistics."""
+        """Return a dictionary containing all recorded metrics."""
         self.logger.info("Recording metrics")
-        return {
-            "initial": self.initial_stats,
-            "pruned": self.pruned_stats,
-            "training": self.metrics,
-        }
+        data = self.metrics_mgr.as_dict()
+        data["initial"] = self.initial_stats
+        data["pruned"] = self.pruned_stats
+        return data
 
     def save_metrics_csv(self, path: str | Path) -> Path:
         """Persist recorded metrics to ``path`` using :class:`MetricManager`."""
