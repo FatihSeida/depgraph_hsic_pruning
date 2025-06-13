@@ -238,6 +238,11 @@ reused by default, which skips the initial pretraining step. Disable this by
 setting ``reuse_baseline=False`` in ``TrainConfig`` if fresh baseline training
 is required.
 
+``DepgraphHSICMethod`` needs activations and labels obtained from a forward
+pass to compute pruning scores. When ``reuse_baseline=True`` the initial
+training can be skipped, but you should still run a training or evaluation step
+after ``AnalyzeModelStep`` so that activations are populated before pruning.
+
 Each run directory will contain a `pipeline.log` file capturing detailed
 training and pruning output for the selected ratio.
 
