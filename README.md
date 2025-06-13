@@ -23,6 +23,7 @@ Ultralytics' format with `train`, `val` and `nc` fields.
 
 ```python
 from pipeline import PruningPipeline
+from prune_methods import DepgraphHSICMethod
 from pipeline.step import (
     LoadModelStep,
     CalcStatsStep,
@@ -42,7 +43,12 @@ steps = [
     CalcStatsStep("pruned"),
 ]
 
-pipeline = PruningPipeline("yolov8n-seg.pt", data="biotech_model_train.yaml", steps=steps)
+pipeline = PruningPipeline(
+    "yolov8n-seg.pt",
+    data="biotech_model_train.yaml",
+    pruning_method=DepgraphHSICMethod(None),  # model assigned by LoadModelStep
+    steps=steps,
+)
 context = pipeline.run_pipeline()
 print(context.metrics)
 ```
@@ -212,6 +218,12 @@ Available values for `--methods`:
 * `isomorphic`
 * `hsic_lasso`
 * `whc`
+
+The `depgraph_hsic` option maps to the ``DepgraphHSICMethod`` class. It collects
+feature activations and labels during forward passes, calculates HSIC scores to
+measure channel dependence on the targets and ranks them using ``LassoLars``.
+Pruning is then applied through ``torch-pruning``'s ``DependencyGraph`` to keep
+tensor shapes consistent.
 
 Add `--resume` to continue interrupted runs.
 Add `--heatmap-only` to generate heatmap visualizations without line plots.
