@@ -5,7 +5,13 @@ from pathlib import Path
 
 from .base_pipeline import BasePruningPipeline
 from prune_methods.base import BasePruningMethod
-from helper import get_logger, Logger, MetricManager
+from helper import (
+    get_logger,
+    Logger,
+    MetricManager,
+    count_filters,
+    model_size_mb,
+)
 from .model_reconfig import AdaptiveLayerReconfiguration
 from .context import PipelineContext
 from .step import PipelineStep
@@ -69,11 +75,22 @@ class PruningPipeline(BasePruningPipeline):
         self.logger.info("Calculating initial statistics")
         params = get_num_params(self.model.model)
         flops = get_flops(self.model.model)
-        self.initial_stats = {"parameters": params, "flops": flops}
-        self.metrics_mgr.record_pruning({
-            "parameters": {"original": params},
-            "flops": {"original": flops},
-        })
+        filters = count_filters(self.model.model)
+        size_mb = model_size_mb(self.model.model)
+        self.initial_stats = {
+            "parameters": params,
+            "flops": flops,
+            "filters": filters,
+            "model_size_mb": size_mb,
+        }
+        self.metrics_mgr.record_pruning(
+            {
+                "parameters": {"original": params},
+                "flops": {"original": flops},
+                "filters": {"original": filters},
+                "model_size_mb": {"original": size_mb},
+            }
+        )
         return self.initial_stats
 
     def pretrain(self, *, device: str | int | list = 0, **train_kwargs: Any) -> Dict[str, Any]:
@@ -124,21 +141,50 @@ class PruningPipeline(BasePruningPipeline):
         self.logger.info("Calculating pruned statistics")
         params = get_num_params(self.model.model)
         flops = get_flops(self.model.model)
-        self.pruned_stats = {"parameters": params, "flops": flops}
+        filters = count_filters(self.model.model)
+        size_mb = model_size_mb(self.model.model)
+        self.pruned_stats = {
+            "parameters": params,
+            "flops": flops,
+            "filters": filters,
+            "model_size_mb": size_mb,
+        }
         orig_params = self.initial_stats.get("parameters", params)
         orig_flops = self.initial_stats.get("flops", flops)
-        self.metrics_mgr.record_pruning({
-            "parameters": {
-                "pruned": params,
-                "reduction": orig_params - params,
-                "reduction_percent": ((orig_params - params) / orig_params * 100) if orig_params else 0,
-            },
-            "flops": {
-                "pruned": flops,
-                "reduction": orig_flops - flops,
-                "reduction_percent": ((orig_flops - flops) / orig_flops * 100) if orig_flops else 0,
-            },
-        })
+        orig_filters = self.initial_stats.get("filters", filters)
+        orig_size = self.initial_stats.get("model_size_mb", size_mb)
+        self.metrics_mgr.record_pruning(
+            {
+                "parameters": {
+                    "pruned": params,
+                    "reduction": orig_params - params,
+                    "reduction_percent": ((orig_params - params) / orig_params * 100)
+                    if orig_params
+                    else 0,
+                },
+                "flops": {
+                    "pruned": flops,
+                    "reduction": orig_flops - flops,
+                    "reduction_percent": ((orig_flops - flops) / orig_flops * 100)
+                    if orig_flops
+                    else 0,
+                },
+                "filters": {
+                    "pruned": filters,
+                    "reduction": orig_filters - filters,
+                    "reduction_percent": ((orig_filters - filters) / orig_filters * 100)
+                    if orig_filters
+                    else 0,
+                },
+                "model_size_mb": {
+                    "pruned": size_mb,
+                    "reduction": orig_size - size_mb,
+                    "reduction_percent": ((orig_size - size_mb) / orig_size * 100)
+                    if orig_size
+                    else 0,
+                },
+            }
+        )
         return self.pruned_stats
 
     def finetune(self, *, device: str | int | list = 0, **train_kwargs: Any) -> Dict[str, Any]:

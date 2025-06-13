@@ -19,6 +19,7 @@ class MonitorComputationStep(PipelineStep):
         self.memory = MemoryMetric()
         self.power = PowerMetric()
         self._start_time = 0.0
+        self._start_ram_used_mb = 0.0
 
     def start(self) -> None:
         """Begin metric collection."""
@@ -27,7 +28,8 @@ class MonitorComputationStep(PipelineStep):
         self.memory.reset()
         self.power.reset()
         self.gpu.collect()
-        self.memory.collect()
+        mem = self.memory.collect()
+        self._start_ram_used_mb = mem.get("ram_used_mb", 0.0)
         self.power.collect()
 
     def stop(self, mgr: MetricManager) -> Dict[str, Any]:
@@ -35,6 +37,7 @@ class MonitorComputationStep(PipelineStep):
         elapsed = time.time() - self._start_time
         gpu_metrics = self.gpu.collect()
         mem_metrics = self.memory.collect()
+        avg_ram_used = (self._start_ram_used_mb + mem_metrics.get("ram_used_mb", 0.0)) / 2.0
         self.power.collect(interval=elapsed)
         gpu_summary = self.gpu.get_summary()
         mem_summary = self.memory.get_summary()
@@ -49,6 +52,7 @@ class MonitorComputationStep(PipelineStep):
             "ram_used_mb": mem_metrics.get("ram_used_mb", 0.0),
             "ram_total_mb": mem_metrics.get("ram_total_mb", 0.0),
             "ram_percent": mem_summary.get("avg_ram_percent", 0.0),
+            "avg_ram_used_mb": avg_ram_used,
             "power_usage_watts": power_summary.get("avg_power_watts", 0.0),
         }
         mgr.record_computation(metrics)
