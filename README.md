@@ -213,7 +213,10 @@ Each run directory will contain a `pipeline.log` file capturing detailed
 training and pruning output for the selected ratio.
 
 Use `--device` to select the training device (defaults to `cuda:0`).
-Use `--plot-metrics` to specify which metrics are visualized after the runs.
+The script automatically visualizes several metrics after all runs:
+`FLOPsReduction`, `FilterReduction`, `TotalRuntimeMinutes`, `Recall`,
+`mAP50_95`, `ParameterReduction`, `Precision`, `mAP`, `ModelSizeMB` and
+`AvgMemoryUsageMB`.
 
 ## Panduan Setup Lingkungan (Bahasa Indonesia)
 

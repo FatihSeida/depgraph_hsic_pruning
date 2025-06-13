@@ -30,6 +30,20 @@ METHODS_MAP = {
     "random": RandomPruningMethod,
 }
 
+# Default metrics visualized when no custom list is provided
+DEFAULT_PLOT_METRICS = [
+    "pruning.flops.reduction_percent",
+    "pruning.filters.reduction_percent",
+    "computation.total_time_minutes",
+    "training.recall",
+    "training.mAP50_95",
+    "pruning.parameters.reduction_percent",
+    "training.precision",
+    "training.mAP",
+    "pruning.model_size_mb.reduction_percent",
+    "computation.avg_ram_used_mb",
+]
+
 
 def safe_name(value: str) -> str:
     """Return a filesystem-friendly version of ``value``."""
@@ -144,7 +158,7 @@ class ExperimentRunner:
         self.resume = resume
         self.logger = logger or get_logger()
         self.manager = ExperimentManager(Path(model_path).stem, workdir)
-        self.metrics = metrics or ["training.mAP"]
+        self.metrics = metrics or DEFAULT_PLOT_METRICS
 
     def run(self) -> None:
         """Execute all pruning experiments."""
@@ -227,12 +241,6 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=[0.2, 0.4, 0.6, 0.8],
         help="Pruning ratios to evaluate",
-    )
-    parser.add_argument(
-        "--plot-metrics",
-        nargs="+",
-        default=["training.mAP"],
-        help="Metrics to visualize after runs",
     )
     parser.add_argument("--methods", nargs="+", default=list(METHODS_MAP.keys()), help="Pruning methods to evaluate")
     parser.add_argument("--runs-dir", default="experiments", help="Root directory for comparison runs")
@@ -376,7 +384,6 @@ def main() -> None:
         workdir=args.workdir,
         resume=args.resume,
         logger=logger,
-        metrics=args.plot_metrics,
     )
     runner.run()
 
