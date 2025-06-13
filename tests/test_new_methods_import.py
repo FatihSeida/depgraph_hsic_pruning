@@ -11,12 +11,31 @@ sys.modules.setdefault("matplotlib", types.ModuleType("matplotlib"))
 sys.modules.setdefault("matplotlib.pyplot", types.ModuleType("matplotlib.pyplot"))
 sys.modules.setdefault("pandas", types.ModuleType("pandas"))
 sys.modules.setdefault("torch_pruning", types.ModuleType("torch_pruning"))
+sys.modules.setdefault("sklearn", types.ModuleType("sklearn"))
+linear_model_stub = types.ModuleType("sklearn.linear_model")
+class LassoLars:  # pragma: no cover - placeholder
+    pass
+linear_model_stub.LassoLars = LassoLars
+sys.modules.setdefault("sklearn.linear_model", linear_model_stub)
 
 
 def test_new_methods_have_flag():
-    mod = __import__("prune_methods", fromlist=["DepgraphMethod", "TorchRandomMethod"])
+    mod = __import__(
+        "prune_methods",
+        fromlist=[
+            "L1NormMethod",
+            "RandomMethod",
+            "DepgraphMethod",
+            "TorchRandomMethod",
+            "DepgraphHSICMethod",
+        ],
+    )
+    assert hasattr(mod, "L1NormMethod")
+    assert hasattr(mod, "RandomMethod")
     DepGraph = mod.DepgraphMethod
     Simple = mod.TorchRandomMethod
+    HSIC = mod.DepgraphHSICMethod
     assert DepGraph.requires_reconfiguration is False
     assert Simple.requires_reconfiguration is False
+    assert HSIC.requires_reconfiguration is False
 
