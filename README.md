@@ -181,6 +181,17 @@ df = pd.DataFrame({
 plot_metric_heatmaps(df, ["FLOPsReduction"], "plots")
 ```
 
+Metrics recorded by experiment runs can also be visualised directly. Use
+``load_metrics_dataframe`` to read all ``metrics.csv`` files from a directory and
+then create heatmaps for common metrics:
+
+```python
+from helper import load_metrics_dataframe, plot_metric_heatmaps, DEFAULT_METRICS
+
+df = load_metrics_dataframe("runs/experiments")
+plot_metric_heatmaps(df, DEFAULT_METRICS, "plots")
+```
+
 
 ## Batch training script
 
