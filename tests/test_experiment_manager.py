@@ -79,3 +79,29 @@ def test_extract_metric_numpy_float(tmp_path):
     mgr = ExperimentManager("yolo", workdir=tmp_path)
     data = {"training": {"score": np.float32(0.75)}}
     assert mgr._extract_metric(data, "training.score") == 0.75
+
+
+def test_heatmap_created_for_nested_metrics(tmp_path):
+    # ensure real matplotlib and seaborn are available
+    for mod in ["matplotlib.pyplot", "matplotlib", "seaborn"]:
+        sys.modules.pop(mod, None)
+    import importlib
+    importlib.import_module("matplotlib.pyplot")
+    importlib.import_module("seaborn")
+
+    mgr = ExperimentManager("yolo", workdir=tmp_path)
+    metrics = {
+        "training": {"mAP": 0.2},
+        "pruning": {"parameters": {"reduction_percent": 50.0}},
+    }
+    mgr.add_result("m1", 0.5, metrics)
+
+    mgr.plot_heatmap("pruning.parameters.reduction_percent")
+
+    out = tmp_path / "pruning_parameters_reduction_percent_heatmap.png"
+    assert out.exists()
+
+    # cleanup to avoid interfering with other tests
+    for mod in list(sys.modules):
+        if mod.startswith("matplotlib") or mod.startswith("seaborn"):
+            sys.modules.pop(mod, None)
