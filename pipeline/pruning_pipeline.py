@@ -130,6 +130,8 @@ class PruningPipeline(BasePruningPipeline):
         """Reconfigure the model after pruning if necessary."""
         if self.pruning_method is None:
             raise NotImplementedError
+        if not getattr(self.pruning_method, "requires_reconfiguration", True):
+            return
         self.logger.info("Reconfiguring pruned model")
         if self.model is not None:
             self.reconfigurator.reconfigure_model(self.model)
