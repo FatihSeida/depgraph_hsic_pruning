@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 import torch
-import torch_pruning as tp
 
 from .base import BasePruningMethod
 
@@ -19,9 +18,11 @@ class DepGraphPruningMethod(BasePruningMethod):
         self.pruner: tp.pruner.algorithms.BasePruner | None = None
 
     def analyze_model(self) -> None:
+        import torch_pruning as tp  # local import to avoid heavy dependency at module load
         self.DG = tp.DependencyGraph().build_dependency(self.model, self.example_inputs)
 
     def generate_pruning_mask(self, ratio: float) -> None:
+        import torch_pruning as tp  # local import
         importance = tp.pruner.importance.MagnitudeImportance(p=2)
         self.pruner = tp.pruner.algorithms.BasePruner(
             self.model,

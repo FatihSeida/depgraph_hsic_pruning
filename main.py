@@ -24,6 +24,9 @@ from prune_methods import (
     RandomPruningMethod,
     DepGraphPruningMethod,
     TorchPruningRandomMethod,
+    IsomorphicPruningMethod,
+    HSICLassoPruningMethod,
+    WeightedHybridPruningMethod,
 )
 
 
@@ -32,6 +35,9 @@ METHODS_MAP = {
     "random": RandomPruningMethod,
     "depgraph": DepGraphPruningMethod,
     "tp_random": TorchPruningRandomMethod,
+    "isomorphic": IsomorphicPruningMethod,
+    "hsic_lasso": HSICLassoPruningMethod,
+    "whc": WeightedHybridPruningMethod,
 }
 
 # Default metrics visualized when no custom list is provided

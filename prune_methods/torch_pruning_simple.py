@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 import torch
-import torch_pruning as tp
 
 from .base import BasePruningMethod
 
@@ -19,9 +18,11 @@ class TorchPruningRandomMethod(BasePruningMethod):
         self.pruner: tp.pruner.algorithms.BasePruner | None = None
 
     def analyze_model(self) -> None:
+        import torch_pruning as tp
         tp.DependencyGraph().build_dependency(self.model, self.example_inputs)
 
     def generate_pruning_mask(self, ratio: float) -> None:
+        import torch_pruning as tp
         importance = tp.pruner.importance.RandomImportance()
         self.pruner = tp.pruner.algorithms.BasePruner(
             self.model,
