@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-"""Isomorphic pruning method based on dependency graphs."""
+"""Isomorphic pruning using dependency graphs.
+
+Filters are removed per layer based on the L1 norm of their weights while
+keeping tensor shapes valid through ``torch-pruning``'s dependency graph.
+"""
 
 from typing import Any
 
 import torch
-from torch import nn
 
 from .base import BasePruningMethod
 
@@ -23,17 +26,19 @@ class IsomorphicMethod(BasePruningMethod):
 
     def analyze_model(self) -> None:  # pragma: no cover - heavy dependency
         import torch_pruning as tp
-        tp.DependencyGraph().build_dependency(self.model, self.example_inputs)
+        self.DG = tp.DependencyGraph()
+        self.DG.build_dependency(self.model, self.example_inputs)
 
     def generate_pruning_mask(self, ratio: float) -> None:  # pragma: no cover - heavy dependency
         import torch_pruning as tp
-        importance = tp.importance.MagnitudeImportance(p=2)
+        importance = tp.importance.MagnitudeImportance(p=1)
         self.pruner = tp.MagnitudePruner(
             self.model,
             example_inputs=self.example_inputs,
             importance=importance,
-            global_pruning=True,
-            ch_sparsity=ratio,
+            DG=self.DG,
+            global_pruning=False,
+            pruning_ratio=ratio,
             round_to=self.round_to,
         )
 
