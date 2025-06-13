@@ -14,7 +14,12 @@ sys.modules['matplotlib'] = mpl
 sys.modules['matplotlib.pyplot'] = plt
 
 dummy = types.SimpleNamespace(model=object())
-dummy.train = lambda *a, **k: {'mAP': 0.1}
+dummy.train = lambda *a, **k: {
+    'metrics/precision': 0.1,
+    'metrics/recall': 0.2,
+    'metrics/mAP50': 0.3,
+    'metrics/mAP50-95': 0.4,
+}
 
 up = types.ModuleType('ultralytics')
 up.YOLO = lambda *a, **k: dummy
@@ -42,5 +47,8 @@ def test_metrics_csv_created(tmp_path):
     assert csv_path.exists()
     header = csv_path.read_text().splitlines()[0]
     assert 'training.mAP' in header
+    assert 'training.mAP50_95' in header
+    assert 'training.precision' in header
+    assert 'training.recall' in header
     assert 'pruning.parameters.original' in header
     assert 'pruning.model_size_mb.original' in header
