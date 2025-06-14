@@ -242,8 +242,9 @@ is required.
 pass to compute pruning scores. When ``reuse_baseline=True`` the initial
 training can be skipped, but you should still run a training or evaluation step
 after ``AnalyzeModelStep`` so that activations are populated before pruning.
-Each forward pass that collects activations must also provide labels via
-``DepgraphHSICMethod.add_labels``; otherwise ``generate_pruning_mask`` will
+When using :class:`~pipeline.step.train.TrainStep` labels are automatically
+recorded after each batch, otherwise remember to call
+``DepgraphHSICMethod.add_labels`` manually or ``generate_pruning_mask`` will
 raise an error.
 
 Each run directory will contain a `pipeline.log` file capturing detailed
