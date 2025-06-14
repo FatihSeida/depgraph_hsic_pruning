@@ -36,6 +36,8 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.layer_shapes: Dict[int, Tuple[int, int]] = {}
         self.labels: List[torch.Tensor] = []
         self.layers: List[nn.Conv2d] = []
+        self.adjacency: torch.Tensor | None = None
+        self.channel_groups: List[List[Tuple[int, int]]] = []
 
     # ------------------------------------------------------------------
     # Utility hooks
@@ -100,6 +102,70 @@ class DepgraphHSICMethod(BasePruningMethod):
         return torch.stack(scores)
 
     # ------------------------------------------------------------------
+    # Adjacency and grouping helpers
+    # ------------------------------------------------------------------
+    def _build_adjacency(self) -> None:
+        """Construct an adjacency matrix between convolution layers."""
+        if self.DG is None:
+            self.adjacency = None
+            return
+        n = len(self.layers)
+        adj = torch.zeros(n, n, dtype=torch.int8)
+        for group in self.DG.get_all_groups(root_module_types=(nn.Conv2d,)):
+            conv_ids: List[int] = []
+            for dep, _ in group:
+                mod = dep.target.module
+                if isinstance(mod, nn.Conv2d) and mod in self.layers:
+                    conv_ids.append(self.layers.index(mod))
+            for i in range(len(conv_ids)):
+                for j in range(i + 1, len(conv_ids)):
+                    adj[conv_ids[i], conv_ids[j]] = 1
+                    adj[conv_ids[j], conv_ids[i]] = 1
+        self.adjacency = adj
+
+    def _build_channel_groups(self) -> None:
+        """Group channels across layers via BFS on the adjacency matrix."""
+        if self.adjacency is None or self.DG is None:
+            self.channel_groups = []
+            return
+        import torch_pruning as tp
+        visited = set()
+        groups: List[List[Tuple[int, int]]] = []
+        for li, layer in enumerate(self.layers):
+            pruner = self.DG.get_pruner_of_module(layer)
+            if pruner is None or pruner.get_out_channels(layer) is None:
+                continue
+            out_ch = pruner.get_out_channels(layer)
+            for ci in range(out_ch):
+                if (li, ci) in visited:
+                    continue
+                queue = [(li, ci)]
+                current: List[Tuple[int, int]] = []
+                while queue:
+                    lidx, cidx = queue.pop(0)
+                    if (lidx, cidx) in visited:
+                        continue
+                    visited.add((lidx, cidx))
+                    current.append((lidx, cidx))
+                    conv = self.layers[lidx]
+                    try:
+                        grp = self.DG.get_pruning_group(
+                            conv, tp.prune_conv_out_channels, [cidx]
+                        )
+                    except ValueError:
+                        continue
+                    for dep, idxs in grp:
+                        mod = dep.target.module
+                        if isinstance(mod, nn.Conv2d) and mod in self.layers:
+                            ni = self.layers.index(mod)
+                            for ch in idxs:
+                                if (ni, ch) not in visited:
+                                    queue.append((ni, ch))
+                if current:
+                    groups.append(current)
+        self.channel_groups = groups
+
+    # ------------------------------------------------------------------
     # BasePruningMethod interface
     # ------------------------------------------------------------------
     def analyze_model(self) -> None:  # pragma: no cover - heavy dependency
@@ -108,6 +174,8 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.DG = tp.DependencyGraph()
         self.DG.build_dependency(self.model, self.example_inputs)
         self.register_hooks()
+        self._build_adjacency()
+        self._build_channel_groups()
 
     def generate_pruning_mask(self, ratio: float) -> None:
         if not self.activations or not self.labels:
@@ -141,12 +209,31 @@ class DepgraphHSICMethod(BasePruningMethod):
         lasso.fit(X, y_np)
         coef = torch.tensor(lasso.coef_)
         importance = coef.abs() * torch.stack(hsic_values)
-        num_prune = int(len(importance) * ratio)
-        prune_order = torch.argsort(importance)[:num_prune]
+        index_map = {(layer, ch): i for i, (layer, ch) in enumerate(group_info)}
+        group_scores: List[Tuple[float, List[Tuple[nn.Module, int]]]] = []
+        total_channels = len(importance)
+        for g in self.channel_groups:
+            idxs = []
+            chans: List[Tuple[nn.Module, int]] = []
+            for li, ci in g:
+                key = (self.layers[li], ci)
+                if key in index_map:
+                    idxs.append(index_map[key])
+                    chans.append(key)
+            if idxs:
+                score = importance[idxs].mean().item()
+                group_scores.append((score, chans))
+
+        group_scores.sort(key=lambda x: x[0])
+        target = int(total_channels * ratio)
+        removed = 0
         self.pruning_plan = {}
-        for idx in prune_order.tolist():
-            layer, ch = group_info[idx]
-            self.pruning_plan.setdefault(layer, []).append(ch)
+        for score, chans in group_scores:
+            if removed >= target:
+                break
+            for layer, ch in chans:
+                self.pruning_plan.setdefault(layer, []).append(ch)
+            removed += len(chans)
 
     def apply_pruning(self) -> None:  # pragma: no cover - heavy dependency
         if self.DG is None:
@@ -154,6 +241,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         import torch_pruning as tp
 
         for layer, idxs in self.pruning_plan.items():
-            self.DG.prune_layer(layer, idxs, dim=0)
+            unique = sorted(set(idxs))
+            self.DG.prune_layer(layer, unique, dim=0)
         tp.utils.remove_pruning_reparametrization(self.model)
         self.remove_hooks()
