@@ -88,7 +88,7 @@ pipeline = PruningPipeline(
     steps=steps,
 )
 ```
-
-Make sure to record labels for every forward pass using
+When the built-in ``TrainStep`` is used labels are captured automatically after
+each batch. If you train the model manually remember to call
 ``DepgraphHSICMethod.add_labels`` so that activations and targets stay aligned.
 
