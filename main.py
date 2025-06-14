@@ -160,8 +160,13 @@ def execute_pipeline(
                             labels = [float(line.split()[0]) for line in lf_f if line.strip()]
                         if labels:
                             y = torch.tensor(labels)
-                    pipeline.model.predict(source=str(img), device=config.device, batch=1)
-                    pipeline.pruning_method.add_labels(y)
+                        else:
+                            logger.warning("label file %s is empty", label_file)
+                    else:
+                        logger.warning("label file %s does not exist", label_file)
+                    if y.numel() > 0:
+                        pipeline.model.predict(source=str(img), device=config.device, batch=1)
+                        pipeline.pruning_method.add_labels(y)
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning("short forward pass failed: %s", exc)
     pipeline.calc_initial_stats()
