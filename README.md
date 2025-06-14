@@ -256,6 +256,27 @@ The script automatically visualizes several metrics after all runs:
 `mAP50_95`, `ParameterReduction`, `Precision`, `mAP`, `ModelSizeMB` and
 `AvgMemoryUsageMB`.
 
+## Running tests
+
+The test suite relies on additional packages not required for the pruning
+pipeline itself. Install the following libraries before executing `pytest`:
+
+* `torch`
+* `pandas`
+* `numpy`
+
+You can install them using `pip`:
+
+```bash
+pip install torch pandas numpy
+```
+
+Once the dependencies are available run the tests with:
+
+```bash
+pytest
+```
+
 ## Panduan Setup Lingkungan (Bahasa Indonesia)
 
 Apabila Anda menggunakan server bersama dan tidak dapat menginstal paket secara
