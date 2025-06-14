@@ -148,9 +148,12 @@ class DepgraphHSICMethod(BasePruningMethod):
                     visited.add((lidx, cidx))
                     current.append((lidx, cidx))
                     conv = self.layers[lidx]
-                    grp = self.DG.get_pruning_group(
-                        conv, tp.prune_conv_out_channels, [cidx]
-                    )
+                    try:
+                        grp = self.DG.get_pruning_group(
+                            conv, tp.prune_conv_out_channels, [cidx]
+                        )
+                    except ValueError:
+                        continue
                     for dep, idxs in grp:
                         mod = dep.target.module
                         if isinstance(mod, nn.Conv2d) and mod in self.layers:
