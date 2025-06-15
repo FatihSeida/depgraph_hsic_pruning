@@ -96,7 +96,12 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.debug("Total labels recorded: %d", len(self.labels))
 
     def reset_records(self) -> None:
-        """Clear stored activations and labels."""
+        """Clear all collected activation data and labels.
+
+        This removes cached activations, per-layer shapes, the activation
+        counters and any stored labels so a new round of recording can begin
+        without leftovers from previous passes.
+        """
         self.activations.clear()
         self.layer_shapes.clear()
         self.num_activations.clear()
