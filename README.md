@@ -19,9 +19,9 @@ be installed automatically.
 After installing the dependencies you can run the pruning pipeline as shown
 below. The example expects the dataset to be defined in a YAML file following
 Ultralytics' format with `train`, `val` and `nc` fields. When using
-`DepgraphHSICMethod` you must record labels for every forward pass and run a
-training or validation step before analyzing the model so activations and
-labels are available.
+`DepgraphHSICMethod` you must record labels for every forward pass. After
+running `AnalyzeModelStep` you need to execute a training or validation step so
+activations and labels are collected.
 
 ```python
 from pipeline import PruningPipeline
@@ -38,8 +38,8 @@ from pipeline.step import (
 steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
-    TrainStep("pretrain", epochs=1, plots=True),
     AnalyzeModelStep(),
+    TrainStep("pretrain", epochs=1, plots=True),
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     CalcStatsStep("pruned"),
@@ -128,8 +128,8 @@ from pipeline.step import (
 steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
-    TrainStep("pretrain", epochs=1, plots=True),
     AnalyzeModelStep(),
+    TrainStep("pretrain", epochs=1, plots=True),
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     ReconfigureModelStep(),
@@ -251,7 +251,7 @@ is required.
 ``DepgraphHSICMethod`` needs activations and labels obtained from a forward
 pass to compute pruning scores. When ``reuse_baseline=True`` the initial
 training can be skipped, but you should still run a training or evaluation step
-before ``AnalyzeModelStep`` so that activations and labels are populated for
+after ``AnalyzeModelStep`` so that activations and labels are populated for
 scoring. When using :class:`~pipeline.step.train.TrainStep` labels are
 automatically recorded after each batch. For custom loops this must be done
 manually or ``generate_pruning_mask`` will raise an error:
