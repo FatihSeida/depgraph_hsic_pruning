@@ -15,6 +15,8 @@ class CalcStatsStep(PipelineStep):
         self.dest = dest
 
     def run(self, context: PipelineContext) -> None:
+        step = self.__class__.__name__
+        context.logger.info("Starting %s", step)
         if context.model is None:
             raise ValueError("Model is not loaded")
         context.logger.info("Calculating %s statistics", self.dest)
@@ -76,5 +78,6 @@ class CalcStatsStep(PipelineStep):
                     },
                 }
             )
+        context.logger.info("Finished %s", step)
 
 __all__ = ["CalcStatsStep"]

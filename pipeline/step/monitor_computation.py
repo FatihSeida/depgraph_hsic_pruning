@@ -59,8 +59,11 @@ class MonitorComputationStep(PipelineStep):
         return metrics
 
     def run(self, context: PipelineContext) -> None:  # pragma: no cover - not used in tests
+        step = self.__class__.__name__
+        context.logger.info("Starting %s", step)
         metrics = self.stop(context.metrics_mgr)
         context.metrics.setdefault("computation", {})[self.phase] = metrics
+        context.logger.info("Finished %s", step)
 
 
 __all__ = ["MonitorComputationStep"]

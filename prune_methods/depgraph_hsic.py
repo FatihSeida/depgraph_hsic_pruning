@@ -173,6 +173,7 @@ class DepgraphHSICMethod(BasePruningMethod):
     # BasePruningMethod interface
     # ------------------------------------------------------------------
     def analyze_model(self) -> None:  # pragma: no cover - heavy dependency
+        self.logger.info("Analyzing model")
         import torch_pruning as tp
 
         self.DG = tp.DependencyGraph()
@@ -182,6 +183,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         self._build_channel_groups()
 
     def generate_pruning_mask(self, ratio: float) -> None:
+        self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if not self.activations or not self.labels:
             raise RuntimeError("No activations/labels collected. Run a forward pass first.")
         features = {}
@@ -240,6 +242,7 @@ class DepgraphHSICMethod(BasePruningMethod):
             removed += len(chans)
 
     def apply_pruning(self) -> None:  # pragma: no cover - heavy dependency
+        self.logger.info("Applying pruning")
         if self.DG is None:
             raise RuntimeError("analyze_model must be called first")
         import torch_pruning as tp
