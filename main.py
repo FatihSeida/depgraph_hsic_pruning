@@ -38,8 +38,8 @@ METHODS_MAP = {
     "tp_random": TorchRandomMethod,
     "isomorphic": IsomorphicMethod,
     "hsic_lasso": HSICLassoMethod,
-    "depgraph_hsic": DepgraphHSICMethod,
     "whc": WeightedHybridMethod,
+    "depgraph_hsic": DepgraphHSICMethod,
 }
 
 # Default metrics visualized when no custom list is provided
