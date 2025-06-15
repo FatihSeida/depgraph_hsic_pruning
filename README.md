@@ -267,6 +267,8 @@ for images, labels in dataloader:
 
 Each run directory will contain a `pipeline.log` file capturing detailed
 training and pruning output for the selected ratio.
+Enabling `--debug` will log a message whenever batch labels are recorded,
+including their shape.
 
 Use `--device` to select the training device (defaults to `cuda:0`).
 The script automatically visualizes several metrics after all runs:

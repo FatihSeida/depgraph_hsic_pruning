@@ -34,6 +34,9 @@ class TrainStep(PipelineStep):
             def record_labels(trainer) -> None:  # pragma: no cover - heavy dependency
                 batch = getattr(trainer, "batch", None)
                 if isinstance(batch, dict) and "cls" in batch:
+                    context.logger.debug(
+                        "Adding labels for batch with shape %s", tuple(batch["cls"].shape)
+                    )
                     context.pruning_method.add_labels(batch["cls"])
 
             try:
