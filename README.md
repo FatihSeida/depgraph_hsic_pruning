@@ -254,7 +254,9 @@ training can be skipped, but you should still run a training or evaluation step
 before ``AnalyzeModelStep`` so that activations and labels are populated for
 scoring. When using :class:`~pipeline.step.train.TrainStep` labels are
 automatically recorded after each batch. For custom loops this must be done
-manually or ``generate_pruning_mask`` will raise an error:
+manually. Call ``DepgraphHSICMethod.add_labels()`` immediately after
+``model(images)`` for every batch and before any new forward pass occurs;
+otherwise ``generate_pruning_mask`` will raise a mismatch error:
 
 ```python
 for images, labels in dataloader:
