@@ -294,6 +294,9 @@ steps = [
 ``DepgraphHSICMethod`` will call ``label_fn`` for each batch before adding
 labels internally.
 
+Calling ``analyze_model()`` clears any previously stored activations and
+labels so that subsequent training phases start with a clean slate.
+
 Automatic recording for training pipelines is implemented in
 ``pipeline/step/train.py`` where :class:`~pipeline.step.train.TrainStep` adds a
 callback on ``on_train_batch_end`` to store ``batch["cls"]`` after each forward

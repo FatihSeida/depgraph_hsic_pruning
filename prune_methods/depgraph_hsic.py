@@ -95,6 +95,13 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.debug("Recorded label with shape %s", tuple(processed.shape))
         self.logger.debug("Total labels recorded: %d", len(self.labels))
 
+    def reset_records(self) -> None:
+        """Clear stored activations and labels."""
+        self.activations.clear()
+        self.layer_shapes.clear()
+        self.num_activations.clear()
+        self.labels.clear()
+
     # ------------------------------------------------------------------
     # HSIC helpers
     # ------------------------------------------------------------------
@@ -203,6 +210,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.register_hooks()
         self._build_adjacency()
         self._build_channel_groups()
+        self.reset_records()
 
     def generate_pruning_mask(self, ratio: float) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
