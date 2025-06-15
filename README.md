@@ -269,12 +269,12 @@ for images, labels in dataloader:
 ``DepgraphHSICMethod`` expects labels to correspond one-to-one with each
 forward pass. YOLO detection batches supply one label per object, so passing
 ``batch["cls"]`` directly will produce a mismatch error. Aggregate them
-before calling ``add_labels``—for example by computing a single class index for
-each image:
+before calling ``add_labels`` by computing a representative class for each
+image. The helper below chooses the most frequent class (majority vote):
 
 ```python
-cls = batch["cls"].view(batch["img"].shape[0], -1)
-image_labels = cls[:, 0]
+cls = batch["cls"].view(batch["img"].shape[0], -1).long()
+image_labels = cls.mode(dim=1).values
 pruning_method.add_labels(image_labels)
 ```
 
@@ -283,8 +283,8 @@ The same aggregation can be automated when using
 
 ```python
 def aggregate_labels(batch):
-    cls = batch["cls"].view(batch["img"].shape[0], -1)
-    return cls[:, 0]
+    cls = batch["cls"].view(batch["img"].shape[0], -1).long()
+    return cls.mode(dim=1).values
 
 steps = [
     TrainStep("pretrain", label_fn=aggregate_labels, epochs=1),

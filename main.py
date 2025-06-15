@@ -32,15 +32,42 @@ from prune_methods import (
 
 
 def aggregate_labels(batch):
-    """Return one label per image, falling back to ``batch['cls']``."""
+    """Return a representative label for each image.
+
+    Detection batches often provide one label per object. When the number of
+    labels differs from the batch size this function collapses them to a single
+    label per image using a majority vote. ``batch['batch_idx']`` is used to map
+    objects to images when available.
+    """
+
     cls = batch.get("cls")
     img = batch.get("img")
+    batch_idx = batch.get("batch_idx")
+
     try:
         import torch
         if torch.is_tensor(cls) and torch.is_tensor(img) and len(cls) != img.shape[0]:
-            cls = cls.view(img.shape[0], -1)[:, 0]
+            cls = cls.view(-1).long()
+            bs = img.shape[0]
+            result = []
+
+            if torch.is_tensor(batch_idx) and len(batch_idx) == len(cls):
+                batch_idx = batch_idx.view(-1)
+                for i in range(bs):
+                    labels_i = cls[batch_idx == i]
+                    if labels_i.numel() == 0:
+                        continue
+                    result.append(labels_i.mode().values.item())
+            else:
+                cls = cls.view(bs, -1)
+                for labels_i in cls:
+                    result.append(labels_i.mode().values.item())
+
+            if result:
+                cls = torch.tensor(result, dtype=cls.dtype, device=cls.device)
     except Exception:
         pass
+
     return cls
 
 
