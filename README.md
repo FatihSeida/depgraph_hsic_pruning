@@ -1,8 +1,7 @@
 # depgraph_hsic_pruning
 
-This repository contains utilities based on the Ultralytics YOLO stack. A pruning
-pipeline is provided for orchestrating model preparation, pruning and
-fine-tuning.
+This repository contains utilities based on the Ultralytics YOLO stack.
+A pruning pipeline is provided for orchestrating model preparation, pruning and fine-tuning.
 
 ## Installation
 
