@@ -36,6 +36,17 @@ class TrainStep(PipelineStep):
                 batch = getattr(trainer, "batch", None)
                 if isinstance(batch, dict) and "cls" in batch:
                     labels = self.label_fn(batch)
+                    try:
+                        import torch  # local import to avoid hard dependency at module import
+                        if torch.is_tensor(labels) and len(labels) != batch["img"].shape[0]:
+                            context.logger.warning(
+                                "label_fn returned %d labels for batch size %d; "
+                                "labels are likely object-level and may cause activation/label mismatches",
+                                len(labels),
+                                batch["img"].shape[0],
+                            )
+                    except Exception:  # pragma: no cover - if torch missing or labels malformed
+                        pass
                     context.logger.debug(
                         "Adding labels for batch with shape %s", tuple(labels.shape)
                     )
