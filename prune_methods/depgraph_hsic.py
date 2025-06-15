@@ -47,12 +47,16 @@ class DepgraphHSICMethod(BasePruningMethod):
             target_shape = self.layer_shapes.get(idx)
             if target_shape is None:
                 self.layer_shapes[idx] = output.shape[2:]
-                processed = output.detach()
+                processed = output.detach().cpu()
             else:
                 if output.shape[2:] != target_shape:
-                    processed = torch.nn.functional.adaptive_avg_pool2d(output, target_shape).detach()
+                    processed = (
+                        torch.nn.functional.adaptive_avg_pool2d(output, target_shape)
+                        .detach()
+                        .cpu()
+                    )
                 else:
-                    processed = output.detach()
+                    processed = output.detach().cpu()
             self.activations.setdefault(idx, []).append(processed)
         return hook
 
@@ -74,7 +78,7 @@ class DepgraphHSICMethod(BasePruningMethod):
 
     def add_labels(self, y: torch.Tensor) -> None:
         """Store labels observed during a forward pass."""
-        self.labels.append(y.detach())
+        self.labels.append(y.detach().cpu())
 
     # ------------------------------------------------------------------
     # HSIC helpers
