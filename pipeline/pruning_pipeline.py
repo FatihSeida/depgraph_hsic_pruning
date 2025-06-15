@@ -94,12 +94,44 @@ class PruningPipeline(BasePruningPipeline):
         )
         return self.initial_stats
 
-    def pretrain(self, *, device: str | int | list = 0, **train_kwargs: Any) -> Dict[str, Any]:
+    def _register_label_callback(self, label_fn) -> None:
+        """Attach a callback to record labels for ``DepgraphHSICMethod``."""
+        if getattr(self.pruning_method, "__class__", None).__name__ != "DepgraphHSICMethod":
+            return
+
+        def record_labels(trainer) -> None:  # pragma: no cover - heavy dependency
+            batch = getattr(trainer, "batch", None)
+            if isinstance(batch, dict) and "cls" in batch:
+                labels = label_fn(batch)
+                try:
+                    import torch  # local import to avoid hard dependency at module import
+                    if torch.is_tensor(labels) and len(labels) != batch["img"].shape[0]:
+                        self.logger.warning(
+                            "label_fn returned %d labels for batch size %d; labels are likely object-level and may cause activation/label mismatches",
+                            len(labels),
+                            batch["img"].shape[0],
+                        )
+                except Exception:  # pragma: no cover - labels malformed or torch missing
+                    pass
+                self.logger.debug("Adding labels for batch with shape %s", tuple(getattr(labels, "shape", [])))
+                self.pruning_method.add_labels(labels)
+
+        try:
+            existing = getattr(self.model, "callbacks", {}).get("on_train_batch_end", [])
+            if record_labels not in existing:
+                self.model.add_callback("on_train_batch_end", record_labels)
+        except AttributeError:  # pragma: no cover - fallback for stubs
+            pass
+
+    def pretrain(self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any) -> Dict[str, Any]:
         """Optional pretraining step to run before pruning."""
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Pretraining model")
         train_kwargs.setdefault("plots", True)
+        if label_fn is None:
+            label_fn = lambda batch: batch["cls"]
+        self._register_label_callback(label_fn)
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
@@ -191,12 +223,15 @@ class PruningPipeline(BasePruningPipeline):
         log_stats_comparison(self.initial_stats, self.pruned_stats, self.logger)
         return self.pruned_stats
 
-    def finetune(self, *, device: str | int | list = 0, **train_kwargs: Any) -> Dict[str, Any]:
+    def finetune(self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any) -> Dict[str, Any]:
         """Finetune the pruned model."""
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Finetuning pruned model")
         train_kwargs.setdefault("plots", True)
+        if label_fn is None:
+            label_fn = lambda batch: batch["cls"]
+        self._register_label_callback(label_fn)
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})

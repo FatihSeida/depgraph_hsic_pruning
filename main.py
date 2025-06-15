@@ -31,6 +31,19 @@ from prune_methods import (
 )
 
 
+def aggregate_labels(batch):
+    """Return one label per image, falling back to ``batch['cls']``."""
+    cls = batch.get("cls")
+    img = batch.get("img")
+    try:
+        import torch
+        if torch.is_tensor(cls) and torch.is_tensor(img) and len(cls) != img.shape[0]:
+            cls = cls.view(img.shape[0], -1)[:, 0]
+    except Exception:
+        pass
+    return cls
+
+
 METHODS_MAP = {
     "l1": L1NormMethod,
     "random": RandomMethod,
@@ -159,7 +172,7 @@ def execute_pipeline(
                         with lf.open() as lf_f:
                             labels = [float(line.split()[0]) for line in lf_f if line.strip()]
                         if labels:
-                            y = torch.tensor(labels)
+                            y = torch.tensor([labels[0]])
                         else:
                             logger.warning("label file %s is empty", label_file)
                     else:
@@ -182,6 +195,7 @@ def execute_pipeline(
             name=phase,
             resume=pretrain_resume,
             device=config.device,
+            label_fn=aggregate_labels if isinstance(pipeline.pruning_method, DepgraphHSICMethod) else None,
         )
         mgr = getattr(pipeline, "metrics_mgr", None)
         if mgr is None:
@@ -203,6 +217,7 @@ def execute_pipeline(
             name="finetune",
             resume=finetune_resume,
             device=config.device,
+            label_fn=aggregate_labels,
         )
         mgr = getattr(pipeline, "metrics_mgr", None)
         if mgr is None:
