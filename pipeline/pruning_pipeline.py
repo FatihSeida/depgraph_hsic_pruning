@@ -39,6 +39,7 @@ class PruningPipeline(BasePruningPipeline):
         self.metrics_csv: Path | None = None
         self.reconfigurator = AdaptiveLayerReconfiguration(logger=self.logger)
         self.steps: List[PipelineStep] = list(steps or [])
+        self._label_callback = None
 
     # ------------------------------------------------------------------
     # Step-based execution
@@ -99,29 +100,44 @@ class PruningPipeline(BasePruningPipeline):
         if getattr(self.pruning_method, "__class__", None).__name__ != "DepgraphHSICMethod":
             return
 
-        def record_labels(trainer) -> None:  # pragma: no cover - heavy dependency
-            batch = getattr(trainer, "batch", None)
-            if isinstance(batch, dict) and "cls" in batch:
-                labels = label_fn(batch)
-                try:
-                    import torch  # local import to avoid hard dependency at module import
-                    if torch.is_tensor(labels) and len(labels) != batch["img"].shape[0]:
-                        self.logger.warning(
-                            "label_fn returned %d labels for batch size %d; labels are likely object-level and may cause activation/label mismatches",
-                            len(labels),
-                            batch["img"].shape[0],
-                        )
-                except Exception:  # pragma: no cover - labels malformed or torch missing
-                    pass
-                self.logger.debug("Adding labels for batch with shape %s", tuple(getattr(labels, "shape", [])))
-                self.pruning_method.add_labels(labels)
+        if self._label_callback is None:
+            def record_labels(trainer) -> None:  # pragma: no cover - heavy dependency
+                batch = getattr(trainer, "batch", None)
+                if isinstance(batch, dict) and "cls" in batch:
+                    labels = label_fn(batch)
+                    try:
+                        import torch  # local import to avoid hard dependency at module import
+                        if torch.is_tensor(labels) and len(labels) != batch["img"].shape[0]:
+                            self.logger.warning(
+                                "label_fn returned %d labels for batch size %d; labels are likely object-level and may cause activation/label mismatches",
+                                len(labels),
+                                batch["img"].shape[0],
+                            )
+                    except Exception:  # pragma: no cover - labels malformed or torch missing
+                        pass
+                    self.logger.debug(
+                        "Adding labels for batch with shape %s", tuple(getattr(labels, "shape", []))
+                    )
+                    self.pruning_method.add_labels(labels)
+
+            self._label_callback = record_labels
 
         try:
             existing = getattr(self.model, "callbacks", {}).get("on_train_batch_end", [])
-            if record_labels not in existing:
-                self.model.add_callback("on_train_batch_end", record_labels)
+            if self._label_callback not in existing:
+                self.model.add_callback("on_train_batch_end", self._label_callback)
         except AttributeError:  # pragma: no cover - fallback for stubs
             pass
+
+    def _unregister_label_callback(self) -> None:
+        """Remove the label recording callback if present."""
+        try:
+            callbacks = getattr(self.model, "callbacks", {}).get("on_train_batch_end", [])
+            if self._label_callback in callbacks:
+                callbacks.remove(self._label_callback)
+        except Exception:  # pragma: no cover - ignore errors
+            pass
+        self._label_callback = None
 
     def pretrain(self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any) -> Dict[str, Any]:
         """Optional pretraining step to run before pruning."""
@@ -132,7 +148,10 @@ class PruningPipeline(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
-        metrics = self.model.train(data=self.data, device=device, **train_kwargs)
+        try:
+            metrics = self.model.train(data=self.data, device=device, **train_kwargs)
+        finally:
+            self._unregister_label_callback()
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics
@@ -232,7 +251,10 @@ class PruningPipeline(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
-        metrics = self.model.train(data=self.data, device=device, **train_kwargs)
+        try:
+            metrics = self.model.train(data=self.data, device=device, **train_kwargs)
+        finally:
+            self._unregister_label_callback()
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics
