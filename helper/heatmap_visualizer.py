@@ -28,10 +28,11 @@ def plot_metric_heatmaps(df: pd.DataFrame, metrics: List[str], output_dir: str) 
         Directory where the PNG files will be written.
     """
     try:
+        import matplotlib.artist  # type: ignore  # ensure lazy modules are loaded
         import matplotlib.pyplot as plt  # type: ignore
         import seaborn as sns  # type: ignore
-    except ImportError:
-        # silently ignore if visualization libs are missing
+    except Exception:
+        # silently ignore if visualization libs are missing or misconfigured
         return
 
     out_path = Path(output_dir)
