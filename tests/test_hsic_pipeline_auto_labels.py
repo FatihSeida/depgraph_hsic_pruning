@@ -91,10 +91,8 @@ steps = [
     GenerateMasksStep(ratio=0.5),
 ]
 
-for i, step in enumerate(steps):
+for step in steps:
     step.run(ctx)
-    if i == 0:
-        ctx.pruning_method.model = ctx.model.model
 print('ok')
 """.format(tmp=tmp_path)
     proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
