@@ -9,7 +9,7 @@ from .heatmap_visualizer import (
     DEFAULT_METRICS,
 )
 from .metrics_loader import load_metrics_dataframe
-from .model_stats import count_filters, model_size_mb
+from .model_stats import count_filters, model_size_mb, log_stats_comparison
 
 __all__ = [
     "Logger",
@@ -23,4 +23,5 @@ __all__ = [
     "load_metrics_dataframe",
     "count_filters",
     "model_size_mb",
+    "log_stats_comparison",
 ]

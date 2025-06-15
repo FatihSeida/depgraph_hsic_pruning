@@ -37,4 +37,43 @@ def model_size_mb(model: Any) -> float:
     return size_bytes / (1024 * 1024)
 
 
-__all__ = ["count_filters", "model_size_mb"]
+
+def log_stats_comparison(initial: dict, pruned: dict, logger: Any) -> None:
+    """Log a table comparing ``initial`` and ``pruned`` model statistics.
+
+    Parameters
+    ----------
+    initial : dict
+        Statistics before pruning.
+    pruned : dict
+        Statistics after pruning.
+    logger : Any
+        Logger instance providing an ``info`` method.
+    """
+
+    headers = ["metric", "initial", "pruned", "reduction", "%"]
+    rows = [headers]
+    metrics = ["parameters", "flops", "filters", "model_size_mb"]
+
+    def fmt(val: float | int) -> str:
+        if isinstance(val, float) and not val.is_integer():
+            return f"{val:.2f}"
+        return f"{int(val):,}"
+
+    for key in metrics:
+        orig = float(initial.get(key, 0))
+        new = float(pruned.get(key, 0))
+        red = orig - new
+        pct = (red / orig * 100) if orig else 0.0
+        rows.append([key, fmt(orig), fmt(new), fmt(red), f"{pct:.1f}%"])
+
+    widths = [max(len(str(row[i])) for row in rows) for i in range(len(headers))]
+    lines = [
+        " " .join(str(row[i]).ljust(widths[i]) for i in range(len(headers)))
+        for row in rows
+    ]
+    table = "\n".join(lines)
+    logger.info("\n%s", table)
+
+
+__all__ = ["count_filters", "model_size_mb", "log_stats_comparison"]

@@ -149,6 +149,17 @@ context = pipeline.run_pipeline()
 print(pipeline.record_metrics())
 ```
 
+Example log output:
+
+```
+INFO - Calculating pruned statistics
+metric         initial  pruned  reduction  %
+parameters     27000    18000   9000       33.3%
+flops          100.0    70.0    30.0       30.0%
+filters        100      80      20         20.0%
+model_size_mb  4.5      3.0     1.5       33.3%
+```
+
 The YAML file describing the dataset should have at least the following keys:
 
 ```yaml
