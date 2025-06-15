@@ -23,7 +23,11 @@ class TrainStep(PipelineStep):
         context.logger.info("Training model (%s)", self.phase)
         self.train_kwargs.setdefault("plots", True)
 
-        # Automatically record labels when using DepgraphHSICMethod
+        # Automatically record labels after each forward pass when using
+        # ``DepgraphHSICMethod``. ``on_train_batch_end`` runs once per batch
+        # after the model has produced outputs, ensuring activations and labels
+        # stay aligned.  Avoid registering duplicate callbacks across multiple
+        # training phases.
         if getattr(context, "pruning_method", None).__class__.__name__ == "DepgraphHSICMethod":
             def record_labels(trainer) -> None:  # pragma: no cover - heavy dependency
                 batch = getattr(trainer, "batch", None)
@@ -31,7 +35,9 @@ class TrainStep(PipelineStep):
                     context.pruning_method.add_labels(batch["cls"])
 
             try:
-                context.model.add_callback("on_train_batch_end", record_labels)
+                existing = getattr(context.model, "callbacks", {}).get("on_train_batch_end", [])
+                if record_labels not in existing:
+                    context.model.add_callback("on_train_batch_end", record_labels)
             except AttributeError:  # pragma: no cover - fallback for stubs
                 pass
 
