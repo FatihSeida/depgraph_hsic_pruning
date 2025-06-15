@@ -8,6 +8,7 @@ import torch
 from torch import nn
 
 from .base import BasePruningMethod
+from .utils import collect_backbone_convs
 
 
 class L1NormMethod(BasePruningMethod):
@@ -21,15 +22,7 @@ class L1NormMethod(BasePruningMethod):
     def analyze_model(self) -> None:
         """Collect convolution layers from the first 10 backbone modules."""
         self.logger.info("Analyzing model")
-        backbone = list(self.model.model[:10])
-        for module in backbone:
-            for name, m in module.named_modules():
-                if isinstance(m, nn.Conv2d):
-                    parent = module.get_submodule(".".join(name.split(".")[:-1])) if "." in name else module
-                    bn = getattr(parent, "bn", None)
-                    if not isinstance(bn, nn.BatchNorm2d):
-                        bn = None
-                    self.layers.append((parent, name.split(".")[-1], bn))
+        self.layers = collect_backbone_convs(self.model)
 
     def generate_pruning_mask(self, ratio: float) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
