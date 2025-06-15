@@ -277,6 +277,23 @@ image_labels = cls[:, 0]
 pruning_method.add_labels(image_labels)
 ```
 
+The same aggregation can be automated when using
+``TrainStep`` by providing a ``label_fn``:
+
+```python
+def aggregate_labels(batch):
+    cls = batch["cls"].view(batch["img"].shape[0], -1)
+    return cls[:, 0]
+
+steps = [
+    TrainStep("pretrain", label_fn=aggregate_labels, epochs=1),
+    ...
+]
+```
+
+``DepgraphHSICMethod`` will call ``label_fn`` for each batch before adding
+labels internally.
+
 Automatic recording for training pipelines is implemented in
 ``pipeline/step/train.py`` where :class:`~pipeline.step.train.TrainStep` adds a
 callback on ``on_train_batch_end`` to store ``batch["cls"]`` after each forward
