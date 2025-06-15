@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from ..context import PipelineContext
 from . import PipelineStep
@@ -13,8 +13,9 @@ class TrainStep(PipelineStep):
     default plotting is enabled unless ``plots=False`` is specified.
     """
 
-    def __init__(self, phase: str, **train_kwargs: Any) -> None:
+    def __init__(self, phase: str, label_fn: Callable[[dict], Any] | None = None, **train_kwargs: Any) -> None:
         self.phase = phase
+        self.label_fn = label_fn or (lambda batch: batch["cls"])
         self.train_kwargs = train_kwargs
 
     def run(self, context: PipelineContext) -> None:
@@ -34,10 +35,11 @@ class TrainStep(PipelineStep):
             def record_labels(trainer) -> None:  # pragma: no cover - heavy dependency
                 batch = getattr(trainer, "batch", None)
                 if isinstance(batch, dict) and "cls" in batch:
+                    labels = self.label_fn(batch)
                     context.logger.debug(
-                        "Adding labels for batch with shape %s", tuple(batch["cls"].shape)
+                        "Adding labels for batch with shape %s", tuple(labels.shape)
                     )
-                    context.pruning_method.add_labels(batch["cls"])
+                    context.pruning_method.add_labels(labels)
 
             try:
                 existing = getattr(context.model, "callbacks", {}).get("on_train_batch_end", [])
