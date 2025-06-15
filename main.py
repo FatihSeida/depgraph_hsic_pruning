@@ -144,7 +144,7 @@ def execute_pipeline(
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
         pipeline.analyze_structure()
         if (
-            isinstance(pipeline.pruning_method, DepgraphHSICMethod)
+            isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
             and config.reuse_baseline
             and config.baseline_epochs == 0
         ):
@@ -195,7 +195,11 @@ def execute_pipeline(
             name=phase,
             resume=pretrain_resume,
             device=config.device,
-            label_fn=aggregate_labels if isinstance(pipeline.pruning_method, DepgraphHSICMethod) else None,
+            label_fn=(
+                aggregate_labels
+                if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
+                else None
+            ),
         )
         mgr = getattr(pipeline, "metrics_mgr", None)
         if mgr is None:
@@ -217,7 +221,11 @@ def execute_pipeline(
             name="finetune",
             resume=finetune_resume,
             device=config.device,
-            label_fn=aggregate_labels,
+            label_fn=(
+                aggregate_labels
+                if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
+                else None
+            ),
         )
         mgr = getattr(pipeline, "metrics_mgr", None)
         if mgr is None:
