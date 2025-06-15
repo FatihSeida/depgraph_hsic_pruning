@@ -1,3 +1,7 @@
 pandas
 numpy
 torch
+scikit-learn
+matplotlib
+seaborn
+torch-pruning
