@@ -315,10 +315,7 @@ The script automatically visualizes several metrics after all runs:
 
 ## Running tests
 
-The test suite relies on additional packages not included in the pruning
-pipeline requirements. **Install `pandas`, `numpy`, and `torch` before running
-`pytest`.** You can install them directly or use the provided convenience file
-`requirements-test.txt`:
+The test suite relies on additional packages not included in the pruning pipeline requirements. These include `pandas`, `numpy`, `torch`, `scikit-learn`, `matplotlib`, `seaborn`, and `torch-pruning`. Install them using the provided `requirements-test.txt` file:
 
 ```bash
 pip install -r requirements-test.txt
@@ -327,7 +324,7 @@ pip install -r requirements-test.txt
 Alternatively install them manually:
 
 ```bash
-pip install torch pandas numpy
+pip install torch pandas numpy scikit-learn matplotlib seaborn torch-pruning
 ```
 
 Once the dependencies are available, run the tests with:
