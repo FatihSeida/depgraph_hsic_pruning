@@ -265,20 +265,22 @@ The script automatically visualizes several metrics after all runs:
 
 ## Running tests
 
-The test suite relies on additional packages not required for the pruning
-pipeline itself. Install the following libraries before executing `pytest`:
+The test suite relies on additional packages not included in the pruning
+pipeline requirements. **Install `pandas`, `numpy`, and `torch` before running
+`pytest`.** You can install them directly or use the provided convenience file
+`requirements-test.txt`:
 
-* `torch`
-* `pandas`
-* `numpy`
+```bash
+pip install -r requirements-test.txt
+```
 
-You can install them using `pip`:
+Alternatively install them manually:
 
 ```bash
 pip install torch pandas numpy
 ```
 
-Once the dependencies are available run the tests with:
+Once the dependencies are available, run the tests with:
 
 ```bash
 pytest
