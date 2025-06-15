@@ -96,7 +96,12 @@ class PruningPipeline(BasePruningPipeline):
 
     def _register_label_callback(self, label_fn) -> None:
         """Attach a callback to record labels for ``DepgraphHSICMethod``."""
-        if getattr(self.pruning_method, "__class__", None).__name__ != "DepgraphHSICMethod":
+        try:
+            from prune_methods.depgraph_hsic import DepgraphHSICMethod  # local import to avoid heavy dependency at module import
+        except Exception:  # pragma: no cover - dependency missing
+            DepgraphHSICMethod = None
+
+        if DepgraphHSICMethod is None or not isinstance(self.pruning_method, DepgraphHSICMethod):
             return
 
         def record_labels(trainer) -> None:  # pragma: no cover - heavy dependency

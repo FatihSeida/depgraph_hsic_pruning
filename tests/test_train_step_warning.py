@@ -26,9 +26,14 @@ def test_train_step_logs_warning_for_object_labels(monkeypatch, caplog):
 
     ctx = PipelineContext(model_path="m", data="d")
 
+    depgraph_mod = types.ModuleType("prune_methods.depgraph_hsic")
+
     class DepgraphHSICMethod:
         def add_labels(self, labels):
             self.last = labels
+
+    depgraph_mod.DepgraphHSICMethod = DepgraphHSICMethod
+    monkeypatch.setitem(sys.modules, "prune_methods.depgraph_hsic", depgraph_mod)
 
     ctx.pruning_method = DepgraphHSICMethod()
 
