@@ -22,6 +22,7 @@ class HSICLassoMethod(BasePruningMethod):
 
     def analyze_model(self) -> None:
         """Collect convolution layers from the first 10 backbone modules."""
+        self.logger.info("Analyzing model")
         backbone = list(self.model.model[:10])
         for module in backbone:
             for name, m in module.named_modules():
@@ -60,6 +61,7 @@ class HSICLassoMethod(BasePruningMethod):
         return torch.tensor(scores)
 
     def generate_pruning_mask(self, ratio: float) -> None:
+        self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         self.ratio = ratio
         self.masks = []
         for idx, (parent, attr, _) in enumerate(self.layers):
@@ -76,6 +78,7 @@ class HSICLassoMethod(BasePruningMethod):
             self.masks.append(mask)
 
     def apply_pruning(self) -> None:
+        self.logger.info("Applying pruning")
         for (parent, attr, bn), mask in zip(self.layers, self.masks):
             conv = getattr(parent, attr)
             keep_idx = mask.nonzero(as_tuple=False).squeeze(1)

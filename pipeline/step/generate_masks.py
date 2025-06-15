@@ -11,9 +11,12 @@ class GenerateMasksStep(PipelineStep):
         self.ratio = ratio
 
     def run(self, context: PipelineContext) -> None:
+        step = self.__class__.__name__
+        context.logger.info("Starting %s", step)
         if context.pruning_method is None:
             raise NotImplementedError
         context.logger.info("Generating pruning mask at ratio %.2f", self.ratio)
         context.pruning_method.generate_pruning_mask(self.ratio)
+        context.logger.info("Finished %s", step)
 
 __all__ = ["GenerateMasksStep"]

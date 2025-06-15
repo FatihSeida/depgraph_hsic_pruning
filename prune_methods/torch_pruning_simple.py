@@ -20,11 +20,13 @@ class TorchRandomMethod(BasePruningMethod):
 
     def analyze_model(self) -> None:
         """Build and store the dependency graph for ``self.model``."""
+        self.logger.info("Analyzing model")
         import torch_pruning as tp
         self.DG = tp.DependencyGraph()
         self.DG.build_dependency(self.model, self.example_inputs)
 
     def generate_pruning_mask(self, ratio: float) -> None:
+        self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         import torch_pruning as tp
         importance = tp.importance.RandomImportance()
         pruner_cls = getattr(tp, "RandomPruner", getattr(tp, "MagnitudePruner", tp.pruner.algorithms.BasePruner))
@@ -37,6 +39,7 @@ class TorchRandomMethod(BasePruningMethod):
         )
 
     def apply_pruning(self) -> None:
+        self.logger.info("Applying pruning")
         if self.pruner is None:
             raise RuntimeError("generate_pruning_mask must be called first")
         self.pruner.step()

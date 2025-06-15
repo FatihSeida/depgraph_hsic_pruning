@@ -12,9 +12,12 @@ class ReconfigureModelStep(PipelineStep):
         self.reconfigurator = AdaptiveLayerReconfiguration()
 
     def run(self, context: PipelineContext) -> None:
+        step = self.__class__.__name__
+        context.logger.info("Starting %s", step)
         if context.model is None:
             raise ValueError("Model is not loaded")
         context.logger.info("Reconfiguring model")
         self.reconfigurator.reconfigure_model(context.model)
+        context.logger.info("Finished %s", step)
 
 __all__ = ["ReconfigureModelStep"]

@@ -20,6 +20,7 @@ class L1NormMethod(BasePruningMethod):
 
     def analyze_model(self) -> None:
         """Collect convolution layers from the first 10 backbone modules."""
+        self.logger.info("Analyzing model")
         backbone = list(self.model.model[:10])
         for module in backbone:
             for name, m in module.named_modules():
@@ -31,6 +32,7 @@ class L1NormMethod(BasePruningMethod):
                     self.layers.append((parent, name.split(".")[-1], bn))
 
     def generate_pruning_mask(self, ratio: float) -> None:
+        self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         self.ratio = ratio
         self.masks = []
         for parent, attr, _ in self.layers:
@@ -51,6 +53,7 @@ class L1NormMethod(BasePruningMethod):
             self.masks.append(mask)
 
     def apply_pruning(self) -> None:
+        self.logger.info("Applying pruning")
         for (parent, attr, bn), mask in zip(self.layers, self.masks):
             conv = getattr(parent, attr)
             keep_idx = mask.nonzero(as_tuple=False).squeeze(1)

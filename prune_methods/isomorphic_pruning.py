@@ -25,11 +25,13 @@ class IsomorphicMethod(BasePruningMethod):
         self.pruner = None
 
     def analyze_model(self) -> None:  # pragma: no cover - heavy dependency
+        self.logger.info("Analyzing model")
         import torch_pruning as tp
         self.DG = tp.DependencyGraph()
         self.DG.build_dependency(self.model, self.example_inputs)
 
     def generate_pruning_mask(self, ratio: float) -> None:  # pragma: no cover - heavy dependency
+        self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         import torch_pruning as tp
         importance = tp.importance.MagnitudeImportance(p=1)
         self.pruner = tp.MagnitudePruner(
@@ -42,6 +44,7 @@ class IsomorphicMethod(BasePruningMethod):
         )
 
     def apply_pruning(self) -> None:  # pragma: no cover - heavy dependency
+        self.logger.info("Applying pruning")
         if self.pruner is None:
             raise RuntimeError("generate_pruning_mask must be called first")
         self.pruner.step()
