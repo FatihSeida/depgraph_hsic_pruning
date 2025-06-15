@@ -207,6 +207,11 @@ class DepgraphHSICMethod(BasePruningMethod):
     def generate_pruning_mask(self, ratio: float) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if not self.activations or not self.labels:
+            self.logger.debug(
+                "generate_pruning_mask called with %d labels and activations for %d layers",
+                len(self.labels),
+                len(self.activations),
+            )
             raise RuntimeError("No activations/labels collected. Run a forward pass first.")
         label_batches = len(self.labels)
         self.logger.info("Recorded %d label batches", label_batches)
