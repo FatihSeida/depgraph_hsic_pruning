@@ -34,6 +34,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.handles: List[torch.utils.hooks.RemovableHandle] = []
         self.activations: Dict[int, List[torch.Tensor]] = {}
         self.layer_shapes: Dict[int, Tuple[int, int]] = {}
+        self.num_activations: Dict[int, int] = {}
         self.labels: List[torch.Tensor] = []
         self.layers: List[nn.Conv2d] = []
         self.adjacency: torch.Tensor | None = None
@@ -58,6 +59,12 @@ class DepgraphHSICMethod(BasePruningMethod):
                 else:
                     processed = output.detach().cpu()
             self.activations.setdefault(idx, []).append(processed)
+            self.num_activations[idx] = self.num_activations.get(idx, 0) + 1
+            self.logger.debug(
+                "Recorded activation for layer %d with shape %s",
+                idx,
+                tuple(processed.shape),
+            )
         return hook
 
     def register_hooks(self) -> None:
@@ -78,7 +85,9 @@ class DepgraphHSICMethod(BasePruningMethod):
 
     def add_labels(self, y: torch.Tensor) -> None:
         """Store labels observed during a forward pass."""
-        self.labels.append(y.detach().cpu())
+        processed = y.detach().cpu()
+        self.labels.append(processed)
+        self.logger.debug("Recorded label with shape %s", tuple(processed.shape))
 
     # ------------------------------------------------------------------
     # HSIC helpers
@@ -93,6 +102,7 @@ class DepgraphHSICMethod(BasePruningMethod):
 
     def _hsic_scores(self, F: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         if F.shape[0] != y.shape[0]:
+            self.logger.debug("F.shape: %s, y.shape: %s", tuple(F.shape), tuple(y.shape))
             raise RuntimeError(
                 "Mismatched number of activations and labels. Labels must be "
                 "recorded for every forward pass using add_labels()."
@@ -186,6 +196,8 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if not self.activations or not self.labels:
             raise RuntimeError("No activations/labels collected. Run a forward pass first.")
+        for idx, count in self.num_activations.items():
+            self.logger.debug("Layer %d recorded %d activations", idx, count)
         features = {}
         for idx, feats in self.activations.items():
             try:
