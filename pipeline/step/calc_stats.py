@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ultralytics.utils.torch_utils import get_flops, get_num_params
 
-from helper import count_filters, model_size_mb
+from helper import count_filters, model_size_mb, log_stats_comparison
 
 from ..context import PipelineContext
 from . import PipelineStep
@@ -78,6 +78,7 @@ class CalcStatsStep(PipelineStep):
                     },
                 }
             )
+            log_stats_comparison(context.initial_stats, context.pruned_stats, context.logger)
         context.logger.info("Finished %s", step)
 
 __all__ = ["CalcStatsStep"]

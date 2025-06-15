@@ -11,6 +11,7 @@ from helper import (
     MetricManager,
     count_filters,
     model_size_mb,
+    log_stats_comparison,
 )
 from .model_reconfig import AdaptiveLayerReconfiguration
 from .context import PipelineContext
@@ -187,6 +188,7 @@ class PruningPipeline(BasePruningPipeline):
                 },
             }
         )
+        log_stats_comparison(self.initial_stats, self.pruned_stats, self.logger)
         return self.pruned_stats
 
     def finetune(self, *, device: str | int | list = 0, **train_kwargs: Any) -> Dict[str, Any]:
