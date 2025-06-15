@@ -79,6 +79,7 @@ def test_device_argument_passed(monkeypatch):
     class DummyPipeline:
         def __init__(self, *a, **k):
             self.model = types.SimpleNamespace(model=object())
+            self.pruning_method = None
 
         def load_model(self):
             pass

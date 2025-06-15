@@ -5,10 +5,30 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import main
-
 
 def test_resume_skipped_when_best_only(tmp_path, monkeypatch):
+    # Stub heavy dependencies so importing main works
+    sys.modules['torch'] = types.ModuleType('torch')
+    sys.modules['torch.nn'] = types.ModuleType('torch.nn')
+
+    up = types.ModuleType('ultralytics')
+    utils = types.ModuleType('ultralytics.utils')
+    torch_utils = types.ModuleType('ultralytics.utils.torch_utils')
+    torch_utils.get_flops = lambda *a, **k: 0
+    torch_utils.get_num_params = lambda *a, **k: 0
+    utils.torch_utils = torch_utils
+    up.utils = utils
+    up.YOLO = lambda *a, **k: None
+    sys.modules['ultralytics'] = up
+    sys.modules['ultralytics.utils'] = utils
+    sys.modules['ultralytics.utils.torch_utils'] = torch_utils
+    mpl = types.ModuleType('matplotlib')
+    plt = types.ModuleType('matplotlib.pyplot')
+    sys.modules['matplotlib'] = mpl
+    sys.modules['matplotlib.pyplot'] = plt
+
+    import importlib
+    main = importlib.import_module('main')
     class DummyPipeline:
         def __init__(self, *a, **k):
             self.model = types.SimpleNamespace(model=object())
@@ -16,6 +36,7 @@ def test_resume_skipped_when_best_only(tmp_path, monkeypatch):
                 to_csv=lambda p: Path(p),
                 record_computation=lambda m: None,
             )
+            self.pruning_method = None
 
         def load_model(self):
             pass
