@@ -243,9 +243,16 @@ pass to compute pruning scores. When ``reuse_baseline=True`` the initial
 training can be skipped, but you should still run a training or evaluation step
 after ``AnalyzeModelStep`` so that activations are populated before pruning.
 When using :class:`~pipeline.step.train.TrainStep` labels are automatically
-recorded after each batch, otherwise remember to call
-``DepgraphHSICMethod.add_labels`` manually or ``generate_pruning_mask`` will
-raise an error.
+recorded after each batch. For custom loops this must be done manually or
+``generate_pruning_mask`` will raise an error:
+
+```python
+for images, labels in dataloader:
+    outputs = model(images)
+    pruning_method.add_labels(labels)
+    loss = loss_fn(outputs, labels)
+    ...
+```
 
 Each run directory will contain a `pipeline.log` file capturing detailed
 training and pruning output for the selected ratio.
