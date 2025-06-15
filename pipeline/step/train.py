@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+
 from ..context import PipelineContext
 from . import PipelineStep
 
@@ -31,7 +32,12 @@ class TrainStep(PipelineStep):
         # after the model has produced outputs, ensuring activations and labels
         # stay aligned.  Avoid registering duplicate callbacks across multiple
         # training phases.
-        if getattr(context, "pruning_method", None).__class__.__name__ == "DepgraphHSICMethod":
+        try:
+            from prune_methods.depgraph_hsic import DepgraphHSICMethod  # local import to avoid heavy dependency at module import
+        except Exception:  # pragma: no cover - dependency missing
+            DepgraphHSICMethod = None
+
+        if DepgraphHSICMethod is not None and isinstance(getattr(context, "pruning_method", None), DepgraphHSICMethod):
             def record_labels(trainer) -> None:  # pragma: no cover - heavy dependency
                 batch = getattr(trainer, "batch", None)
                 if isinstance(batch, dict) and "cls" in batch:

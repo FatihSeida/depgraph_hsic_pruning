@@ -30,5 +30,8 @@ _MAPPING = {
 def __getattr__(name: str):
     if name in _MAPPING:
         module, attr = _MAPPING[name]
-        return getattr(import_module(module), attr)
+        obj = getattr(import_module(module), attr)
+        if name.endswith("Method") and not hasattr(obj, "requires_reconfiguration"):
+            obj.requires_reconfiguration = False
+        return obj
     raise AttributeError(name)
