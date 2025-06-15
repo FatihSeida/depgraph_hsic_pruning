@@ -65,6 +65,11 @@ class DepgraphHSICMethod(BasePruningMethod):
                 idx,
                 tuple(processed.shape),
             )
+            self.logger.debug(
+                "Layer %d activation count: %d",
+                idx,
+                self.num_activations[idx],
+            )
         return hook
 
     def register_hooks(self) -> None:
@@ -88,6 +93,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         processed = y.detach().cpu()
         self.labels.append(processed)
         self.logger.debug("Recorded label with shape %s", tuple(processed.shape))
+        self.logger.debug("Total labels recorded: %d", len(self.labels))
 
     # ------------------------------------------------------------------
     # HSIC helpers
@@ -100,8 +106,14 @@ class DepgraphHSICMethod(BasePruningMethod):
         H = torch.eye(B, device=K.device) - 1.0 / B
         return H @ K @ H
 
-    def _hsic_scores(self, F: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    def _hsic_scores(self, F: torch.Tensor, y: torch.Tensor, layer_idx: int | None = None) -> torch.Tensor:
         if F.shape[0] != y.shape[0]:
+            self.logger.error(
+                "Activation/label mismatch%s: %d activations vs %d labels",
+                f" for layer {layer_idx}" if layer_idx is not None else "",
+                F.shape[0],
+                y.shape[0],
+            )
             self.logger.debug("F.shape: %s, y.shape: %s", tuple(F.shape), tuple(y.shape))
             raise RuntimeError(
                 "Mismatched number of activations and labels. Labels must be "
@@ -196,8 +208,14 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if not self.activations or not self.labels:
             raise RuntimeError("No activations/labels collected. Run a forward pass first.")
+        label_batches = len(self.labels)
+        self.logger.info("Recorded %d label batches", label_batches)
         for idx, count in self.num_activations.items():
-            self.logger.debug("Layer %d recorded %d activations", idx, count)
+            self.logger.info("Layer %d recorded %d activations", idx, count)
+            if count != label_batches:
+                self.logger.warning(
+                    "Layer %d has %d activations but %d labels", idx, count, label_batches
+                )
         features = {}
         for idx, feats in self.activations.items():
             try:
@@ -214,7 +232,7 @@ class DepgraphHSICMethod(BasePruningMethod):
             if idx not in features:
                 continue
             F = features[idx]
-            scores = self._hsic_scores(F, y)
+            scores = self._hsic_scores(F, y, layer_idx=idx)
             for j in range(F.shape[1]):
                 group_feats.append(F[:, j, :, :].mean(dim=(1, 2)))
                 hsic_values.append(scores[j])
