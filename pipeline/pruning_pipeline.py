@@ -92,6 +92,15 @@ class PruningPipeline(BasePruningPipeline):
                 "model_size_mb": {"original": size_mb},
             }
         )
+        try:  # pragma: no cover - optional dependency
+            from prune_methods.depgraph_hsic import DepgraphHSICMethod
+        except Exception:
+            DepgraphHSICMethod = None
+        if (
+            DepgraphHSICMethod is not None
+            and isinstance(self.pruning_method, DepgraphHSICMethod)
+        ):
+            self.pruning_method.reset_records()
         return self.initial_stats
 
     def _register_label_callback(self, label_fn) -> None:
