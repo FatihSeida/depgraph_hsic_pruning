@@ -265,6 +265,23 @@ for images, labels in dataloader:
     ...
 ```
 
+``DepgraphHSICMethod`` expects labels to correspond one-to-one with each
+forward pass. YOLO detection batches supply one label per object, so passing
+``batch["cls"]`` directly will produce a mismatch error. Aggregate them
+before calling ``add_labels``—for example by computing a single class index for
+each image:
+
+```python
+cls = batch["cls"].view(batch["img"].shape[0], -1)
+image_labels = cls[:, 0]
+pruning_method.add_labels(image_labels)
+```
+
+Automatic recording for training pipelines is implemented in
+``pipeline/step/train.py`` where :class:`~pipeline.step.train.TrainStep` adds a
+callback on ``on_train_batch_end`` to store ``batch["cls"]`` after each forward
+pass.
+
 Each run directory will contain a `pipeline.log` file capturing detailed
 training and pruning output for the selected ratio.
 Enabling `--debug` will log a message whenever batch labels are recorded,
