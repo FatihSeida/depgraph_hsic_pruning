@@ -167,6 +167,7 @@ def execute_pipeline(
         add_file_handler(logger, str(log_file))
     pipeline = PruningPipeline(model_path, data=data, workdir=str(workdir), logger=logger)
     pipeline.load_model()
+    pipeline.calc_initial_stats()
     if method_cls is not None:
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
         pipeline.analyze_structure()
@@ -209,7 +210,6 @@ def execute_pipeline(
                         pipeline.pruning_method.add_labels(y)
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning("short forward pass failed: %s", exc)
-    pipeline.calc_initial_stats()
     if config.baseline_epochs > 0:
         monitor = MonitorComputationStep("pretrain")
         monitor.start()
