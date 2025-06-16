@@ -206,7 +206,18 @@ def execute_pipeline(
                     else:
                         logger.warning("label file %s does not exist", label_file)
                     if y.numel() > 0:
-                        pipeline.model.predict(source=str(img), device=config.device, batch=1)
+                        try:
+                            from PIL import Image  # type: ignore
+                            import numpy as np  # type: ignore
+
+                            arr = np.array(Image.open(img).convert("RGB"), dtype=np.float32)
+                            arr = np.transpose(arr, (2, 0, 1))
+                            inp = torch.tensor(arr).unsqueeze(0)
+                        except Exception:  # pragma: no cover - fallback when PIL is missing
+                            inp = getattr(pipeline.pruning_method, "example_inputs", torch.randn(1, 3, 640, 640))
+
+                        with torch.no_grad():
+                            pipeline.model.model(inp.to(config.device))
                         pipeline.pruning_method.add_labels(y)
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning("short forward pass failed: %s", exc)
