@@ -222,11 +222,24 @@ def execute_pipeline(
                             from PIL import Image  # type: ignore
                             import numpy as np  # type: ignore
 
-                            arr = np.array(Image.open(img).convert("RGB"), dtype=np.float32)
+                            img_pil = Image.open(img).convert("RGB")
+                            orig_size = img_pil.size
+                            if orig_size != (640, 640):
+                                logger.debug(
+                                    "resizing short forward pass image from %s to (640, 640)",
+                                    orig_size,
+                                )
+                                img_pil = img_pil.resize((640, 640))
+                            arr = np.array(img_pil, dtype=np.float32)
                             arr = np.transpose(arr, (2, 0, 1))
                             inp = torch.tensor(arr).unsqueeze(0)
+                            logger.debug("short forward pass tensor shape: %s", tuple(inp.shape))
                         except Exception:  # pragma: no cover - fallback when PIL is missing
-                            inp = getattr(pipeline.pruning_method, "example_inputs", torch.randn(1, 3, 640, 640))
+                            inp = getattr(
+                                pipeline.pruning_method,
+                                "example_inputs",
+                                torch.randn(1, 3, 640, 640),
+                            )
 
                         device = next(pipeline.model.model.parameters()).device
                         with torch.no_grad():
