@@ -305,6 +305,10 @@ class DepgraphHSICMethod(BasePruningMethod):
 
         for layer, idxs in self.pruning_plan.items():
             unique = sorted(set(idxs))
-            self.DG.prune_layer(layer, unique, dim=0)
-        tp.utils.remove_pruning_reparametrization(self.model)
+            group = self.DG.get_pruning_group(
+                layer,
+                tp.prune_conv_out_channels,
+                unique,
+            )
+            group.prune()
         self.remove_hooks()
