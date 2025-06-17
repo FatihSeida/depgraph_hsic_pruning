@@ -247,7 +247,9 @@ Add `--heatmap-only` to generate heatmap visualizations without line plots.
 If baseline weights are already present in the working directory they will be
 reused by default, which skips the initial pretraining step. Disable this by
 setting ``reuse_baseline=False`` in ``TrainConfig`` if fresh baseline training
-is required.
+is required. When the baseline step is skipped the pipeline performs a short
+forward pass on the first validation image so that a label is recorded for HSIC
+scoring.
 
 ``DepgraphHSICMethod`` needs activations and labels obtained from a forward
 pass to compute pruning scores. When ``reuse_baseline=True`` the initial
