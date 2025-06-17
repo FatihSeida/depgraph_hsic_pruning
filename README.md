@@ -54,7 +54,6 @@ pipeline = PruningPipeline(
 context = pipeline.run_pipeline()
 print(context.metrics)
 ```
-
 ## Package structure
 
 ```
@@ -63,8 +62,10 @@ pipeline/
     pruning_pipeline.py  # default implementation
     context.py          # shared pipeline state
     step/               # modular pipeline steps
-ultralytics/     # fork of the Ultralytics package
 ```
+
+The `ultralytics` package is installed as an external dependency and is not
+part of this repository.
 
 Importing from `pipeline` exposes both `BasePruningPipeline` and
 `PruningPipeline`.
@@ -167,7 +168,7 @@ val: path/to/val/images
 nc: 80  # number of classes
 ```
 
-See the `ultralytics/cfg/datasets` directory for examples.
+See the official Ultralytics documentation for dataset YAML examples.
 
 ## Helper utilities
 
