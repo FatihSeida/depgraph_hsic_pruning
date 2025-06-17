@@ -255,7 +255,8 @@ reused by default, which skips the initial pretraining step. Disable this by
 setting ``reuse_baseline=False`` in ``TrainConfig`` if fresh baseline training
 is required. When the baseline step is skipped the pipeline performs a short
 forward pass on the first validation image so that a label is recorded for HSIC
-scoring.
+scoring. After this short pass ``pipeline.analyze_structure()`` must be called
+again so the dependency graph and hooks are rebuilt.
 
 ``DepgraphHSICMethod`` needs activations and labels obtained from a forward
 pass to compute pruning scores. When ``reuse_baseline=True`` the initial

@@ -245,6 +245,7 @@ def execute_pipeline(
                         with torch.no_grad():
                             pipeline.model.model(inp.to(device))
                         pipeline.pruning_method.add_labels(y)
+                        pipeline.analyze_structure()
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning("short forward pass failed: %s", exc)
     if config.baseline_epochs > 0:
