@@ -101,18 +101,32 @@ class DepgraphHSICMethod(BasePruningMethod):
                 for name, m in module.named_modules():
                     if isinstance(m, nn.Conv2d):
                         full = prefix + (f".{name}" if name else "")
+                        self.logger.debug(
+                            "registering conv layer %s at index %d", full, idx
+                        )
                         self.layers.append(m)
                         self.layer_names.append(full)
-                        self.handles.append(m.register_forward_hook(self._activation_hook(idx)))
-                        self.logger.debug("Registered hook for %s at index %d", full, idx)
+                        self.handles.append(
+                            m.register_forward_hook(self._activation_hook(idx))
+                        )
+                        self.logger.debug(
+                            "Registered hook for %s at index %d", full, idx
+                        )
                         idx += 1
         else:
             for name, m in self.model.named_modules():
                 if isinstance(m, nn.Conv2d):
+                    self.logger.debug(
+                        "registering conv layer %s at index %d", name, idx
+                    )
                     self.layers.append(m)
                     self.layer_names.append(name)
-                    self.handles.append(m.register_forward_hook(self._activation_hook(idx)))
-                    self.logger.debug("Registered hook for %s at index %d", name, idx)
+                    self.handles.append(
+                        m.register_forward_hook(self._activation_hook(idx))
+                    )
+                    self.logger.debug(
+                        "Registered hook for %s at index %d", name, idx
+                    )
                     idx += 1
         self.logger.info("Registered hooks for %d Conv2d layers", len(self.layers))
 
