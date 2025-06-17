@@ -37,6 +37,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.num_activations: Dict[int, int] = {}
         self.labels: List[torch.Tensor] = []
         self.layers: List[nn.Conv2d] = []
+        self.layer_names: List[str] = []
         self.adjacency: torch.Tensor | None = None
         self.channel_groups: List[List[Tuple[int, int]]] = []
 
@@ -76,10 +77,12 @@ class DepgraphHSICMethod(BasePruningMethod):
         """Register forward hooks on convolution layers."""
         self.handles = []
         self.layers = []
+        self.layer_names = []
         idx = 0
-        for m in self.model.modules():
+        for name, m in self.model.named_modules():
             if isinstance(m, nn.Conv2d):
                 self.layers.append(m)
+                self.layer_names.append(name)
                 self.handles.append(m.register_forward_hook(self._activation_hook(idx)))
                 idx += 1
         self.logger.info("Registered hooks for %d Conv2d layers", len(self.layers))
@@ -289,12 +292,15 @@ class DepgraphHSICMethod(BasePruningMethod):
         group_scores.sort(key=lambda x: x[0])
         target = int(total_channels * ratio)
         removed = 0
+        name_map = dict(zip(self.layers, self.layer_names))
         self.pruning_plan = {}
         for score, chans in group_scores:
             if removed >= target:
                 break
             for layer, ch in chans:
-                self.pruning_plan.setdefault(layer, []).append(ch)
+                name = name_map.get(layer)
+                if name is not None:
+                    self.pruning_plan.setdefault(name, []).append(ch)
             removed += len(chans)
 
     def apply_pruning(self) -> None:  # pragma: no cover - heavy dependency
@@ -303,7 +309,12 @@ class DepgraphHSICMethod(BasePruningMethod):
             raise RuntimeError("analyze_model must be called first")
         import torch_pruning as tp
 
-        for layer, idxs in self.pruning_plan.items():
+        named_modules = dict(self.model.named_modules())
+
+        for name, idxs in self.pruning_plan.items():
+            layer = named_modules.get(name)
+            if layer is None:
+                raise RuntimeError(f"Layer {name!r} not found in model")
             unique = sorted(set(idxs))
             try:
                 group = self.DG.get_pruning_group(
@@ -314,6 +325,8 @@ class DepgraphHSICMethod(BasePruningMethod):
             except ValueError:
                 self.logger.info("Rebuilding dependency graph before pruning")
                 self.DG.build_dependency(self.model, self.example_inputs)
+                named_modules = dict(self.model.named_modules())
+                layer = named_modules[name]
                 group = self.DG.get_pruning_group(
                     layer,
                     tp.prune_conv_out_channels,
