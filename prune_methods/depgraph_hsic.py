@@ -82,6 +82,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                 self.layers.append(m)
                 self.handles.append(m.register_forward_hook(self._activation_hook(idx)))
                 idx += 1
+        self.logger.info("Registered hooks for %d Conv2d layers", len(self.layers))
 
     def remove_hooks(self) -> None:
         for h in self.handles:
@@ -92,8 +93,8 @@ class DepgraphHSICMethod(BasePruningMethod):
         """Store labels observed during a forward pass."""
         processed = y.detach().cpu()
         self.labels.append(processed)
-        self.logger.debug("Recorded label with shape %s", tuple(processed.shape))
-        self.logger.debug("Total labels recorded: %d", len(self.labels))
+        self.logger.info("Recorded label tensor shape %s", tuple(processed.shape))
+        self.logger.info("Cumulative labels stored: %d", len(self.labels))
 
     def reset_records(self) -> None:
         """Clear all collected activation data and labels.

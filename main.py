@@ -192,8 +192,10 @@ def execute_pipeline(
                 else:
                     img = val_path if val_path.exists() else None
                 if img is not None:
+                    logger.info("short forward pass image: %s", img)
                     label_file = Path(str(img)).with_suffix(".txt").as_posix()
                     label_file = label_file.replace("/images/", "/labels/")
+                    logger.info("short forward pass label file: %s", label_file)
                     y = torch.tensor([])
                     lf = Path(label_file)
                     if lf.exists():
@@ -201,6 +203,7 @@ def execute_pipeline(
                             labels = [float(line.split()[0]) for line in lf_f if line.strip()]
                         if labels:
                             y = torch.tensor([labels[0]])
+                            logger.info("label file %s has %d entries", label_file, len(labels))
                         else:
                             logger.warning("label file %s is empty", label_file)
                     else:
