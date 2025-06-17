@@ -216,8 +216,9 @@ def execute_pipeline(
                         except Exception:  # pragma: no cover - fallback when PIL is missing
                             inp = getattr(pipeline.pruning_method, "example_inputs", torch.randn(1, 3, 640, 640))
 
+                        device = next(pipeline.model.model.parameters()).device
                         with torch.no_grad():
-                            pipeline.model.model(inp.to(config.device))
+                            pipeline.model.model(inp.to(device))
                         pipeline.pruning_method.add_labels(y)
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning("short forward pass failed: %s", exc)
