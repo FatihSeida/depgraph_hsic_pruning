@@ -302,6 +302,9 @@ labels internally.
 Calling ``analyze_model()`` clears any stored activations, recorded layer
 shapes, activation counters and labels so that subsequent training phases
 start with a clean slate.
+If training replaces the underlying model object the pipeline detects the
+change and automatically calls ``analyze_model()`` again so that the dependency
+graph and hooks are rebuilt for the new instance.
 
 Automatic recording for training pipelines is implemented in
 ``pipeline/step/train.py`` where :class:`~pipeline.step.train.TrainStep` adds a

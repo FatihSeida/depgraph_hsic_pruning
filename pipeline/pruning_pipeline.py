@@ -162,13 +162,18 @@ class PruningPipeline(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
+        original_model = self.model.model
         try:
             metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         finally:
             self._unregister_label_callback()
+        model_changed = self.model.model is not original_model
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
             self.logger.debug("updated pruning method model reference")
+            if model_changed and hasattr(self.pruning_method, "analyze_model"):
+                self.logger.debug("model instance changed during training; rebuilding dependency graph")
+                self.pruning_method.analyze_model()
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics
@@ -268,13 +273,18 @@ class PruningPipeline(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
+        original_model = self.model.model
         try:
             metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         finally:
             self._unregister_label_callback()
+        model_changed = self.model.model is not original_model
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
             self.logger.debug("updated pruning method model reference")
+            if model_changed and hasattr(self.pruning_method, "analyze_model"):
+                self.logger.debug("model instance changed during training; rebuilding dependency graph")
+                self.pruning_method.analyze_model()
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics
