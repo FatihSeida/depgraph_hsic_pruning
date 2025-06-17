@@ -33,6 +33,10 @@ base_mod = types.ModuleType('prune_methods.base')
 class DummyMethod:
     def __init__(self, model=None, **kw):
         self.model = model
+        self.calls = 0
+
+    def analyze_model(self):
+        self.calls += 1
 base_mod.BasePruningMethod = DummyMethod
 sys.modules['prune_methods.base'] = base_mod
 
@@ -47,5 +51,7 @@ def test_pruning_method_model_updated_after_training():
     pipeline.model = DummyYOLO()
     pipeline.pretrain()
     assert pipeline.pruning_method.model is pipeline.model.model
+    assert method.calls == 1
     pipeline.finetune()
     assert pipeline.pruning_method.model is pipeline.model.model
+    assert method.calls == 2
