@@ -104,6 +104,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                         self.layers.append(m)
                         self.layer_names.append(full)
                         self.handles.append(m.register_forward_hook(self._activation_hook(idx)))
+                        self.logger.debug("Registered hook for %s at index %d", full, idx)
                         idx += 1
         else:
             for name, m in self.model.named_modules():
@@ -111,6 +112,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                     self.layers.append(m)
                     self.layer_names.append(name)
                     self.handles.append(m.register_forward_hook(self._activation_hook(idx)))
+                    self.logger.debug("Registered hook for %s at index %d", name, idx)
                     idx += 1
         self.logger.info("Registered hooks for %d Conv2d layers", len(self.layers))
 
@@ -248,8 +250,10 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.info("Analyzing model")
         import torch_pruning as tp
 
+        self.logger.debug("Building dependency graph")
         self.DG = tp.DependencyGraph()
         self.DG.build_dependency(self.model, self.example_inputs)
+        self.logger.debug("Dependency graph built")
         self.register_hooks()
         self._build_adjacency()
         self._build_channel_groups()
@@ -343,18 +347,23 @@ class DepgraphHSICMethod(BasePruningMethod):
             if layer is None:
                 raise RuntimeError(f"Layer {name!r} not found in model")
             unique = sorted(set(idxs))
+            self.logger.debug("pruning %s channels %s", name, unique)
             try:
                 group = self.DG.get_pruning_group(
                     layer,
                     tp.prune_conv_out_channels,
                     unique,
                 )
-            except ValueError:
+            except ValueError as e:
+                self.logger.debug("get_pruning_group failed: %s", e)
                 self.logger.info("Rebuilding dependency graph before pruning")
                 # recreate the DependencyGraph in case the model changed
                 self.DG = tp.DependencyGraph()
                 self.DG.build_dependency(self.model, self.example_inputs)
                 named_modules = dict(self.model.named_modules())
+                self.logger.debug(
+                    "dependency graph modules: %s", list(named_modules.keys())
+                )
                 layer = named_modules[name]
                 group = self.DG.get_pruning_group(
                     layer,
