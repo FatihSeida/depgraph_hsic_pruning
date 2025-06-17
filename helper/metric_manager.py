@@ -127,6 +127,8 @@ class MetricManager:
             return out
 
         flat = _flatten(self.as_dict())
+        for field in TRAINING_METRIC_FIELDS:
+            flat.setdefault(f"training.{field}", "")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="") as f:
