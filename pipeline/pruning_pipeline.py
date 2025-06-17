@@ -166,6 +166,9 @@ class PruningPipeline(BasePruningPipeline):
             metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         finally:
             self._unregister_label_callback()
+        if self.pruning_method is not None:
+            self.pruning_method.model = self.model.model
+            self.logger.debug("updated pruning method model reference")
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics
@@ -269,6 +272,9 @@ class PruningPipeline(BasePruningPipeline):
             metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         finally:
             self._unregister_label_callback()
+        if self.pruning_method is not None:
+            self.pruning_method.model = self.model.model
+            self.logger.debug("updated pruning method model reference")
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics
