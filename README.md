@@ -48,7 +48,7 @@ steps = [
 pipeline = PruningPipeline(
     "yolov8n-seg.pt",
     data="biotech_model_train.yaml",
-    pruning_method=DepgraphHSICMethod(None),  # model assigned by LoadModelStep
+    pruning_method=DepgraphHSICMethod(None, num_modules=10),  # model assigned by LoadModelStep
     steps=steps,
 )
 context = pipeline.run_pipeline()
@@ -239,6 +239,11 @@ feature activations and labels during forward passes, calculates HSIC scores to
 measure channel dependence on the targets and ranks them using ``LassoLars``.
 Pruning is then applied through ``torch-pruning``'s ``DependencyGraph`` to keep
 tensor shapes consistent.
+
+``DepgraphHSICMethod`` accepts a ``num_modules`` argument controlling how many
+modules from ``model.model`` are inspected when hooks are registered. The
+default value of ``10`` covers the YOLOv8 backbone while avoiding the neck and
+head layers if they are not required.
 
 Add `--resume` to continue interrupted runs. If `weights/last.pt` is missing or
 `weights/best.pt` exists with `results.csv` showing that all configured epochs
