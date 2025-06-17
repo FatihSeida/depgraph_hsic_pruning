@@ -43,10 +43,17 @@ def aggregate_labels(batch):
     cls = batch.get("cls")
     img = batch.get("img")
     batch_idx = batch.get("batch_idx")
+    logger = logging.getLogger("pruning")
+    logger.debug(
+        "aggregate_labels input cls shape=%s batch_idx shape=%s",
+        getattr(cls, "shape", None),
+        getattr(batch_idx, "shape", None),
+    )
 
     try:
         import torch
         if torch.is_tensor(cls) and torch.is_tensor(img) and len(cls) != img.shape[0]:
+            logger.debug("majority vote aggregation")
             cls = cls.view(-1).long()
             bs = img.shape[0]
             result = []
@@ -67,6 +74,8 @@ def aggregate_labels(batch):
                 cls = torch.tensor(result, dtype=cls.dtype, device=cls.device)
     except Exception:
         pass
+
+    logger.debug("aggregate_labels output shape=%s", getattr(cls, "shape", None))
 
     return cls
 
