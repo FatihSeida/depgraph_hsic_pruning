@@ -305,10 +305,16 @@ class DepgraphHSICMethod(BasePruningMethod):
 
         for layer, idxs in self.pruning_plan.items():
             unique = sorted(set(idxs))
-            group = self.DG.get_pruning_group(
-                layer,
-                tp.prune_conv_out_channels,
-                unique,
-            )
+            try:
+                group = self.DG.get_pruning_group(
+                    layer,
+                    tp.prune_conv_out_channels,
+                    unique,
+                )
+            except ValueError:
+                self.logger.warning(
+                    "Layer %s not in dependency graph; skipping", layer
+                )
+                continue
             group.prune()
         self.remove_hooks()
