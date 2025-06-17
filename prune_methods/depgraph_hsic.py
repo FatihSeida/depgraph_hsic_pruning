@@ -103,6 +103,13 @@ class DepgraphHSICMethod(BasePruningMethod):
         counters and any stored labels so a new round of recording can begin
         without leftovers from previous passes.
         """
+        act_count = sum(len(v) for v in self.activations.values())
+        label_count = len(self.labels)
+        self.logger.info(
+            "Resetting records: clearing %d activations and %d labels",
+            act_count,
+            label_count,
+        )
         self.activations.clear()
         self.layer_shapes.clear()
         self.num_activations.clear()
