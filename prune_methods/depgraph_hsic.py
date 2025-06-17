@@ -22,13 +22,28 @@ from .base import BasePruningMethod
 
 
 class DepgraphHSICMethod(BasePruningMethod):
-    """Prune channel groups via HSIC and ``torch-pruning`` dependency graph."""
+    """Prune channel groups via HSIC and ``torch-pruning`` dependency graph.
+
+    Parameters
+    ----------
+    model : Any
+        Model to prune.
+    workdir : str, optional
+        Directory for intermediate artefacts, by default ``"runs/pruning"``.
+    gamma : float, optional
+        Scale factor for the RBF kernel used in HSIC, by default ``1.0``.
+    num_modules : int, optional
+        Number of modules from ``model.model`` to inspect when registering
+        hooks.  Layers beyond this range are ignored.  The default of ``10``
+        matches YOLOv8's backbone depth.
+    """
 
     requires_reconfiguration = False
 
-    def __init__(self, model: Any, workdir: str = "runs/pruning", gamma: float = 1.0) -> None:
+    def __init__(self, model: Any, workdir: str = "runs/pruning", gamma: float = 1.0, num_modules: int = 10) -> None:
         super().__init__(model, workdir)
         self.gamma = gamma
+        self.num_modules = num_modules
         self.example_inputs = torch.randn(1, 3, 640, 640)
         self.DG = None
         self.handles: List[torch.utils.hooks.RemovableHandle] = []
@@ -75,16 +90,28 @@ class DepgraphHSICMethod(BasePruningMethod):
 
     def register_hooks(self) -> None:
         """Register forward hooks on convolution layers."""
-        self.handles = []
+        self.remove_hooks()
         self.layers = []
         self.layer_names = []
         idx = 0
-        for name, m in self.model.named_modules():
-            if isinstance(m, nn.Conv2d):
-                self.layers.append(m)
-                self.layer_names.append(name)
-                self.handles.append(m.register_forward_hook(self._activation_hook(idx)))
-                idx += 1
+        if hasattr(self.model, "model"):
+            modules = list(self.model.model[: self.num_modules])
+            for mod_idx, module in enumerate(modules):
+                prefix = f"model.{mod_idx}"
+                for name, m in module.named_modules():
+                    if isinstance(m, nn.Conv2d):
+                        full = prefix + (f".{name}" if name else "")
+                        self.layers.append(m)
+                        self.layer_names.append(full)
+                        self.handles.append(m.register_forward_hook(self._activation_hook(idx)))
+                        idx += 1
+        else:
+            for name, m in self.model.named_modules():
+                if isinstance(m, nn.Conv2d):
+                    self.layers.append(m)
+                    self.layer_names.append(name)
+                    self.handles.append(m.register_forward_hook(self._activation_hook(idx)))
+                    idx += 1
         self.logger.info("Registered hooks for %d Conv2d layers", len(self.layers))
 
     def remove_hooks(self) -> None:
