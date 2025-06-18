@@ -58,21 +58,24 @@ A typical set of steps might look as follows:
 
 1. `LoadModelStep()`
 2. `CalcStatsStep("initial")`
-3. `MonitorComputationStep("pretrain")` *(start before training)*
-4. `TrainStep("pretrain", epochs=1, plots=True)`
-5. `MonitorComputationStep("pretrain")` *(stop after training)*
-6. `AnalyzeModelStep()`
-7. `GenerateMasksStep(ratio=0.2)`
-8. `ApplyPruningStep()`
-9. `ReconfigureModelStep()`
-10. `CalcStatsStep("pruned")`
-11. `MonitorComputationStep("finetune")` *(start before training)*
-12. `TrainStep("finetune", epochs=3, plots=True)`
-13. `MonitorComputationStep("finetune")` *(stop after training)*
+3. `AnalyzeModelStep()`
+4. `MonitorComputationStep("pretrain")` *(start before training)*
+5. `TrainStep("pretrain", epochs=1, plots=True)`
+6. `MonitorComputationStep("pretrain")` *(stop after training)*
+7. `AnalyzeAfterTrainingStep()`
+8. `GenerateMasksStep(ratio=0.2)`
+9. `ApplyPruningStep()`
+10. `ReconfigureModelStep()`
+11. `CalcStatsStep("pruned")`
+12. `MonitorComputationStep("finetune")` *(start before training)*
+13. `TrainStep("finetune", epochs=3, plots=True)`
+14. `MonitorComputationStep("finetune")` *(stop after training)*
 
 `AnalyzeModelStep` registers forward hooks and clears previously recorded
 activations or statistics, so a training or validation pass must follow it to
-populate activations and labels for pruning.
+populate activations and labels for pruning. `AnalyzeAfterTrainingStep`
+reanalyzes the model unconditionally after training so the dependency graph is
+fresh before calling `GenerateMasksStep`.
 
 `PruningPipeline` will execute them sequentially, passing the same context object to each. Statistics and metrics are accumulated inside `context` and can be retrieved at the end via `pipeline.record_metrics()` or directly from `context.metrics`.
 
