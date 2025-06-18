@@ -38,9 +38,8 @@ from pipeline.step import (
 steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
-    TrainStep("pretrain", epochs=1, plots=True),
     AnalyzeModelStep(),
-    TrainStep("collect", epochs=1, plots=False),  # or a validation step to record activations
+    TrainStep("pretrain", epochs=1, plots=True),  # collects activations
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     CalcStatsStep("pruned"),
@@ -130,8 +129,8 @@ from pipeline.step import (
 steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
-    TrainStep("pretrain", epochs=1, plots=True),
     AnalyzeModelStep(),
+    TrainStep("pretrain", epochs=1, plots=True),
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     ReconfigureModelStep(),

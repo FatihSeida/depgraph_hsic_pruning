@@ -179,6 +179,7 @@ def execute_pipeline(
     pipeline.calc_initial_stats()
     if method_cls is not None:
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
+        pipeline.analyze_structure()
 
     if config.baseline_epochs > 0:
         monitor = MonitorComputationStep("pretrain")
@@ -204,7 +205,7 @@ def execute_pipeline(
             mgr = pipeline.metrics_mgr = MetricManager()
         monitor.stop(mgr)
 
-    if method_cls is not None:
+    if method_cls is not None and config.baseline_epochs == 0:
         pipeline.analyze_structure()
         if (
             isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
