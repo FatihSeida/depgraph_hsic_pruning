@@ -33,6 +33,7 @@ def test_step_imports_via_pipeline():
         'LoadModelStep': 'load_model',
         'TrainStep': 'train',
         'AnalyzeModelStep': 'analyze',
+        'AnalyzeAfterTrainingStep': 'analyze',
         'GenerateMasksStep': 'generate_masks',
         'ApplyPruningStep': 'apply_pruning',
         'ReconfigureModelStep': 'reconfigure',

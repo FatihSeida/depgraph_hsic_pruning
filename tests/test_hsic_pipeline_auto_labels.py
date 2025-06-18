@@ -74,6 +74,7 @@ from pipeline import (
     CalcStatsStep,
     AnalyzeModelStep,
     TrainStep,
+    AnalyzeAfterTrainingStep,
     GenerateMasksStep,
 )
 from prune_methods.depgraph_hsic import DepgraphHSICMethod
@@ -88,11 +89,17 @@ steps = [
     CalcStatsStep('initial'),
     AnalyzeModelStep(),
     TrainStep('pretrain', epochs=1, plots=False),
+    AnalyzeAfterTrainingStep(),
     GenerateMasksStep(ratio=0.5),
 ]
 
 for step in steps:
     step.run(ctx)
+    if isinstance(step, AnalyzeAfterTrainingStep):
+        for _ in range(2):
+            batch = {{"img": torch.randn(1, 3, 8, 8), "cls": torch.tensor([1.0])}}
+            ctx.model.model(batch["img"])
+            ctx.pruning_method.add_labels(batch["cls"])
 print('ok')
 """.format(tmp=tmp_path)
     proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
