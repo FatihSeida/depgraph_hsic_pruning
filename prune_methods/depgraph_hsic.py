@@ -422,9 +422,24 @@ class DepgraphHSICMethod(BasePruningMethod):
                     self.logger.error(
                         "get_pruning_group failed again for %s: %s", name, err
                     )
+                    try:
+                        model_device = next(self.model.parameters()).device
+                    except StopIteration:  # pragma: no cover - model without parameters
+                        model_device = torch.device("cpu")
+                    inputs_device = (
+                        self.example_inputs.device
+                        if torch.is_tensor(self.example_inputs)
+                        else None
+                    )
+                    self.logger.error(
+                        "Model device: %s, example_inputs device: %s",
+                        model_device,
+                        inputs_device,
+                    )
                     raise RuntimeError(
-                        "Failed to obtain pruning group after model update. "
-                        "Run analyze_model() after changing layers."
+                        f"Failed to obtain pruning group for layer {name} after model update. "
+                        "Verify model and inputs are on the same device and "
+                        "run analyze_model() after changing layers."
                     ) from err
             group.prune()
             try:
