@@ -402,12 +402,32 @@ class DepgraphHSICMethod(BasePruningMethod):
                         unique,
                     )
                 except ValueError as err:
-                    self.logger.error(
-                        "get_pruning_group failed again for %s: %s", name, err
+                    self.logger.info(
+                        "Analyzing model and rebuilding dependency graph")
+                    self.analyze_model()
+                    named_modules = dict(self.model.named_modules())
+                    layer = named_modules.get(name)
+                    if layer is None:
+                        raise RuntimeError(
+                            "Layer %s not found after model update. "
+                            "Run analyze_model() after changing layers." % name
+                        )
+                    self.logger.debug(
+                        "Final retry get_pruning_group for %s with %s", name, unique
                     )
-                    raise RuntimeError(
-                        "Failed to obtain pruning group after model update. "
-                        "Run analyze_model() after changing layers."
-                    ) from err
+                    try:
+                        group = self.DG.get_pruning_group(
+                            layer,
+                            tp.prune_conv_out_channels,
+                            unique,
+                        )
+                    except ValueError as err2:
+                        self.logger.error(
+                            "get_pruning_group failed again for %s: %s", name, err2
+                        )
+                        raise RuntimeError(
+                            "Failed to obtain pruning group after model update. "
+                            "Run analyze_model() after changing layers."
+                        ) from err2
             group.prune()
         self.remove_hooks()
