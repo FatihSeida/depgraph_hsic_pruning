@@ -204,6 +204,25 @@ def execute_pipeline(
             from helper import MetricManager
             mgr = pipeline.metrics_mgr = MetricManager()
         monitor.stop(mgr)
+        if method_cls is not None:
+            pipeline.analyze_structure()
+            if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod):
+                try:
+                    from pipeline import ShortForwardPassStep
+                    from pipeline.context import PipelineContext
+
+                    ctx = PipelineContext(
+                        model_path=model_path,
+                        data=data,
+                        workdir=workdir,
+                        pruning_method=pipeline.pruning_method,
+                        logger=logger,
+                    )
+                    ctx.model = pipeline.model
+                    ctx.metrics_mgr = pipeline.metrics_mgr
+                    ShortForwardPassStep().run(ctx)
+                except Exception as exc:  # pragma: no cover - best effort
+                    logger.warning("short forward pass failed: %s", exc)
 
     if method_cls is not None and config.baseline_epochs == 0:
         if (
@@ -253,6 +272,25 @@ def execute_pipeline(
             from helper import MetricManager
             mgr = pipeline.metrics_mgr = MetricManager()
         monitor.stop(mgr)
+        if method_cls is not None and config.finetune_epochs > 0:
+            pipeline.analyze_structure()
+            if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod):
+                try:
+                    from pipeline import ShortForwardPassStep
+                    from pipeline.context import PipelineContext
+
+                    ctx = PipelineContext(
+                        model_path=model_path,
+                        data=data,
+                        workdir=workdir,
+                        pruning_method=pipeline.pruning_method,
+                        logger=logger,
+                    )
+                    ctx.model = pipeline.model
+                    ctx.metrics_mgr = pipeline.metrics_mgr
+                    ShortForwardPassStep().run(ctx)
+                except Exception as exc:  # pragma: no cover - best effort
+                    logger.warning("short forward pass failed: %s", exc)
     pipeline.visualize_results()
     pipeline.save_pruning_results(workdir / "results.pt")
     csv_path = pipeline.save_metrics_csv(workdir / "metrics.csv")

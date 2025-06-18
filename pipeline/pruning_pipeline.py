@@ -171,24 +171,6 @@ class PruningPipeline(BasePruningPipeline):
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
             self.logger.debug("updated pruning method model reference")
-            if hasattr(self.pruning_method, "analyze_model"):
-                if not model_changed:
-                    saved = (
-                        getattr(self.pruning_method, "activations", None),
-                        getattr(self.pruning_method, "layer_shapes", None),
-                        getattr(self.pruning_method, "num_activations", None),
-                        getattr(self.pruning_method, "labels", None),
-                    )
-                self.logger.debug(
-                    "model instance%s changed during training; rebuilding dependency graph",
-                    "" if model_changed else " not",
-                )
-                self.pruning_method.analyze_model()
-                if not model_changed and saved[0] is not None:
-                    self.pruning_method.activations = saved[0]
-                    self.pruning_method.layer_shapes = saved[1]
-                    self.pruning_method.num_activations = saved[2]
-                    self.pruning_method.labels = saved[3]
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics
@@ -297,24 +279,6 @@ class PruningPipeline(BasePruningPipeline):
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
             self.logger.debug("updated pruning method model reference")
-            if hasattr(self.pruning_method, "analyze_model"):
-                if not model_changed:
-                    saved = (
-                        getattr(self.pruning_method, "activations", None),
-                        getattr(self.pruning_method, "layer_shapes", None),
-                        getattr(self.pruning_method, "num_activations", None),
-                        getattr(self.pruning_method, "labels", None),
-                    )
-                self.logger.debug(
-                    "model instance%s changed during training; rebuilding dependency graph",
-                    "" if model_changed else " not",
-                )
-                self.pruning_method.analyze_model()
-                if not model_changed and saved[0] is not None:
-                    self.pruning_method.activations = saved[0]
-                    self.pruning_method.layer_shapes = saved[1]
-                    self.pruning_method.num_activations = saved[2]
-                    self.pruning_method.labels = saved[3]
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics

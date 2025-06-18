@@ -75,11 +75,6 @@ class TrainStep(PipelineStep):
                 context.logger.debug("updated pruning method model reference")
             except Exception:  # pragma: no cover - best effort
                 pass
-            if hasattr(pm, "analyze_model"):
-                context.logger.debug(
-                    "model instance changed during training; rebuilding dependency graph"
-                )
-                pm.analyze_model()
         context.metrics_mgr.record_training(metrics or {})
         context.metrics[self.phase] = metrics or {}
         context.logger.info("Finished %s", step)
