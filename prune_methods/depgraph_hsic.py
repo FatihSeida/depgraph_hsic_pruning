@@ -265,6 +265,12 @@ class DepgraphHSICMethod(BasePruningMethod):
         import torch_pruning as tp
 
         self.logger.debug("Building dependency graph")
+        try:
+            device = next(self.model.parameters()).device
+        except StopIteration:  # pragma: no cover - model without parameters
+            device = torch.device("cpu")
+        if torch.is_tensor(self.example_inputs):
+            self.example_inputs = self.example_inputs.to(device)
         self.DG = tp.DependencyGraph()
         self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
         self.logger.debug("Dependency graph built")
