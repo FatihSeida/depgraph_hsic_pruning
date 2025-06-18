@@ -32,6 +32,7 @@ from pipeline.step import (
     CalcStatsStep,
     TrainStep,
     AnalyzeModelStep,
+    ShortForwardPassStep,
     AnalyzeAfterTrainingStep,
     GenerateMasksStep,
     ApplyPruningStep,
@@ -41,6 +42,7 @@ steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
     AnalyzeModelStep(),
+    ShortForwardPassStep(),  # used when baseline training is skipped
     TrainStep("pretrain", epochs=1, plots=True),  # collects activations
     AnalyzeAfterTrainingStep(),
     GenerateMasksStep(ratio=0.2),
@@ -259,11 +261,13 @@ Add `--heatmap-only` to generate heatmap visualizations without line plots.
 If baseline weights are already present in the working directory they will be
 reused by default, which skips the initial pretraining step. Disable this by
 setting ``reuse_baseline=False`` in ``TrainConfig`` if fresh baseline training
-is required. When the baseline step is skipped the pipeline performs a short
-forward pass on the first validation image so that a label is recorded for HSIC
-scoring. The dependency graph is already available from the initial analysis,
-so calling ``pipeline.analyze_structure()`` again is unnecessary and will clear
-any collected activations and labels.
+is required. When the baseline step is skipped a
+``ShortForwardPassStep`` automatically runs after ``AnalyzeModelStep``. It
+loads the first validation image, performs a forward pass and records one label
+via ``pruning_method.add_labels`` so HSIC scores can be computed. The dependency
+graph is already available from the initial analysis, so calling
+``pipeline.analyze_structure()`` again is unnecessary and will clear any
+collected activations and labels.
 
 ``DepgraphHSICMethod`` needs activations and labels obtained from a forward
 pass to compute pruning scores. When ``reuse_baseline=True`` the initial

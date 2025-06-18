@@ -59,17 +59,18 @@ A typical set of steps might look as follows:
 1. `LoadModelStep()`
 2. `CalcStatsStep("initial")`
 3. `AnalyzeModelStep()`
-4. `MonitorComputationStep("pretrain")` *(start before training)*
-5. `TrainStep("pretrain", epochs=1, plots=True)`
-6. `MonitorComputationStep("pretrain")` *(stop after training)*
-7. `AnalyzeAfterTrainingStep()`
-8. `GenerateMasksStep(ratio=0.2)`
-9. `ApplyPruningStep()`
-10. `ReconfigureModelStep()`
-11. `CalcStatsStep("pruned")`
-12. `MonitorComputationStep("finetune")` *(start before training)*
-13. `TrainStep("finetune", epochs=3, plots=True)`
-14. `MonitorComputationStep("finetune")` *(stop after training)*
+4. `ShortForwardPassStep()` *(only when skipping pretraining)*
+5. `MonitorComputationStep("pretrain")` *(start before training)*
+6. `TrainStep("pretrain", epochs=1, plots=True)`
+7. `MonitorComputationStep("pretrain")` *(stop after training)*
+8. `AnalyzeAfterTrainingStep()`
+9. `GenerateMasksStep(ratio=0.2)`
+10. `ApplyPruningStep()`
+11. `ReconfigureModelStep()`
+12. `CalcStatsStep("pruned")`
+13. `MonitorComputationStep("finetune")` *(start before training)*
+14. `TrainStep("finetune", epochs=3, plots=True)`
+15. `MonitorComputationStep("finetune")` *(stop after training)*
 
 `AnalyzeModelStep` registers forward hooks and clears previously recorded
 activations or statistics, so a training or validation pass must follow it to

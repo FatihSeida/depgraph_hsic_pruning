@@ -13,6 +13,7 @@ __all__ = [
     "ApplyPruningStep",
     "ReconfigureModelStep",
     "CalcStatsStep",
+    "ShortForwardPassStep",
     "CompareModelsStep",
     "MonitorComputationStep",
 ]
@@ -36,6 +37,7 @@ def __getattr__(name: str):
         "ApplyPruningStep": "apply_pruning",
         "ReconfigureModelStep": "reconfigure",
         "CalcStatsStep": "calc_stats",
+        "ShortForwardPassStep": "short_forward_pass",
         "CompareModelsStep": "compare",
         "MonitorComputationStep": "monitor_computation",
     }
