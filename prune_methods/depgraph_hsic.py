@@ -422,25 +422,58 @@ class DepgraphHSICMethod(BasePruningMethod):
                     self.logger.error(
                         "get_pruning_group failed again for %s: %s", name, err
                     )
+                    self.logger.debug(
+                        "Analyzing model and rebuilding dependency graph for final retry"
+                    )
+                    saved = (
+                        self.activations,
+                        self.layer_shapes,
+                        self.num_activations,
+                        self.labels,
+                    )
+                    self.analyze_model()
+                    self.activations, self.layer_shapes, self.num_activations, self.labels = saved
+                    self.DG = tp.DependencyGraph()
+                    self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+                    named_modules = dict(self.model.named_modules())
+                    layer = named_modules.get(name)
+                    if layer is None:
+                        raise RuntimeError(
+                            "Layer %s not found after model update. "
+                            "Run analyze_model() after changing layers." % name
+                        )
+                    self.logger.debug(
+                        "Final attempt get_pruning_group for %s with %s", name, unique
+                    )
                     try:
-                        model_device = next(self.model.parameters()).device
-                    except StopIteration:  # pragma: no cover - model without parameters
-                        model_device = torch.device("cpu")
-                    inputs_device = (
-                        self.example_inputs.device
-                        if torch.is_tensor(self.example_inputs)
-                        else None
-                    )
-                    self.logger.error(
-                        "Model device: %s, example_inputs device: %s",
-                        model_device,
-                        inputs_device,
-                    )
-                    raise RuntimeError(
-                        f"Failed to obtain pruning group for layer {name} after model update. "
-                        "Verify model and inputs are on the same device and "
-                        "run analyze_model() after changing layers."
-                    ) from err
+                        group = self.DG.get_pruning_group(
+                            layer,
+                            tp.prune_conv_out_channels,
+                            unique,
+                        )
+                    except ValueError as err2:
+                        self.logger.error(
+                            "get_pruning_group failed third time for %s: %s", name, err2
+                        )
+                        try:
+                            model_device = next(self.model.parameters()).device
+                        except StopIteration:  # pragma: no cover - model without parameters
+                            model_device = torch.device("cpu")
+                        inputs_device = (
+                            self.example_inputs.device
+                            if torch.is_tensor(self.example_inputs)
+                            else None
+                        )
+                        self.logger.error(
+                            "Model device: %s, example_inputs device: %s",
+                            model_device,
+                            inputs_device,
+                        )
+                        raise RuntimeError(
+                            f"Failed to obtain pruning group for layer {name} after model update. "
+                            "Verify model and inputs are on the same device and "
+                            "run analyze_model() after changing layers."
+                        ) from err2
             group.prune()
             try:
                 tp.utils.remove_pruning_reparametrization(self.model)

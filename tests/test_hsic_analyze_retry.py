@@ -1,12 +1,13 @@
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-
-def test_hsic_error_when_layer_missing_twice(tmp_path):
+def test_final_retry_after_analyze(tmp_path):
     code = f"""
+import json
 import sys
 import types
 import torch
@@ -14,7 +15,22 @@ import torch
 sys.modules['matplotlib'] = types.ModuleType('matplotlib')
 sys.modules['matplotlib.pyplot'] = types.ModuleType('matplotlib.pyplot')
 
+class DummyGroup(list):
+    def __init__(self, conv, idxs):
+        super().__init__([(types.SimpleNamespace(target=types.SimpleNamespace(module=conv)), idxs)])
+        self.conv = conv
+        self.idxs = idxs
+    def prune(self):
+        mask = torch.ones(self.conv.out_channels, dtype=torch.bool)
+        for i in self.idxs:
+            mask[i] = False
+        self.conv.out_channels = int(mask.sum())
+        self.conv.weight = torch.nn.Parameter(self.conv.weight[mask])
+        if self.conv.bias is not None:
+            self.conv.bias = torch.nn.Parameter(self.conv.bias[mask])
+
 class DummyDG:
+    calls = 0
     def build_dependency(self, model, example_inputs):
         pass
     def get_all_groups(self, root_module_types=None):
@@ -22,7 +38,10 @@ class DummyDG:
     def get_pruner_of_module(self, layer):
         return types.SimpleNamespace(get_out_channels=lambda l: getattr(l, 'out_channels', 0))
     def get_pruning_group(self, conv, fn, idxs):
-        raise ValueError('fail')
+        DummyDG.calls += 1
+        if DummyDG.calls < 3:
+            raise ValueError('fail')
+        return DummyGroup(conv, idxs)
 
 tp = types.ModuleType('torch_pruning')
 tp.DependencyGraph = DummyDG
@@ -40,15 +59,15 @@ model = torch.nn.Sequential(
 )
 method = DepgraphHSICMethod(model, workdir='{tmp_path}')
 method.example_inputs = torch.randn(1,3,8,8)
+method._build_channel_groups = lambda: None
 method.analyze_model()
-for _ in range(2):
-    model(torch.randn(1,3,8,8))
-    method.add_labels(torch.tensor([1.0]))
-method.generate_pruning_mask(0.5)
-del model[0]
+DummyDG.calls = 0
+start = DummyDG.calls
+model[0] = torch.nn.Conv2d(3,4,3)
+method.pruning_plan = {{'0': [0]}}
 method.apply_pruning()
+print(json.dumps([DummyDG.calls - start]))
 """
-    proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
-    assert proc.returncode != 0
-    output = (proc.stderr + proc.stdout).lower()
-    assert 'analyze_model()' in output
+    out = subprocess.check_output([sys.executable, '-c', code])
+    calls, = json.loads(out.decode())
+    assert calls == 3
