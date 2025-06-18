@@ -14,6 +14,12 @@ class ApplyPruningStep(PipelineStep):
             raise NotImplementedError
         context.logger.info("Applying pruning mask")
         context.pruning_method.apply_pruning()
+        snapshot = context.workdir / "snapshot.pt"
+        try:
+            context.logger.info("Saving snapshot to %s", snapshot)
+            context.model.save(str(snapshot))
+        except Exception:  # pragma: no cover - best effort
+            pass
         context.logger.info("Finished %s", step)
 
 __all__ = ["ApplyPruningStep"]

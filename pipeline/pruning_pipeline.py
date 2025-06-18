@@ -197,7 +197,7 @@ class PruningPipeline(BasePruningPipeline):
         self.logger.info("Applying pruning mask")
         self.pruning_method.apply_pruning()
 
-    def reconfigure_model(self) -> None:
+    def reconfigure_model(self, output_path: str | Path | None = None) -> None:
         """Reconfigure the model after pruning if necessary."""
         if self.pruning_method is None:
             raise NotImplementedError
@@ -205,7 +205,9 @@ class PruningPipeline(BasePruningPipeline):
             return
         self.logger.info("Reconfiguring pruned model")
         if self.model is not None:
-            self.reconfigurator.reconfigure_model(self.model)
+            self.model = self.reconfigurator.reconfigure_model(
+                self.model, output_path=output_path
+            )
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         """Calculate parameter count and FLOPs after pruning."""
@@ -298,4 +300,15 @@ class PruningPipeline(BasePruningPipeline):
         self.logger.info("Saving metrics CSV to %s", path)
         self.metrics_csv = self.metrics_mgr.to_csv(path)
         return self.metrics_csv
+
+    def save_model(self, path: str | Path) -> Path:
+        """Persist the current YOLO model to ``path``."""
+
+        if self.model is None:
+            raise ValueError("Model is not loaded")
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.logger.info("Saving model to %s", path)
+        self.model.save(str(path))
+        return path
 

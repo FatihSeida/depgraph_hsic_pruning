@@ -43,6 +43,9 @@ class DummyModel(torch.nn.Module):
     def train(self, *a, **kw):
         return {{}}
 
+    def save(self, path):
+        Path(path).write_text('x')
+
 
 class DummyYOLO:
     def __init__(self, *a, **k):
@@ -54,6 +57,9 @@ class DummyYOLO:
 
     def train(self, *a, **kw):
         return {{}}
+
+    def save(self, path):
+        Path(path).write_text('x')
 
 
 up.utils = utils

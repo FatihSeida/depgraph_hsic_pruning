@@ -1,23 +1,37 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from ..context import PipelineContext
 from . import PipelineStep
 from ..model_reconfig import AdaptiveLayerReconfiguration
+from ultralytics import YOLO
 
 
 class ReconfigureModelStep(PipelineStep):
     """Reconfigure pruned model layers to match pruned channels."""
 
-    def __init__(self) -> None:
+    def __init__(self, output_path: str | Path | None = None) -> None:
         self.reconfigurator = AdaptiveLayerReconfiguration()
+        self.output_path = output_path
 
     def run(self, context: PipelineContext) -> None:
         step = self.__class__.__name__
         context.logger.info("Starting %s", step)
         if context.model is None:
             raise ValueError("Model is not loaded")
+        snapshot = context.workdir / "snapshot.pt"
+        if snapshot.exists():
+            context.logger.info("Loading snapshot from %s", snapshot)
+            context.model = YOLO(str(snapshot))
+            pm = getattr(context, "pruning_method", None)
+            if pm is not None:
+                try:
+                    pm.model = context.model.model
+                except Exception:  # pragma: no cover - best effort
+                    pass
         context.logger.info("Reconfiguring model")
-        self.reconfigurator.reconfigure_model(context.model)
+        self.reconfigurator.reconfigure_model(context.model, output_path=self.output_path)
         context.logger.info("Finished %s", step)
 
 __all__ = ["ReconfigureModelStep"]
