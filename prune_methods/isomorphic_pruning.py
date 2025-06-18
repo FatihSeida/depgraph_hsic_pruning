@@ -28,7 +28,7 @@ class IsomorphicMethod(BasePruningMethod):
         self.logger.info("Analyzing model")
         import torch_pruning as tp
         self.DG = tp.DependencyGraph()
-        self.DG.build_dependency(self.model, self.example_inputs)
+        self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
 
     def generate_pruning_mask(self, ratio: float) -> None:  # pragma: no cover - heavy dependency
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
@@ -36,7 +36,7 @@ class IsomorphicMethod(BasePruningMethod):
         importance = tp.importance.MagnitudeImportance(p=1)
         self.pruner = tp.MagnitudePruner(
             self.model,
-            example_inputs=self.example_inputs,
+            example_inputs=self._inputs_tuple(),
             importance=importance,
             global_pruning=False,
             pruning_ratio=ratio,

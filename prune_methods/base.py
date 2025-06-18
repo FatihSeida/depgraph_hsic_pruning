@@ -109,3 +109,10 @@ class BasePruningMethod(abc.ABC):
             "pruned": self.pruned_stats,
         }
         torch.save(data, path)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def _inputs_tuple(self) -> tuple[torch.Tensor]:
+        """Return ``example_inputs`` wrapped in a tuple."""
+        return (self.example_inputs,)
