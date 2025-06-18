@@ -206,7 +206,6 @@ def execute_pipeline(
         monitor.stop(mgr)
 
     if method_cls is not None and config.baseline_epochs == 0:
-        pipeline.analyze_structure()
         if (
             isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
             and config.reuse_baseline

@@ -18,7 +18,7 @@ class DummyGroup(list):
         self.conv.reparam = True
 
 class DummyDG:
-    def build_dependency(self, model, ex):
+    def build_dependency(self, model, example_inputs=None):
         pass
     def get_pruning_group(self, conv, fn, idxs):
         return DummyGroup(conv, idxs)
@@ -47,7 +47,7 @@ model = torch.nn.Sequential(
 method = DepgraphHSICMethod(model, workdir='{tmp_path}')
 method.example_inputs = torch.randn(1,3,8,8)
 method.DG = DummyDG()
-method.pruning_plan = {'0': [0]}
+method.pruning_plan = {{'0': [0]}}
 method.apply_pruning()
 print(len(calls))
 print(hasattr(model[0], 'reparam'))
