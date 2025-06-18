@@ -114,5 +114,11 @@ class BasePruningMethod(abc.ABC):
     # Internal helpers
     # ------------------------------------------------------------------
     def _inputs_tuple(self) -> tuple[torch.Tensor]:
-        """Return ``example_inputs`` wrapped in a tuple."""
+        """Return ``example_inputs`` wrapped in a tuple on ``self.model``'s device."""
+        if torch.is_tensor(self.example_inputs):
+            try:
+                device = next(self.model.parameters()).device
+            except StopIteration:  # pragma: no cover - model without parameters
+                device = torch.device("cpu")
+            return (self.example_inputs.to(device),)
         return (self.example_inputs,)
