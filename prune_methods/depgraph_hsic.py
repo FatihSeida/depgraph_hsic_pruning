@@ -374,7 +374,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                 self.logger.info("Rebuilding dependency graph before pruning")
                 # recreate the DependencyGraph in case the model changed
                 self.DG = tp.DependencyGraph()
-                self.DG.build_dependency(self.model, (self.example_inputs,))
+                self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
                 named_modules = dict(self.model.named_modules())
                 self.logger.debug(
                     "dependency graph modules: %s", list(named_modules.keys())
