@@ -365,6 +365,14 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.DG = tp.DependencyGraph()
         try:
             self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+            saved = (
+                self.activations,
+                self.layer_shapes,
+                self.num_activations,
+                self.labels,
+            )
+            self.register_hooks()
+            self.activations, self.layer_shapes, self.num_activations, self.labels = saved
         except Exception as build_err:
             self.logger.error("Dependency graph build failed: %s", build_err)
             saved = (
@@ -377,6 +385,14 @@ class DepgraphHSICMethod(BasePruningMethod):
             self.analyze_model()
             self.activations, self.layer_shapes, self.num_activations, self.labels = saved
             self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+            saved = (
+                self.activations,
+                self.layer_shapes,
+                self.num_activations,
+                self.labels,
+            )
+            self.register_hooks()
+            self.activations, self.layer_shapes, self.num_activations, self.labels = saved
 
         named_modules = dict(self.model.named_modules())
 
@@ -384,6 +400,10 @@ class DepgraphHSICMethod(BasePruningMethod):
             layer = named_modules.get(name)
             if layer is None:
                 raise RuntimeError(f"Layer {name!r} not found in model")
+            if layer not in self.layers:
+                raise RuntimeError(
+                    f"Layer {name!r} not found in active layer list. Run analyze_model() after changing layers."
+                )
             unique = sorted(set(idxs))
             self.logger.debug("pruning %s channels %s", name, unique)
             self.logger.debug("Attempting to obtain pruning group for %s", name)
@@ -399,6 +419,14 @@ class DepgraphHSICMethod(BasePruningMethod):
                 # recreate the DependencyGraph in case the model changed
                 self.DG = tp.DependencyGraph()
                 self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+                tmp = (
+                    self.activations,
+                    self.layer_shapes,
+                    self.num_activations,
+                    self.labels,
+                )
+                self.register_hooks()
+                self.activations, self.layer_shapes, self.num_activations, self.labels = tmp
                 named_modules = dict(self.model.named_modules())
                 self.logger.debug(
                     "dependency graph modules: %s", list(named_modules.keys())
@@ -407,6 +435,11 @@ class DepgraphHSICMethod(BasePruningMethod):
                 if layer is None:
                     raise RuntimeError(
                         "Layer %s not found after model update. "
+                        "Run analyze_model() after changing layers." % name
+                    )
+                if layer not in self.layers:
+                    raise RuntimeError(
+                        "Layer %s not found in active layer list after rebuild. "
                         "Run analyze_model() after changing layers." % name
                     )
                 self.logger.debug(
@@ -435,11 +468,24 @@ class DepgraphHSICMethod(BasePruningMethod):
                     self.activations, self.layer_shapes, self.num_activations, self.labels = saved
                     self.DG = tp.DependencyGraph()
                     self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+                    temp = (
+                        self.activations,
+                        self.layer_shapes,
+                        self.num_activations,
+                        self.labels,
+                    )
+                    self.register_hooks()
+                    self.activations, self.layer_shapes, self.num_activations, self.labels = temp
                     named_modules = dict(self.model.named_modules())
                     layer = named_modules.get(name)
                     if layer is None:
                         raise RuntimeError(
                             "Layer %s not found after model update. "
+                            "Run analyze_model() after changing layers." % name
+                        )
+                    if layer not in self.layers:
+                        raise RuntimeError(
+                            "Layer %s not found in active layer list after rebuild. "
                             "Run analyze_model() after changing layers." % name
                         )
                     self.logger.debug(
