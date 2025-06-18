@@ -212,65 +212,19 @@ def execute_pipeline(
             and config.baseline_epochs == 0
         ):
             try:
-                import yaml
-                import torch
-                from pathlib import Path
+                from pipeline import ShortForwardPassStep
+                from pipeline.context import PipelineContext
 
-                with open(data) as f:
-                    ds_cfg = yaml.safe_load(f)
-                base = Path(ds_cfg.get("path", Path(data).parent))
-                val = ds_cfg.get("val") or ds_cfg.get("train")
-                val_path = base / val if val is not None else base
-                if val_path.is_dir():
-                    imgs = sorted(val_path.glob("*.*"))
-                    img = imgs[0] if imgs else None
-                else:
-                    img = val_path if val_path.exists() else None
-                if img is not None:
-                    logger.info("short forward pass image: %s", img)
-                    label_file = Path(str(img)).with_suffix(".txt").as_posix()
-                    label_file = label_file.replace("/images/", "/labels/")
-                    logger.info("short forward pass label file: %s", label_file)
-                    y = torch.tensor([])
-                    lf = Path(label_file)
-                    if lf.exists():
-                        with lf.open() as lf_f:
-                            labels = [float(line.split()[0]) for line in lf_f if line.strip()]
-                        if labels:
-                            y = torch.tensor([labels[0]])
-                            logger.info("label file %s has %d entries", label_file, len(labels))
-                        else:
-                            logger.warning("label file %s is empty", label_file)
-                    else:
-                        logger.warning("label file %s does not exist", label_file)
-                    if y.numel() > 0:
-                        try:
-                            from PIL import Image  # type: ignore
-                            import numpy as np  # type: ignore
-
-                            img_pil = Image.open(img).convert("RGB")
-                            orig_size = img_pil.size
-                            if orig_size != (640, 640):
-                                logger.debug(
-                                    "resizing short forward pass image from %s to (640, 640)",
-                                    orig_size,
-                                )
-                                img_pil = img_pil.resize((640, 640))
-                            arr = np.array(img_pil, dtype=np.float32)
-                            arr = np.transpose(arr, (2, 0, 1))
-                            inp = torch.tensor(arr).unsqueeze(0)
-                            logger.debug("short forward pass tensor shape: %s", tuple(inp.shape))
-                        except Exception:  # pragma: no cover - fallback when PIL is missing
-                            inp = getattr(
-                                pipeline.pruning_method,
-                                "example_inputs",
-                                torch.randn(1, 3, 640, 640),
-                            )
-
-                        device = next(pipeline.model.model.parameters()).device
-                        with torch.no_grad():
-                            pipeline.model.model(inp.to(device))
-                        pipeline.pruning_method.add_labels(y)
+                ctx = PipelineContext(
+                    model_path=model_path,
+                    data=data,
+                    workdir=workdir,
+                    pruning_method=pipeline.pruning_method,
+                    logger=logger,
+                )
+                ctx.model = pipeline.model
+                ctx.metrics_mgr = pipeline.metrics_mgr
+                ShortForwardPassStep().run(ctx)
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning("short forward pass failed: %s", exc)
     if method_cls is not None:

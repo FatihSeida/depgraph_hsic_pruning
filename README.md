@@ -32,6 +32,7 @@ from pipeline.step import (
     CalcStatsStep,
     TrainStep,
     AnalyzeModelStep,
+    ShortForwardPassStep,
     AnalyzeAfterTrainingStep,
     GenerateMasksStep,
     ApplyPruningStep,
@@ -41,6 +42,7 @@ steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
     AnalyzeModelStep(),
+    ShortForwardPassStep(),  # used when baseline training is skipped
     TrainStep("pretrain", epochs=1, plots=True),  # collects activations
     AnalyzeAfterTrainingStep(),
     GenerateMasksStep(ratio=0.2),
@@ -267,6 +269,7 @@ any collected activations and labels.
 When baseline training does run ``PruningPipeline.pretrain()`` reanalyses the
 model after training. If the YOLO instance is unchanged activations and labels
 are restored so pruning can proceed without another forward pass.
+
 
 ``DepgraphHSICMethod`` needs activations and labels obtained from a forward
 pass to compute pruning scores. When ``reuse_baseline=True`` the initial
