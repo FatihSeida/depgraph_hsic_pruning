@@ -261,13 +261,15 @@ Add `--heatmap-only` to generate heatmap visualizations without line plots.
 If baseline weights are already present in the working directory they will be
 reused by default, which skips the initial pretraining step. Disable this by
 setting ``reuse_baseline=False`` in ``TrainConfig`` if fresh baseline training
-is required. When the baseline step is skipped a
-``ShortForwardPassStep`` automatically runs after ``AnalyzeModelStep``. It
-loads the first validation image, performs a forward pass and records one label
-via ``pruning_method.add_labels`` so HSIC scores can be computed. The dependency
-graph is already available from the initial analysis, so calling
-``pipeline.analyze_structure()`` again is unnecessary and will clear any
-collected activations and labels.
+is required. When the baseline step is skipped the pipeline performs a short
+forward pass on the first validation image so that a label is recorded for HSIC
+scoring. The dependency graph is already available from the initial analysis,
+so calling ``pipeline.analyze_structure()`` again is unnecessary and will clear
+any collected activations and labels.
+When baseline training does run ``PruningPipeline.pretrain()`` reanalyses the
+model after training. If the YOLO instance is unchanged activations and labels
+are restored so pruning can proceed without another forward pass.
+
 
 ``DepgraphHSICMethod`` needs activations and labels obtained from a forward
 pass to compute pruning scores. When ``reuse_baseline=True`` the initial
@@ -322,6 +324,8 @@ start with a clean slate.
 If training replaces the underlying model object the pipeline detects the
 change and automatically calls ``analyze_model()`` again so that the dependency
 graph and hooks are rebuilt for the new instance.
+``PruningPipeline.pretrain()`` performs the same reanalysis even when the model
+object is unchanged and restores any recorded activations and labels afterward.
 
 ### Reanalyzing after structural changes
 

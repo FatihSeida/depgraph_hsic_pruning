@@ -172,6 +172,7 @@ class PruningPipeline(BasePruningPipeline):
             self.pruning_method.model = self.model.model
             self.logger.debug("updated pruning method model reference")
             if hasattr(self.pruning_method, "analyze_model"):
+                saved: tuple | None = None
                 if not model_changed:
                     saved = (
                         getattr(self.pruning_method, "activations", None),
@@ -184,7 +185,7 @@ class PruningPipeline(BasePruningPipeline):
                     "" if model_changed else " not",
                 )
                 self.pruning_method.analyze_model()
-                if not model_changed and saved[0] is not None:
+                if not model_changed and saved is not None and saved[0] is not None:
                     self.pruning_method.activations = saved[0]
                     self.pruning_method.layer_shapes = saved[1]
                     self.pruning_method.num_activations = saved[2]
