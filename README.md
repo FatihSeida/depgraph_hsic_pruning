@@ -314,6 +314,20 @@ If training replaces the underlying model object the pipeline detects the
 change and automatically calls ``analyze_model()`` again so that the dependency
 graph and hooks are rebuilt for the new instance.
 
+### Reanalyzing after structural changes
+
+Modifying the model in place (e.g. deleting or replacing layers) invalidates the
+dependency graph created by ``analyze_model()``. Attempting to prune without
+reanalyzing typically fails with an error similar to:
+
+```
+RuntimeError: Layer 'conv0' not found after model update. Run analyze_model() after changing layers.
+```
+
+Run ``analyze_model()`` again after making structural changes so that hooks and
+the dependency graph are refreshed before calling ``generate_pruning_mask`` or
+``apply_pruning``.
+
 Automatic recording for training pipelines is implemented in
 ``pipeline/step/train.py`` where :class:`~pipeline.step.train.TrainStep` adds a
 callback on ``on_train_batch_end`` to store ``batch["cls"]`` after each forward
