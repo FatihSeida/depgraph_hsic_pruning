@@ -23,7 +23,7 @@ class TorchRandomMethod(BasePruningMethod):
         self.logger.info("Analyzing model")
         import torch_pruning as tp
         self.DG = tp.DependencyGraph()
-        self.DG.build_dependency(self.model, self.example_inputs)
+        self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
 
     def generate_pruning_mask(self, ratio: float) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
@@ -32,7 +32,7 @@ class TorchRandomMethod(BasePruningMethod):
         pruner_cls = getattr(tp, "RandomPruner", getattr(tp, "MagnitudePruner", tp.pruner.algorithms.BasePruner))
         self.pruner = pruner_cls(
             self.model,
-            example_inputs=self.example_inputs,
+            example_inputs=self._inputs_tuple(),
             importance=importance,
             pruning_ratio=ratio,
             iterative_steps=1,
