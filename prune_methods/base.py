@@ -121,4 +121,14 @@ class BasePruningMethod(abc.ABC):
             except StopIteration:  # pragma: no cover - model without parameters
                 device = torch.device("cpu")
             return (self.example_inputs.to(device),)
+
+        if isinstance(self.example_inputs, (list, tuple)) and all(
+            torch.is_tensor(t) for t in self.example_inputs
+        ):
+            try:
+                device = next(self.model.parameters()).device
+            except StopIteration:  # pragma: no cover - model without parameters
+                device = torch.device("cpu")
+            return tuple(t.to(device) for t in self.example_inputs)
+
         return (self.example_inputs,)
