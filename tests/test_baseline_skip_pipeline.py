@@ -131,7 +131,7 @@ def test_pipeline_runs_without_baseline(monkeypatch, tmp_path):
             pass
         def apply_pruning(self):
             pass
-        def reconfigure_model(self):
+        def reconfigure_model(self, output_path=None):
             pass
         def calc_pruned_stats(self):
             pass
@@ -143,6 +143,8 @@ def test_pipeline_runs_without_baseline(monkeypatch, tmp_path):
             pass
         def save_metrics_csv(self, path):
             return Path(path)
+        def save_model(self, path):
+            Path(path).write_text('x')
 
     monkeypatch.setattr(main, 'PruningPipeline', DummyPipeline)
 

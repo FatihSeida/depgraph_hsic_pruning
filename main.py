@@ -18,6 +18,7 @@ import logging
 
 from helper import ExperimentManager, get_logger, Logger, add_file_handler
 from pipeline import PruningPipeline, MonitorComputationStep
+from ultralytics import YOLO
 from prune_methods import (
     BasePruningMethod,
     L1NormMethod,
@@ -249,7 +250,19 @@ def execute_pipeline(
     if method_cls is not None:
         pipeline.generate_pruning_mask(ratio)
         pipeline.apply_pruning()
-        pipeline.reconfigure_model()
+        snapshot = workdir / "snapshot.pt"
+        pipeline.save_model(snapshot)
+        logger.info("Saved snapshot to %s", snapshot)
+        pipeline.model = YOLO(str(snapshot))
+        pm = getattr(pipeline, "pruning_method", None)
+        if pm is not None:
+            try:
+                pm.model = pipeline.model.model
+            except Exception:  # pragma: no cover - best effort
+                logger.debug("failed to update pruning method model reference")
+        final_path = workdir / f"pruned_model_{method_cls.__name__}_{ratio}.pt"
+        pipeline.reconfigure_model(output_path=final_path)
+        logger.info("Saved pruned model to %s", final_path)
         pipeline.calc_pruned_stats()
         monitor = MonitorComputationStep("finetune")
         monitor.start()
