@@ -378,11 +378,29 @@ class DepgraphHSICMethod(BasePruningMethod):
                 self.logger.debug(
                     "dependency graph modules: %s", list(named_modules.keys())
                 )
-                layer = named_modules[name]
-                group = self.DG.get_pruning_group(
-                    layer,
-                    tp.prune_conv_out_channels,
-                    unique,
-                )
+                layer = named_modules.get(name)
+                if layer is None:
+                    self.logger.info(
+                        "Layer %s missing after rebuild, analyzing model", name
+                    )
+                    self.analyze_model()
+                    named_modules = dict(self.model.named_modules())
+                    layer = named_modules.get(name)
+                    if layer is None:
+                        raise RuntimeError(
+                            "Layer %s not found after model update. "
+                            "Run analyze_model() after changing layers." % name
+                        )
+                try:
+                    group = self.DG.get_pruning_group(
+                        layer,
+                        tp.prune_conv_out_channels,
+                        unique,
+                    )
+                except ValueError as err:
+                    raise RuntimeError(
+                        "Failed to obtain pruning group after model update. "
+                        "Run analyze_model() after changing layers."
+                    ) from err
             group.prune()
         self.remove_hooks()
