@@ -430,4 +430,8 @@ class DepgraphHSICMethod(BasePruningMethod):
                             "Run analyze_model() after changing layers."
                         ) from err2
             group.prune()
+            try:
+                tp.utils.remove_pruning_reparametrization(self.model)
+            except Exception:  # pragma: no cover - safeguard against tp versions
+                pass
         self.remove_hooks()
