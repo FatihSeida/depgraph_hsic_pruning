@@ -179,6 +179,32 @@ def execute_pipeline(
     pipeline.calc_initial_stats()
     if method_cls is not None:
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
+
+    if config.baseline_epochs > 0:
+        monitor = MonitorComputationStep("pretrain")
+        monitor.start()
+        phase = "baseline" if method_cls is None else "pretrain"
+        pretrain_resume = _adjust_resume(workdir / phase, config.baseline_epochs, resume, logger)
+        pipeline.pretrain(
+            epochs=config.baseline_epochs,
+            batch=config.batch_size,
+            project=str(workdir),
+            name=phase,
+            resume=pretrain_resume,
+            device=config.device,
+            label_fn=(
+                aggregate_labels
+                if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
+                else None
+            ),
+        )
+        mgr = getattr(pipeline, "metrics_mgr", None)
+        if mgr is None:
+            from helper import MetricManager
+            mgr = pipeline.metrics_mgr = MetricManager()
+        monitor.stop(mgr)
+
+    if method_cls is not None:
         pipeline.analyze_structure()
         if (
             isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
@@ -247,29 +273,6 @@ def execute_pipeline(
                         pipeline.pruning_method.add_labels(y)
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning("short forward pass failed: %s", exc)
-    if config.baseline_epochs > 0:
-        monitor = MonitorComputationStep("pretrain")
-        monitor.start()
-        phase = "baseline" if method_cls is None else "pretrain"
-        pretrain_resume = _adjust_resume(workdir / phase, config.baseline_epochs, resume, logger)
-        pipeline.pretrain(
-            epochs=config.baseline_epochs,
-            batch=config.batch_size,
-            project=str(workdir),
-            name=phase,
-            resume=pretrain_resume,
-            device=config.device,
-            label_fn=(
-                aggregate_labels
-                if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
-                else None
-            ),
-        )
-        mgr = getattr(pipeline, "metrics_mgr", None)
-        if mgr is None:
-            from helper import MetricManager
-            mgr = pipeline.metrics_mgr = MetricManager()
-        monitor.stop(mgr)
     if method_cls is not None:
         pipeline.generate_pruning_mask(ratio)
         pipeline.apply_pruning()

@@ -19,9 +19,9 @@ be installed automatically.
 After installing the dependencies you can run the pruning pipeline as shown
 below. The example expects the dataset to be defined in a YAML file following
 Ultralytics' format with `train`, `val` and `nc` fields. When using
-`DepgraphHSICMethod` you must record labels for every forward pass. After
-running `AnalyzeModelStep` you need to execute a training or validation step so
-activations and labels are collected.
+`DepgraphHSICMethod` you must record labels for every forward pass. Ensure a
+training or validation step runs after `AnalyzeModelStep` so activations and
+labels are collected.
 
 ```python
 from pipeline import PruningPipeline
@@ -38,8 +38,8 @@ from pipeline.step import (
 steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
-    AnalyzeModelStep(),
     TrainStep("pretrain", epochs=1, plots=True),
+    AnalyzeModelStep(),
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     CalcStatsStep("pruned"),
@@ -129,8 +129,8 @@ from pipeline.step import (
 steps = [
     LoadModelStep(),
     CalcStatsStep("initial"),
-    AnalyzeModelStep(),
     TrainStep("pretrain", epochs=1, plots=True),
+    AnalyzeModelStep(),
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     ReconfigureModelStep(),
