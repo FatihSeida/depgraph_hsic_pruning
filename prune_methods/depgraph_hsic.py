@@ -354,6 +354,11 @@ class DepgraphHSICMethod(BasePruningMethod):
             raise RuntimeError("analyze_model must be called first")
         import torch_pruning as tp
 
+        # Always rebuild the dependency graph in case the model changed
+        self.logger.debug("Rebuilding dependency graph before pruning")
+        self.DG = tp.DependencyGraph()
+        self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+
         named_modules = dict(self.model.named_modules())
 
         for name, idxs in self.pruning_plan.items():
