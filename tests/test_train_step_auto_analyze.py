@@ -82,6 +82,7 @@ from pipeline import (
     LoadModelStep,
     AnalyzeModelStep,
     TrainStep,
+    AnalyzeAfterTrainingStep,
     GenerateMasksStep,
     ApplyPruningStep,
 )
@@ -96,13 +97,14 @@ steps = [
     LoadModelStep(),
     AnalyzeModelStep(),
     TrainStep('pretrain', epochs=1, plots=False),
+    AnalyzeAfterTrainingStep(),
     GenerateMasksStep(ratio=0.5),
     ApplyPruningStep(),
 ]
 
 for step in steps:
     step.run(ctx)
-    if isinstance(step, TrainStep):
+    if isinstance(step, AnalyzeAfterTrainingStep):
         for _ in range(2):
             batch = {{"img": torch.randn(1,3,8,8), "cls": torch.tensor([1.0])}}
             ctx.model.model(batch["img"])

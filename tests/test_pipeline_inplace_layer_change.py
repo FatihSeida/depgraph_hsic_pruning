@@ -81,6 +81,7 @@ method.example_inputs = torch.randn(1,3,8,8)
 pipeline.analyze_structure()
 method.remove_hooks()
 pipeline.pretrain()
+pipeline.analyze_structure()
 for _ in range(2):
     pipeline.model.model(torch.randn(1,3,8,8))
     method.add_labels(torch.tensor([1.0]))

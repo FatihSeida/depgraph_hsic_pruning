@@ -64,13 +64,14 @@ A typical set of steps might look as follows:
 6. `TrainStep("pretrain", epochs=1, plots=True)`
 7. `MonitorComputationStep("pretrain")` *(stop after training)*
 8. `AnalyzeAfterTrainingStep()`
-9. `GenerateMasksStep(ratio=0.2)`
-10. `ApplyPruningStep()`
-11. `ReconfigureModelStep()`
-12. `CalcStatsStep("pruned")`
-13. `MonitorComputationStep("finetune")` *(start before training)*
-14. `TrainStep("finetune", epochs=3, plots=True)`
-15. `MonitorComputationStep("finetune")` *(stop after training)*
+9. `ShortForwardPassStep()`
+10. `GenerateMasksStep(ratio=0.2)`
+11. `ApplyPruningStep()`
+12. `ReconfigureModelStep()`
+13. `CalcStatsStep("pruned")`
+14. `MonitorComputationStep("finetune")` *(start before training)*
+15. `TrainStep("finetune", epochs=3, plots=True)`
+16. `MonitorComputationStep("finetune")` *(stop after training)*
 
 `AnalyzeModelStep` registers forward hooks and clears previously recorded
 activations or statistics, so a training or validation pass must follow it to

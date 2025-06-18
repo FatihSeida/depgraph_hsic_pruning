@@ -59,8 +59,11 @@ def test_records_preserved_when_model_unchanged():
     pipeline = pp.PruningPipeline('m', 'd', pruning_method=method)
     pipeline.model = DummyYOLO()
     pipeline.pretrain()
+    assert method.calls == 0
+    pipeline.analyze_structure()
     assert method.calls == 1
-    assert method.activations == {0: [0]}
+    assert method.activations == {}
     pipeline.finetune()
+    assert method.calls == 1
+    pipeline.analyze_structure()
     assert method.calls == 2
-    assert method.activations == {0: [0]}

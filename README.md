@@ -45,6 +45,7 @@ steps = [
     ShortForwardPassStep(),  # used when baseline training is skipped
     TrainStep("pretrain", epochs=1, plots=True),  # collects activations
     AnalyzeAfterTrainingStep(),
+    ShortForwardPassStep(),
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     CalcStatsStep("pruned"),
@@ -126,6 +127,7 @@ from pipeline.step import (
     CalcStatsStep,
     TrainStep,
     AnalyzeModelStep,
+    ShortForwardPassStep,
     AnalyzeAfterTrainingStep,
     GenerateMasksStep,
     ApplyPruningStep,
@@ -138,6 +140,7 @@ steps = [
     AnalyzeModelStep(),
     TrainStep("pretrain", epochs=1, plots=True),
     AnalyzeAfterTrainingStep(),
+    ShortForwardPassStep(),
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     ReconfigureModelStep(),
