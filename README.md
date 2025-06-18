@@ -40,6 +40,7 @@ steps = [
     CalcStatsStep("initial"),
     TrainStep("pretrain", epochs=1, plots=True),
     AnalyzeModelStep(),
+    TrainStep("collect", epochs=1, plots=False),  # or a validation step to record activations
     GenerateMasksStep(ratio=0.2),
     ApplyPruningStep(),
     CalcStatsStep("pruned"),
