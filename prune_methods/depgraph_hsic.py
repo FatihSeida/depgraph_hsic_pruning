@@ -362,6 +362,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                 raise RuntimeError(f"Layer {name!r} not found in model")
             unique = sorted(set(idxs))
             self.logger.debug("pruning %s channels %s", name, unique)
+            self.logger.debug("Attempting to obtain pruning group for %s", name)
             try:
                 group = self.DG.get_pruning_group(
                     layer,
@@ -391,6 +392,9 @@ class DepgraphHSICMethod(BasePruningMethod):
                             "Layer %s not found after model update. "
                             "Run analyze_model() after changing layers." % name
                         )
+                self.logger.debug(
+                    "Retrying get_pruning_group for %s with %s", name, unique
+                )
                 try:
                     group = self.DG.get_pruning_group(
                         layer,
@@ -398,6 +402,9 @@ class DepgraphHSICMethod(BasePruningMethod):
                         unique,
                     )
                 except ValueError as err:
+                    self.logger.error(
+                        "get_pruning_group failed again for %s: %s", name, err
+                    )
                     raise RuntimeError(
                         "Failed to obtain pruning group after model update. "
                         "Run analyze_model() after changing layers."
