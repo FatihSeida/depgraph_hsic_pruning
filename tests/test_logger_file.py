@@ -2,8 +2,20 @@ import os
 import sys
 import types
 from pathlib import Path
+import logging
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+up = types.ModuleType('ultralytics')
+utils = types.ModuleType('ultralytics.utils')
+torch_utils = types.ModuleType('ultralytics.utils.torch_utils')
+torch_utils.get_flops = lambda *a, **k: 0
+torch_utils.get_num_params = lambda *a, **k: 0
+utils.torch_utils = torch_utils
+up.YOLO = lambda *a, **k: None
+sys.modules['ultralytics'] = up
+sys.modules['ultralytics.utils'] = utils
+sys.modules['ultralytics.utils.torch_utils'] = torch_utils
 
 import main
 
@@ -52,6 +64,9 @@ def test_log_file_created_with_logger(tmp_path, monkeypatch):
 
     monkeypatch.setattr(main, "PruningPipeline", DummyPipeline)
     logger = main.get_logger()
+    for h in list(logger.logger.handlers):
+        if isinstance(h, logging.FileHandler):
+            logger.logger.removeHandler(h)
     cfg = main.TrainConfig(baseline_epochs=0, finetune_epochs=0, batch_size=1, ratios=[0])
     main.execute_pipeline("m", "d", None, 0, cfg, tmp_path, logger=logger)
     assert (tmp_path / "pipeline.log").exists()
