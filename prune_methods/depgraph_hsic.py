@@ -396,87 +396,42 @@ class DepgraphHSICMethod(BasePruningMethod):
 
         named_modules = dict(self.model.named_modules())
 
-        for name, idxs in self.pruning_plan.items():
-            layer = named_modules.get(name)
-            if layer is None:
-                raise RuntimeError(f"Layer {name!r} not found in model")
-            if layer not in self.layers:
-                raise RuntimeError(
-                    f"Layer {name!r} not found in active layer list. Run analyze_model() after changing layers."
-                )
-            unique = sorted(set(idxs))
-            self.logger.debug("pruning %s channels %s", name, unique)
-            self.logger.debug("Attempting to obtain pruning group for %s", name)
-            try:
-                group = self.DG.get_pruning_group(
-                    layer,
-                    tp.prune_conv_out_channels,
-                    unique,
-                )
-            except ValueError as e:
-                self.logger.debug("get_pruning_group failed: %s", e)
-                self.logger.info("Rebuilding dependency graph before pruning")
-                # recreate the DependencyGraph in case the model changed
-                self.DG = tp.DependencyGraph()
-                self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
-                tmp = (
-                    self.activations,
-                    self.layer_shapes,
-                    self.num_activations,
-                    self.labels,
-                )
-                self.register_hooks()
-                self.activations, self.layer_shapes, self.num_activations, self.labels = tmp
-                named_modules = dict(self.model.named_modules())
-                self.logger.debug(
-                    "dependency graph modules: %s", list(named_modules.keys())
-                )
+        try:
+            for name, idxs in self.pruning_plan.items():
                 layer = named_modules.get(name)
                 if layer is None:
-                    raise RuntimeError(
-                        "Layer %s not found after model update. "
-                        "Run analyze_model() after changing layers." % name
-                    )
+                    raise RuntimeError(f"Layer {name!r} not found in model")
                 if layer not in self.layers:
                     raise RuntimeError(
-                        "Layer %s not found in active layer list after rebuild. "
-                        "Run analyze_model() after changing layers." % name
+                        f"Layer {name!r} not found in active layer list. Run analyze_model() after changing layers."
                     )
-                self.logger.debug(
-                    "Retrying get_pruning_group for %s with %s", name, unique
-                )
+                unique = sorted(set(idxs))
+                self.logger.debug("pruning %s channels %s", name, unique)
+                self.logger.debug("Attempting to obtain pruning group for %s", name)
                 try:
                     group = self.DG.get_pruning_group(
                         layer,
                         tp.prune_conv_out_channels,
                         unique,
                     )
-                except ValueError as err:
-                    self.logger.error(
-                        "get_pruning_group failed again for %s: %s", name, err
-                    )
-                    self.logger.debug(
-                        "Analyzing model and rebuilding dependency graph for final retry"
-                    )
-                    saved = (
-                        self.activations,
-                        self.layer_shapes,
-                        self.num_activations,
-                        self.labels,
-                    )
-                    self.analyze_model()
-                    self.activations, self.layer_shapes, self.num_activations, self.labels = saved
+                except ValueError as e:
+                    self.logger.debug("get_pruning_group failed: %s", e)
+                    self.logger.info("Rebuilding dependency graph before pruning")
+                    # recreate the DependencyGraph in case the model changed
                     self.DG = tp.DependencyGraph()
                     self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
-                    temp = (
+                    tmp = (
                         self.activations,
                         self.layer_shapes,
                         self.num_activations,
                         self.labels,
                     )
                     self.register_hooks()
-                    self.activations, self.layer_shapes, self.num_activations, self.labels = temp
+                    self.activations, self.layer_shapes, self.num_activations, self.labels = tmp
                     named_modules = dict(self.model.named_modules())
+                    self.logger.debug(
+                        "dependency graph modules: %s", list(named_modules.keys())
+                    )
                     layer = named_modules.get(name)
                     if layer is None:
                         raise RuntimeError(
@@ -489,7 +444,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                             "Run analyze_model() after changing layers." % name
                         )
                     self.logger.debug(
-                        "Final attempt get_pruning_group for %s with %s", name, unique
+                        "Retrying get_pruning_group for %s with %s", name, unique
                     )
                     try:
                         group = self.DG.get_pruning_group(
@@ -497,32 +452,79 @@ class DepgraphHSICMethod(BasePruningMethod):
                             tp.prune_conv_out_channels,
                             unique,
                         )
-                    except ValueError as err2:
+                    except ValueError as err:
                         self.logger.error(
-                            "get_pruning_group failed third time for %s: %s", name, err2
+                            "get_pruning_group failed again for %s: %s", name, err
+                        )
+                        self.logger.debug(
+                            "Analyzing model and rebuilding dependency graph for final retry"
+                        )
+                        saved = (
+                            self.activations,
+                            self.layer_shapes,
+                            self.num_activations,
+                            self.labels,
+                        )
+                        self.analyze_model()
+                        self.activations, self.layer_shapes, self.num_activations, self.labels = saved
+                        self.DG = tp.DependencyGraph()
+                        self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+                        temp = (
+                            self.activations,
+                            self.layer_shapes,
+                            self.num_activations,
+                            self.labels,
+                        )
+                        self.register_hooks()
+                        self.activations, self.layer_shapes, self.num_activations, self.labels = temp
+                        named_modules = dict(self.model.named_modules())
+                        layer = named_modules.get(name)
+                        if layer is None:
+                            raise RuntimeError(
+                                "Layer %s not found after model update. "
+                                "Run analyze_model() after changing layers." % name
+                            )
+                        if layer not in self.layers:
+                            raise RuntimeError(
+                                "Layer %s not found in active layer list after rebuild. "
+                                "Run analyze_model() after changing layers." % name
+                            )
+                        self.logger.debug(
+                            "Final attempt get_pruning_group for %s with %s", name, unique
                         )
                         try:
-                            model_device = next(self.model.parameters()).device
-                        except StopIteration:  # pragma: no cover - model without parameters
-                            model_device = torch.device("cpu")
-                        inputs_device = (
-                            self.example_inputs.device
-                            if torch.is_tensor(self.example_inputs)
-                            else None
-                        )
-                        self.logger.error(
-                            "Model device: %s, example_inputs device: %s",
-                            model_device,
-                            inputs_device,
-                        )
-                        raise RuntimeError(
-                            f"Failed to obtain pruning group for layer {name} after model update. "
-                            "Verify model and inputs are on the same device and "
-                            "run analyze_model() after changing layers."
-                        ) from err2
-            group.prune()
-            try:
-                tp.utils.remove_pruning_reparametrization(self.model)
-            except Exception:  # pragma: no cover - safeguard against tp versions
-                pass
-        self.remove_hooks()
+                            group = self.DG.get_pruning_group(
+                                layer,
+                                tp.prune_conv_out_channels,
+                                unique,
+                            )
+                        except ValueError as err2:
+                            self.logger.error(
+                                "get_pruning_group failed third time for %s: %s", name, err2
+                            )
+                            try:
+                                model_device = next(self.model.parameters()).device
+                            except StopIteration:  # pragma: no cover - model without parameters
+                                model_device = torch.device("cpu")
+                            inputs_device = (
+                                self.example_inputs.device
+                                if torch.is_tensor(self.example_inputs)
+                                else None
+                            )
+                            self.logger.error(
+                                "Model device: %s, example_inputs device: %s",
+                                model_device,
+                                inputs_device,
+                            )
+                            raise RuntimeError(
+                                f"Failed to obtain pruning group for layer {name} after model update. "
+                                "Verify model and inputs are on the same device and "
+                                "run analyze_model() after changing layers."
+                            ) from err2
+                group.prune()
+                try:
+                    tp.utils.remove_pruning_reparametrization(self.model)
+                except Exception:  # pragma: no cover - safeguard against tp versions
+                    pass
+        finally:
+            self.remove_hooks()
