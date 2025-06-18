@@ -65,7 +65,21 @@ class TrainStep(PipelineStep):
             except AttributeError:  # pragma: no cover - fallback for stubs
                 pass
 
+        original_model = getattr(context.model, "model", None)
         metrics = context.model.train(data=context.data, **self.train_kwargs)
+        model_changed = getattr(context.model, "model", None) is not original_model
+        pm = getattr(context, "pruning_method", None)
+        if model_changed and pm is not None:
+            try:
+                pm.model = context.model.model
+                context.logger.debug("updated pruning method model reference")
+            except Exception:  # pragma: no cover - best effort
+                pass
+            if hasattr(pm, "analyze_model"):
+                context.logger.debug(
+                    "model instance changed during training; rebuilding dependency graph"
+                )
+                pm.analyze_model()
         context.metrics_mgr.record_training(metrics or {})
         context.metrics[self.phase] = metrics or {}
         context.logger.info("Finished %s", step)
