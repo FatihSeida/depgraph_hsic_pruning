@@ -357,7 +357,20 @@ class DepgraphHSICMethod(BasePruningMethod):
         # Always rebuild the dependency graph in case the model changed
         self.logger.debug("Rebuilding dependency graph before pruning")
         self.DG = tp.DependencyGraph()
-        self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+        try:
+            self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+        except Exception as build_err:
+            self.logger.error("Dependency graph build failed: %s", build_err)
+            saved = (
+                self.activations,
+                self.layer_shapes,
+                self.num_activations,
+                self.labels,
+            )
+            self.logger.info("Analyzing model to rebuild dependency graph")
+            self.analyze_model()
+            self.activations, self.layer_shapes, self.num_activations, self.labels = saved
+            self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
 
         named_modules = dict(self.model.named_modules())
 
@@ -386,17 +399,10 @@ class DepgraphHSICMethod(BasePruningMethod):
                 )
                 layer = named_modules.get(name)
                 if layer is None:
-                    self.logger.info(
-                        "Layer %s missing after rebuild, analyzing model", name
+                    raise RuntimeError(
+                        "Layer %s not found after model update. "
+                        "Run analyze_model() after changing layers." % name
                     )
-                    self.analyze_model()
-                    named_modules = dict(self.model.named_modules())
-                    layer = named_modules.get(name)
-                    if layer is None:
-                        raise RuntimeError(
-                            "Layer %s not found after model update. "
-                            "Run analyze_model() after changing layers." % name
-                        )
                 self.logger.debug(
                     "Retrying get_pruning_group for %s with %s", name, unique
                 )
@@ -407,33 +413,13 @@ class DepgraphHSICMethod(BasePruningMethod):
                         unique,
                     )
                 except ValueError as err:
-                    self.logger.info(
-                        "Analyzing model and rebuilding dependency graph")
-                    self.analyze_model()
-                    named_modules = dict(self.model.named_modules())
-                    layer = named_modules.get(name)
-                    if layer is None:
-                        raise RuntimeError(
-                            "Layer %s not found after model update. "
-                            "Run analyze_model() after changing layers." % name
-                        )
-                    self.logger.debug(
-                        "Final retry get_pruning_group for %s with %s", name, unique
+                    self.logger.error(
+                        "get_pruning_group failed again for %s: %s", name, err
                     )
-                    try:
-                        group = self.DG.get_pruning_group(
-                            layer,
-                            tp.prune_conv_out_channels,
-                            unique,
-                        )
-                    except ValueError as err2:
-                        self.logger.error(
-                            "get_pruning_group failed again for %s: %s", name, err2
-                        )
-                        raise RuntimeError(
-                            "Failed to obtain pruning group after model update. "
-                            "Run analyze_model() after changing layers."
-                        ) from err2
+                    raise RuntimeError(
+                        "Failed to obtain pruning group after model update. "
+                        "Run analyze_model() after changing layers."
+                    ) from err
             group.prune()
             try:
                 tp.utils.remove_pruning_reparametrization(self.model)
