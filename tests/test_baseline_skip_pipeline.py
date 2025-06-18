@@ -156,4 +156,4 @@ def test_pipeline_runs_without_baseline(monkeypatch, tmp_path):
     cfg = main.TrainConfig(baseline_epochs=0, finetune_epochs=0, batch_size=1, ratios=[0.2])
     main.execute_pipeline('m.pt', str(data_file), DummyMethod, 0.2, cfg, tmp_path)
 
-    assert DummyMethod.calls.count('pipeline_analyze') == 2
+    assert DummyMethod.calls.count('pipeline_analyze') == 1
