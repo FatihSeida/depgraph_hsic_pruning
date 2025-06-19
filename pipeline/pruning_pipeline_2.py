@@ -310,17 +310,17 @@ class PruningPipeline2(BasePruningPipeline):
         model_changed = self.model.model is not original_model
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
-            if model_changed:
-                try:
-                    self._sync_example_inputs_device()
+            try:
+                self._sync_example_inputs_device()
+                if model_changed:
                     if hasattr(self.pruning_method, "refresh_dependency_graph"):
                         self.pruning_method.refresh_dependency_graph()
                         self.logger.debug("refreshed pruning method dependency graph")
                     else:
                         self.pruning_method.analyze_model()
                         self.logger.debug("reanalyzed pruning method model")
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
         self.logger.info("Finetuning completed")
         self.metrics_mgr.record_training(metrics or {})
