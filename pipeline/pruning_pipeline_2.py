@@ -121,8 +121,25 @@ class PruningPipeline2(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
+        original_model = self.model.model
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self._unregister_label_callback()
+
+        model_changed = self.model.model is not original_model
+        if self.pruning_method is not None:
+            self.pruning_method.model = self.model.model
+            if model_changed:
+                try:
+                    import torch
+                    example_inputs = getattr(self.pruning_method, "example_inputs", None)
+                    if torch.is_tensor(example_inputs):
+                        device = next(self.pruning_method.model.parameters()).device
+                        self.pruning_method.example_inputs = example_inputs.to(device)
+                    self.pruning_method.analyze_model()
+                    self.logger.debug("reanalyzed pruning method model")
+                except Exception:
+                    pass
+
         num_labels = len(getattr(self.pruning_method, "labels", []))
         self.logger.info("Training finished; recorded %d label batches", num_labels)
         self.metrics_mgr.record_training(metrics or {})
@@ -133,6 +150,8 @@ class PruningPipeline2(BasePruningPipeline):
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError("PruningPipeline2 requires DepgraphHSICMethod")
         self.logger.info("Analyzing model structure")
+        if self.pruning_method is not None:
+            self.pruning_method.model = self.model.model
         self.pruning_method.analyze_model()
         groups = len(getattr(self.pruning_method, "channel_groups", []))
         convs = len(getattr(self.pruning_method, "layers", []))
@@ -164,6 +183,8 @@ class PruningPipeline2(BasePruningPipeline):
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError
         self.logger.info("Applying pruning via DependencyGraph")
+        if self.pruning_method is not None:
+            self.pruning_method.model = self.model.model
         self.pruning_method.apply_pruning()
         try:
             import torch_pruning as tp
