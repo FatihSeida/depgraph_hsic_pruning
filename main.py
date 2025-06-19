@@ -192,9 +192,15 @@ def execute_pipeline(
     pipeline.calc_initial_stats()
     if method_cls is not None:
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
-        pipeline.analyze_structure()
+        # When skipping pretraining, run analysis immediately so hooks are
+        # active for the forthcoming pruning steps.
+        if config.baseline_epochs == 0:
+            pipeline.analyze_structure()
 
     if config.baseline_epochs > 0:
+        if method_cls is not None:
+            # Run analysis before training so hooks can capture activations
+            pipeline.analyze_structure()
         monitor = MonitorComputationStep("pretrain")
         monitor.start()
         phase = "baseline" if method_cls is None else "pretrain"
@@ -218,7 +224,6 @@ def execute_pipeline(
             mgr = pipeline.metrics_mgr = MetricManager()
         monitor.stop(mgr)
         if method_cls is not None:
-            pipeline.analyze_structure()
             if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod):
                 try:
                     from pipeline import ShortForwardPassStep

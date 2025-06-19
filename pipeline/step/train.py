@@ -76,15 +76,20 @@ class TrainStep(PipelineStep):
             except Exception:  # pragma: no cover - best effort
                 pass
             try:
-                import torch  # local import to avoid hard dependency at module import
-                try:
-                    device = next(pm.model.parameters()).device
-                except StopIteration:
-                    device = torch.device("cpu")
-                if torch.is_tensor(pm.example_inputs):
-                    pm.example_inputs = pm.example_inputs.to(device)
-                pm.analyze_model()
-                context.logger.debug("reanalyzed pruning method model")
+                if hasattr(pm, "refresh_dependency_graph"):
+                    # Avoid clearing collected activations when the model instance changes
+                    pm.refresh_dependency_graph()
+                    context.logger.debug("refreshed pruning method dependency graph")
+                else:
+                    import torch  # local import to avoid hard dependency at module import
+                    try:
+                        device = next(pm.model.parameters()).device
+                    except StopIteration:
+                        device = torch.device("cpu")
+                    if torch.is_tensor(pm.example_inputs):
+                        pm.example_inputs = pm.example_inputs.to(device)
+                    pm.analyze_model()
+                    context.logger.debug("reanalyzed pruning method model")
             except Exception:  # pragma: no cover - best effort
                 pass
         context.metrics_mgr.record_training(metrics or {})
