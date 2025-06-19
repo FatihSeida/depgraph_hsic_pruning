@@ -3,6 +3,7 @@ from importlib import import_module
 __all__ = [
     "BasePruningPipeline",
     "PruningPipeline",
+    "PruningPipeline2",
     "PipelineContext",
     "PipelineStep",
     "LoadModelStep",
@@ -24,6 +25,8 @@ def __getattr__(name: str):
         return import_module("pipeline.base_pipeline").BasePruningPipeline
     if name == "PruningPipeline":
         return import_module("pipeline.pruning_pipeline").PruningPipeline
+    if name == "PruningPipeline2":
+        return import_module("pipeline.pruning_pipeline_2").PruningPipeline2
     if name == "PipelineContext":
         return import_module("pipeline.context").PipelineContext
     if name == "PipelineStep":
