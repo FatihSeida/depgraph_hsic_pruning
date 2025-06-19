@@ -80,6 +80,29 @@ class PruningPipeline2(BasePruningPipeline):
             pass
         self._label_callback = None
 
+    def _sync_example_inputs_device(self) -> None:
+        """Move ``example_inputs`` to the current model's device if needed."""
+        if not (
+            isinstance(self.pruning_method, DepgraphHSICMethod)
+            and hasattr(self.pruning_method, "example_inputs")
+            and self.model is not None
+        ):
+            return
+        try:  # pragma: no cover - best effort
+            import torch
+
+            device = next(self.model.model.parameters()).device
+            ex_inputs = getattr(self.pruning_method, "example_inputs")
+            ex_device = ex_inputs.device if torch.is_tensor(ex_inputs) else None
+            if torch.is_tensor(ex_inputs):
+                self.pruning_method.example_inputs = ex_inputs.to(device)
+                ex_device = self.pruning_method.example_inputs.device
+            self.logger.debug(
+                "Model device: %s, example_inputs device: %s", device, ex_device
+            )
+        except Exception:
+            pass
+
     # ------------------------------------------------------------------
     # BasePruningPipeline interface
     # ------------------------------------------------------------------
@@ -88,6 +111,7 @@ class PruningPipeline2(BasePruningPipeline):
         self.model = YOLO(self.model_path)
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
+            self._sync_example_inputs_device()
         self.logger.info("Model loaded")
 
     def calc_initial_stats(self) -> Dict[str, float]:
@@ -130,16 +154,12 @@ class PruningPipeline2(BasePruningPipeline):
             self.pruning_method.model = self.model.model
             if model_changed:
                 try:
+                    self._sync_example_inputs_device()
                     if hasattr(self.pruning_method, "refresh_dependency_graph"):
                         # Preserve recorded activations when the model instance changes
                         self.pruning_method.refresh_dependency_graph()
                         self.logger.debug("refreshed pruning method dependency graph")
                     else:
-                        import torch
-                        example_inputs = getattr(self.pruning_method, "example_inputs", None)
-                        if torch.is_tensor(example_inputs):
-                            device = next(self.pruning_method.model.parameters()).device
-                            self.pruning_method.example_inputs = example_inputs.to(device)
                         self.pruning_method.analyze_model()
                         self.logger.debug("reanalyzed pruning method model")
                 except Exception:
@@ -256,8 +276,25 @@ class PruningPipeline2(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
+        original_model = self.model.model
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self._unregister_label_callback()
+
+        model_changed = self.model.model is not original_model
+        if self.pruning_method is not None:
+            self.pruning_method.model = self.model.model
+            if model_changed:
+                try:
+                    self._sync_example_inputs_device()
+                    if hasattr(self.pruning_method, "refresh_dependency_graph"):
+                        self.pruning_method.refresh_dependency_graph()
+                        self.logger.debug("refreshed pruning method dependency graph")
+                    else:
+                        self.pruning_method.analyze_model()
+                        self.logger.debug("reanalyzed pruning method model")
+                except Exception:
+                    pass
+
         self.logger.info("Finetuning completed")
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics or {}

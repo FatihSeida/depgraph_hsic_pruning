@@ -282,6 +282,11 @@ def execute_pipeline(
                 pm.model = pipeline.model.model
             except Exception:  # pragma: no cover - best effort
                 logger.debug("failed to update pruning method model reference")
+            if hasattr(pipeline, "_sync_example_inputs_device"):
+                try:
+                    pipeline._sync_example_inputs_device()
+                except Exception:  # pragma: no cover - best effort
+                    logger.debug("failed to sync example inputs device")
         final_path = workdir / f"pruned_model_{method_cls.__name__}_{ratio}.pt"
         pipeline.reconfigure_model(output_path=final_path)
         logger.info("Saved pruned model to %s", final_path)
