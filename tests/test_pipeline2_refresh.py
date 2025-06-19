@@ -5,7 +5,7 @@ import types
 import pytest
 
 
-def test_refresh_dependency_graph_called(monkeypatch):
+def test_analyze_model_called(monkeypatch):
     tp = types.ModuleType('torch_pruning')
     tp.utils = types.SimpleNamespace(remove_pruning_reparametrization=lambda m: None)
     monkeypatch.setitem(sys.modules, 'torch_pruning', tp)
@@ -30,8 +30,8 @@ def test_refresh_dependency_graph_called(monkeypatch):
     class DummyMethod:
         def __init__(self, model=None, **kw):
             self.model = model
-        def refresh_dependency_graph(self):
-            calls.append('refresh')
+        def analyze_model(self):
+            calls.append('analyze')
         def apply_pruning(self):
             calls.append('apply')
 
@@ -42,4 +42,4 @@ def test_refresh_dependency_graph_called(monkeypatch):
 
     pipeline.apply_pruning()
 
-    assert calls == ['refresh', 'apply']
+    assert calls == ['analyze', 'apply']
