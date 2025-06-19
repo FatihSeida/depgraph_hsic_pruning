@@ -180,6 +180,9 @@ def execute_pipeline(
     if logger is None:
         logger = get_logger(log_file=str(log_file))
     else:
+        for h in list(logger.logger.handlers):
+            if isinstance(h, logging.FileHandler):
+                logger.logger.removeHandler(h)
         add_file_handler(logger, str(log_file))
     if method_cls is not None and issubclass(method_cls, DepgraphHSICMethod):
         pipeline_cls: type[BasePruningPipeline] = PruningPipeline2
