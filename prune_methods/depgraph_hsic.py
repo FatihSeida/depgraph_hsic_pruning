@@ -518,8 +518,9 @@ class DepgraphHSICMethod(BasePruningMethod):
                             )
                             raise RuntimeError(
                                 f"Failed to obtain pruning group for layer {name} after model update. "
-                                "Verify model and inputs are on the same device and "
-                                "run analyze_model() after changing layers."
+                                "This usually happens when the model instance changed. "
+                                "Run analyze_model() again after modifying or reloading the model. "
+                                "Also verify that model and example inputs use the same device."
                             ) from err2
                 group.prune()
                 try:
