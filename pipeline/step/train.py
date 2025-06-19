@@ -75,6 +75,18 @@ class TrainStep(PipelineStep):
                 context.logger.debug("updated pruning method model reference")
             except Exception:  # pragma: no cover - best effort
                 pass
+            try:
+                import torch  # local import to avoid hard dependency at module import
+                try:
+                    device = next(pm.model.parameters()).device
+                except StopIteration:
+                    device = torch.device("cpu")
+                if torch.is_tensor(pm.example_inputs):
+                    pm.example_inputs = pm.example_inputs.to(device)
+                pm.analyze_model()
+                context.logger.debug("reanalyzed pruning method model")
+            except Exception:  # pragma: no cover - best effort
+                pass
         context.metrics_mgr.record_training(metrics or {})
         context.metrics[self.phase] = metrics or {}
         context.logger.info("Finished %s", step)
