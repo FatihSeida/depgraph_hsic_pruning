@@ -187,6 +187,10 @@ class PruningPipeline2(BasePruningPipeline):
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
+        if self.pruning_method is not None:
+            self.pruning_method.model = self.model.model
+            self.logger.info("Reanalyzing model before mask generation")
+            self.pruning_method.analyze_model()
         self.pruning_method.generate_pruning_mask(ratio)
         channels = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values())
         total = sum(
@@ -207,9 +211,8 @@ class PruningPipeline2(BasePruningPipeline):
         self.logger.info("Applying pruning via DependencyGraph")
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
-            self.logger.debug("Refreshing dependency graph before pruning")
-            self.pruning_method.refresh_dependency_graph()
-            self.logger.info("Dependency graph refreshed before pruning")
+            self.logger.info("Reanalyzing model before pruning")
+            self.pruning_method.analyze_model()
         self.pruning_method.apply_pruning()
         try:
             import torch_pruning as tp
