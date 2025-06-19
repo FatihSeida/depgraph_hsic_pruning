@@ -34,6 +34,26 @@ class PruningPipeline2(BasePruningPipeline):
         self.metrics_csv: Path | None = None
         self._label_callback = None
 
+    def _run_short_forward_pass(self) -> None:
+        """Execute :class:`ShortForwardPassStep` to collect activations."""
+        if not isinstance(self.pruning_method, DepgraphHSICMethod):
+            return
+        try:  # pragma: no cover - optional heavy deps
+            from . import ShortForwardPassStep, PipelineContext
+
+            ctx = PipelineContext(
+                model_path=self.model_path,
+                data=self.data,
+                workdir=Path(self.workdir),
+                pruning_method=self.pruning_method,
+                logger=self.logger,
+            )
+            ctx.model = self.model
+            ctx.metrics_mgr = self.metrics_mgr
+            ShortForwardPassStep().run(ctx)
+        except Exception as exc:  # pragma: no cover - best effort
+            self.logger.warning("short forward pass failed: %s", exc)
+
     # ------------------------------------------------------------------
     # Helper callbacks
     # ------------------------------------------------------------------
@@ -159,6 +179,7 @@ class PruningPipeline2(BasePruningPipeline):
                     "Dependency graph rebuilt; %d convolution layers registered",
                     convs,
                 )
+                self._run_short_forward_pass()
             except Exception:
                 pass
 
@@ -191,6 +212,11 @@ class PruningPipeline2(BasePruningPipeline):
             self.pruning_method.model = self.model.model
             self.logger.info("Reanalyzing model before mask generation")
             self.pruning_method.analyze_model()
+            if not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None):
+                self.logger.info("No activations/labels found; running short forward pass")
+                self._run_short_forward_pass()
+                if not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None):
+                    self.logger.warning("Short forward pass did not record activations/labels")
         self.pruning_method.generate_pruning_mask(ratio)
         channels = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values())
         total = sum(
