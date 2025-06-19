@@ -210,6 +210,7 @@ class PruningPipeline2(BasePruningPipeline):
         self.logger.info("Applying pruning via DependencyGraph")
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
+            self.logger.debug("Refreshing dependency graph before pruning")
             self.pruning_method.refresh_dependency_graph()
             self.logger.info("Dependency graph refreshed before pruning")
         self.pruning_method.apply_pruning()
