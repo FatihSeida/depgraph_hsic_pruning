@@ -173,16 +173,22 @@ class PruningPipeline(BasePruningPipeline):
             self.logger.debug("updated pruning method model reference")
             if model_changed:
                 try:
-                    import torch  # local import to avoid heavy dependency at module import
-                    try:
-                        device = next(self.pruning_method.model.parameters()).device
-                    except Exception:
-                        device = torch.device("cpu") if hasattr(torch, "device") else "cpu"
-                    example_inputs = getattr(self.pruning_method, "example_inputs", None)
-                    if hasattr(torch, "is_tensor") and torch.is_tensor(example_inputs):
-                        self.pruning_method.example_inputs = example_inputs.to(device)
-                    self.pruning_method.analyze_model()
-                    self.logger.debug("reanalyzed pruning method model")
+                    if hasattr(self.pruning_method, "refresh_dependency_graph"):
+                        # Model instance was replaced; rebuild dependencies
+                        # without clearing hooks so recorded activations survive
+                        self.pruning_method.refresh_dependency_graph()
+                        self.logger.debug("refreshed pruning method dependency graph")
+                    else:
+                        import torch  # local import to avoid heavy dependency at module import
+                        try:
+                            device = next(self.pruning_method.model.parameters()).device
+                        except Exception:
+                            device = torch.device("cpu") if hasattr(torch, "device") else "cpu"
+                        example_inputs = getattr(self.pruning_method, "example_inputs", None)
+                        if hasattr(torch, "is_tensor") and torch.is_tensor(example_inputs):
+                            self.pruning_method.example_inputs = example_inputs.to(device)
+                        self.pruning_method.analyze_model()
+                        self.logger.debug("reanalyzed pruning method model")
                 except Exception:  # pragma: no cover - best effort
                     pass
         self.logger.debug(metrics)
@@ -297,16 +303,21 @@ class PruningPipeline(BasePruningPipeline):
             self.logger.debug("updated pruning method model reference")
             if model_changed:
                 try:
-                    import torch  # local import to avoid heavy dependency at module import
-                    try:
-                        device = next(self.pruning_method.model.parameters()).device
-                    except Exception:
-                        device = torch.device("cpu") if hasattr(torch, "device") else "cpu"
-                    example_inputs = getattr(self.pruning_method, "example_inputs", None)
-                    if hasattr(torch, "is_tensor") and torch.is_tensor(example_inputs):
-                        self.pruning_method.example_inputs = example_inputs.to(device)
-                    self.pruning_method.analyze_model()
-                    self.logger.debug("reanalyzed pruning method model")
+                    if hasattr(self.pruning_method, "refresh_dependency_graph"):
+                        # Preserve recorded activations while rebuilding dependencies
+                        self.pruning_method.refresh_dependency_graph()
+                        self.logger.debug("refreshed pruning method dependency graph")
+                    else:
+                        import torch  # local import to avoid heavy dependency at module import
+                        try:
+                            device = next(self.pruning_method.model.parameters()).device
+                        except Exception:
+                            device = torch.device("cpu") if hasattr(torch, "device") else "cpu"
+                        example_inputs = getattr(self.pruning_method, "example_inputs", None)
+                        if hasattr(torch, "is_tensor") and torch.is_tensor(example_inputs):
+                            self.pruning_method.example_inputs = example_inputs.to(device)
+                        self.pruning_method.analyze_model()
+                        self.logger.debug("reanalyzed pruning method model")
                 except Exception:  # pragma: no cover - best effort
                     pass
         self.logger.debug(metrics)

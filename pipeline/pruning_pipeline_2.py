@@ -130,13 +130,18 @@ class PruningPipeline2(BasePruningPipeline):
             self.pruning_method.model = self.model.model
             if model_changed:
                 try:
-                    import torch
-                    example_inputs = getattr(self.pruning_method, "example_inputs", None)
-                    if torch.is_tensor(example_inputs):
-                        device = next(self.pruning_method.model.parameters()).device
-                        self.pruning_method.example_inputs = example_inputs.to(device)
-                    self.pruning_method.analyze_model()
-                    self.logger.debug("reanalyzed pruning method model")
+                    if hasattr(self.pruning_method, "refresh_dependency_graph"):
+                        # Preserve recorded activations when the model instance changes
+                        self.pruning_method.refresh_dependency_graph()
+                        self.logger.debug("refreshed pruning method dependency graph")
+                    else:
+                        import torch
+                        example_inputs = getattr(self.pruning_method, "example_inputs", None)
+                        if torch.is_tensor(example_inputs):
+                            device = next(self.pruning_method.model.parameters()).device
+                            self.pruning_method.example_inputs = example_inputs.to(device)
+                        self.pruning_method.analyze_model()
+                        self.logger.debug("reanalyzed pruning method model")
                 except Exception:
                     pass
 
