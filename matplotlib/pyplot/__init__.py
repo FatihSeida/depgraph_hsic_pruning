@@ -1,3 +1,9 @@
+"""Simplified :mod:`matplotlib.pyplot` replacement for testing.
+
+Only provides thin stubs of a few functions. Install the full ``matplotlib``
+package for real plotting capabilities.
+"""
+
 import os
 
 def figure(*a, **k):
