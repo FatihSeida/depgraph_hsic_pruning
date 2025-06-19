@@ -51,11 +51,11 @@ def test_pruning_method_model_updated_after_training():
     pipeline.model = DummyYOLO()
     pipeline.pretrain()
     assert pipeline.pruning_method.model is pipeline.model.model
-    assert method.calls == 0
-    pipeline.analyze_structure()
-    assert method.calls == 1
-    pipeline.finetune()
-    assert pipeline.pruning_method.model is pipeline.model.model
     assert method.calls == 1
     pipeline.analyze_structure()
     assert method.calls == 2
+    pipeline.finetune()
+    assert pipeline.pruning_method.model is pipeline.model.model
+    assert method.calls == 3
+    pipeline.analyze_structure()
+    assert method.calls == 4
