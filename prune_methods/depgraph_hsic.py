@@ -394,6 +394,14 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.DG = tp.DependencyGraph()
         try:
             self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+            named_modules = dict(self.model.named_modules())
+            self.logger.debug(
+                "Dependency graph captured %d modules", len(named_modules)
+            )
+            self.logger.debug(
+                "Dependency graph modules: %s", list(named_modules.keys())
+            )
+            self.logger.debug("Pruning layers: %s", self.layer_names)
             saved = (
                 self.activations,
                 self.layer_shapes,
@@ -414,6 +422,14 @@ class DepgraphHSICMethod(BasePruningMethod):
             self.analyze_model()
             self.activations, self.layer_shapes, self.num_activations, self.labels = saved
             self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+            named_modules = dict(self.model.named_modules())
+            self.logger.debug(
+                "Dependency graph captured %d modules", len(named_modules)
+            )
+            self.logger.debug(
+                "Dependency graph modules: %s", list(named_modules.keys())
+            )
+            self.logger.debug("Pruning layers: %s", self.layer_names)
             saved = (
                 self.activations,
                 self.layer_shapes,
@@ -445,6 +461,12 @@ class DepgraphHSICMethod(BasePruningMethod):
                     )
                 except ValueError as e:
                     self.logger.debug("get_pruning_group failed: %s", e)
+                    self.logger.debug(
+                        "Analyzed layers: %s", self.layer_names
+                    )
+                    self.logger.debug(
+                        "Requested layer present: %s", name in self.layer_names
+                    )
                     self.logger.info("Rebuilding dependency graph before pruning")
                     # recreate the DependencyGraph in case the model changed
                     self.DG = tp.DependencyGraph()
@@ -484,6 +506,12 @@ class DepgraphHSICMethod(BasePruningMethod):
                     except ValueError as err:
                         self.logger.error(
                             "get_pruning_group failed again for %s: %s", name, err
+                        )
+                        self.logger.debug(
+                            "Analyzed layers: %s", self.layer_names
+                        )
+                        self.logger.debug(
+                            "Requested layer present: %s", name in self.layer_names
                         )
                         self.logger.debug(
                             "Analyzing model and rebuilding dependency graph for final retry"
@@ -530,6 +558,12 @@ class DepgraphHSICMethod(BasePruningMethod):
                         except ValueError as err2:
                             self.logger.error(
                                 "get_pruning_group failed third time for %s: %s", name, err2
+                            )
+                            self.logger.debug(
+                                "Analyzed layers: %s", self.layer_names
+                            )
+                            self.logger.debug(
+                                "Requested layer present: %s", name in self.layer_names
                             )
                             try:
                                 model_device = next(self.model.parameters()).device
