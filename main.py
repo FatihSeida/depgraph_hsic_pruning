@@ -268,6 +268,9 @@ def execute_pipeline(
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning("short forward pass failed: %s", exc)
     if method_cls is not None:
+        if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod):
+            # Ensure analysis runs on the latest model state before mask generation
+            pipeline.analyze_structure()
         pipeline.generate_pruning_mask(ratio)
         pipeline.apply_pruning()
         snapshot = workdir / "snapshot.pt"

@@ -31,3 +31,5 @@ pip install scikit-learn
 Run `main.py` to train and prune a YOLO model. Specify the computation device
 with the `--device` option. If the loaded model supports `.to()`, it will be
 moved to that device automatically.
+
+When using `DepgraphHSICMethod`, ensure that `analyze_structure()` is run after every training phase. The `execute_pipeline` helper automatically performs this analysis just before pruning mask generation.
