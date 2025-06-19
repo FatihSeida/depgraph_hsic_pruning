@@ -275,6 +275,15 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
         self.logger.debug("Dependency graph built")
         self.register_hooks()
+        mapped = 0
+        for layer, name in zip(self.layers, self.layer_names):
+            pruner = self.DG.get_pruner_of_module(layer)
+            if pruner is None:
+                self.logger.warning("No pruner found for layer %s", name)
+            else:
+                mapped += 1
+        if mapped:
+            self.logger.info("Successfully mapped %d layers to pruners", mapped)
         self._build_adjacency()
         self._build_channel_groups()
         self.reset_records()
