@@ -258,6 +258,21 @@ class DepgraphHSICMethod(BasePruningMethod):
                     groups.append(current)
         self.channel_groups = groups
 
+    def _log_dependency_status(self) -> None:
+        """Report which layers were mapped to pruners in the current graph."""
+        if self.DG is None:
+            return
+        mapped = []
+        for layer, name in zip(self.layers, self.layer_names):
+            if self.DG.get_pruner_of_module(layer) is not None:
+                mapped.append(name)
+            else:
+                self.logger.debug("Layer %s missing from dependency graph", name)
+        if mapped:
+            self.logger.info("Layers mapped to pruners: %s", mapped)
+        else:
+            self.logger.warning("No convolution layers mapped to pruners")
+
     # ------------------------------------------------------------------
     # BasePruningMethod interface
     # ------------------------------------------------------------------
@@ -430,6 +445,7 @@ class DepgraphHSICMethod(BasePruningMethod):
             self._dg_model = self.model
             if not self.layers:
                 self.register_hooks()
+            self._log_dependency_status()
 
         named_modules = dict(self.model.named_modules())
 
@@ -443,6 +459,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                     self.DG = tp.DependencyGraph()
                     self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
                     self._dg_model = self.model
+                    self._log_dependency_status()
                     named_modules = dict(self.model.named_modules())
                     layer = named_modules.get(name)
                     if layer is None or layer not in self.layers:
@@ -486,6 +503,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                     self.DG = tp.DependencyGraph()
                     self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
                     self._dg_model = self.model
+                    self._log_dependency_status()
                     named_modules = dict(self.model.named_modules())
                     layer = named_modules.get(name)
                     if layer is None or layer not in self.layers:
