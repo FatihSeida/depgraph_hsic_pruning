@@ -57,6 +57,8 @@ def setup_modules(monkeypatch):
             self.example_inputs = DummyTensor('cpu')
         def refresh_dependency_graph(self):
             pass
+        def analyze_model(self):
+            pass
         def apply_pruning(self):
             pass
     hsic.DepgraphHSICMethod = DummyMethod

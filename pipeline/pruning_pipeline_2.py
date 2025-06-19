@@ -149,21 +149,18 @@ class PruningPipeline2(BasePruningPipeline):
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self._unregister_label_callback()
 
-        model_changed = self.model.model is not original_model
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
-            if model_changed:
-                try:
-                    self._sync_example_inputs_device()
-                    if hasattr(self.pruning_method, "refresh_dependency_graph"):
-                        # Preserve recorded activations when the model instance changes
-                        self.pruning_method.refresh_dependency_graph()
-                        self.logger.debug("refreshed pruning method dependency graph")
-                    else:
-                        self.pruning_method.analyze_model()
-                        self.logger.debug("reanalyzed pruning method model")
-                except Exception:
-                    pass
+            try:
+                self._sync_example_inputs_device()
+                self.pruning_method.analyze_model()
+                convs = len(getattr(self.pruning_method, "layers", []))
+                self.logger.info(
+                    "Dependency graph rebuilt; %d convolution layers registered",
+                    convs,
+                )
+            except Exception:
+                pass
 
         num_labels = len(getattr(self.pruning_method, "labels", []))
         self.logger.info("Training finished; recorded %d label batches", num_labels)
