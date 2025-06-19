@@ -25,3 +25,9 @@ dependencies make sure `scikit-learn` is available:
 ```bash
 pip install scikit-learn
 ```
+
+## Usage
+
+Run `main.py` to train and prune a YOLO model. Specify the computation device
+with the `--device` option. If the loaded model supports `.to()`, it will be
+moved to that device automatically.

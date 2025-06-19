@@ -177,6 +177,8 @@ def execute_pipeline(
         add_file_handler(logger, str(log_file))
     pipeline = PruningPipeline(model_path, data=data, workdir=str(workdir), logger=logger)
     pipeline.load_model()
+    if hasattr(pipeline.model, "to"):
+        pipeline.model.to(config.device)
     pipeline.calc_initial_stats()
     if method_cls is not None:
         pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
@@ -254,6 +256,8 @@ def execute_pipeline(
         pipeline.save_model(snapshot)
         logger.info("Saved snapshot to %s", snapshot)
         pipeline.model = YOLO(str(snapshot))
+        if hasattr(pipeline.model, "to"):
+            pipeline.model.to(config.device)
         pm = getattr(pipeline, "pruning_method", None)
         if pm is not None:
             try:
