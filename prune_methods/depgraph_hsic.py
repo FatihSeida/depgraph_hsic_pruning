@@ -279,6 +279,35 @@ class DepgraphHSICMethod(BasePruningMethod):
         self._build_channel_groups()
         self.reset_records()
 
+    def refresh_dependency_graph(self) -> None:  # pragma: no cover - heavy dependency
+        """Rebuild the dependency graph without clearing recorded activations."""
+        self.logger.info("Refreshing dependency graph")
+        import torch_pruning as tp
+
+        try:
+            device = next(self.model.parameters()).device
+        except StopIteration:  # pragma: no cover - model without parameters
+            device = torch.device("cpu")
+        if torch.is_tensor(self.example_inputs):
+            self.example_inputs = self.example_inputs.to(device)
+        saved = (
+            self.activations,
+            self.layer_shapes,
+            self.num_activations,
+            self.labels,
+        )
+        self.DG = tp.DependencyGraph()
+        self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+        self.register_hooks()
+        (
+            self.activations,
+            self.layer_shapes,
+            self.num_activations,
+            self.labels,
+        ) = saved
+        self._build_adjacency()
+        self._build_channel_groups()
+
     def generate_pruning_mask(self, ratio: float) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if not self.activations or not self.labels:
