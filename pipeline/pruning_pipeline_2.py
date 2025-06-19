@@ -165,7 +165,6 @@ class PruningPipeline2(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
-        original_model = self.model.model
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self._unregister_label_callback()
 
@@ -303,22 +302,19 @@ class PruningPipeline2(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
-        original_model = self.model.model
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self._unregister_label_callback()
 
-        model_changed = self.model.model is not original_model
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
             try:
                 self._sync_example_inputs_device()
-                if model_changed:
-                    if hasattr(self.pruning_method, "refresh_dependency_graph"):
-                        self.pruning_method.refresh_dependency_graph()
-                        self.logger.debug("refreshed pruning method dependency graph")
-                    else:
-                        self.pruning_method.analyze_model()
-                        self.logger.debug("reanalyzed pruning method model")
+                self.pruning_method.analyze_model()
+                convs = len(getattr(self.pruning_method, "layers", []))
+                self.logger.debug(
+                    "reanalyzed pruning method model; %d convolution layers registered",
+                    convs,
+                )
             except Exception:
                 pass
 
