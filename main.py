@@ -2,7 +2,8 @@
 
 This script iterates over the available pruning methods and a set
 of pruning ratios to train and fine-tune models using the
-:class:`PruningPipeline`. It supports resuming interrupted runs by
+:class:`PruningPipeline` or :class:`PruningPipeline2` depending on the
+pruning method. It supports resuming interrupted runs by
 passing the ``--resume`` flag on the command line.
 """
 
@@ -17,7 +18,12 @@ from typing import Iterable, List, Type
 import logging
 
 from helper import ExperimentManager, get_logger, Logger, add_file_handler
-from pipeline import PruningPipeline, MonitorComputationStep
+from pipeline import (
+    BasePruningPipeline,
+    PruningPipeline,
+    PruningPipeline2,
+    MonitorComputationStep,
+)
 from ultralytics import YOLO
 from prune_methods import (
     BasePruningMethod,
@@ -167,7 +173,7 @@ def execute_pipeline(
     *,
     resume: bool = False,
     logger=None,
-) -> tuple[PruningPipeline, Path]:
+) -> tuple[BasePruningPipeline, Path]:
     """Run a full pruning pipeline for ``method_cls`` at ``ratio``."""
     workdir.mkdir(parents=True, exist_ok=True)
     log_file = workdir / "pipeline.log"
@@ -175,7 +181,11 @@ def execute_pipeline(
         logger = get_logger(log_file=str(log_file))
     else:
         add_file_handler(logger, str(log_file))
-    pipeline = PruningPipeline(model_path, data=data, workdir=str(workdir), logger=logger)
+    if method_cls is not None and issubclass(method_cls, DepgraphHSICMethod):
+        pipeline_cls: type[BasePruningPipeline] = PruningPipeline2
+    else:
+        pipeline_cls = PruningPipeline
+    pipeline = pipeline_cls(model_path, data=data, workdir=str(workdir), logger=logger)
     pipeline.load_model()
     if hasattr(pipeline.model, "to"):
         pipeline.model.to(config.device)
@@ -253,7 +263,10 @@ def execute_pipeline(
         pipeline.generate_pruning_mask(ratio)
         pipeline.apply_pruning()
         snapshot = workdir / "snapshot.pt"
-        pipeline.save_model(snapshot)
+        if hasattr(pipeline, "save_model"):
+            pipeline.save_model(snapshot)
+        else:
+            pipeline.model.save(str(snapshot))
         logger.info("Saved snapshot to %s", snapshot)
         pipeline.model = YOLO(str(snapshot))
         if hasattr(pipeline.model, "to"):
@@ -310,7 +323,10 @@ def execute_pipeline(
                     logger.warning("short forward pass failed: %s", exc)
     pipeline.visualize_results()
     pipeline.save_pruning_results(workdir / "results.pt")
-    csv_path = pipeline.save_metrics_csv(workdir / "metrics.csv")
+    if hasattr(pipeline, "save_metrics_csv"):
+        csv_path = pipeline.save_metrics_csv(workdir / "metrics.csv")
+    else:
+        csv_path = pipeline.metrics_mgr.to_csv(workdir / "metrics.csv")
     return pipeline, csv_path
 
 
