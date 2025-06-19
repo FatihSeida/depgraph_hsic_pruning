@@ -276,7 +276,24 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
         self._dg_model = self.model
         self.logger.debug("Dependency graph built")
+        try:
+            param = next(self.model.parameters())
+            model_device = param.device
+            model_dtype = param.dtype
+        except StopIteration:  # pragma: no cover - model without parameters
+            model_device = torch.device("cpu")
+            model_dtype = torch.float32
+        example = self._inputs_tuple()[0]
+        self.logger.info(
+            "Model device: %s dtype: %s | Example input device: %s dtype: %s",
+            model_device,
+            model_dtype,
+            example.device,
+            example.dtype,
+        )
         self.register_hooks()
+        if self.layer_names:
+            self.logger.info("Convolution layers found: %s", self.layer_names)
         mapped = 0
         for layer, name in zip(self.layers, self.layer_names):
             pruner = self.DG.get_pruner_of_module(layer)
@@ -438,12 +455,20 @@ class DepgraphHSICMethod(BasePruningMethod):
                         self.activations, self.layer_shapes, self.num_activations, self.labels = saved
                         named_modules = dict(self.model.named_modules())
                         layer = named_modules.get(name)
-                        if layer is None or layer not in self.layers:
-                            raise RuntimeError(
-                                f"Layer {name!r} not found after model update. Run analyze_model() after changing layers."
-                            )
+                if layer is None or layer not in self.layers:
+                    raise RuntimeError(
+                        f"Layer {name!r} not found after model update. Run analyze_model() after changing layers."
+                    )
                 unique = sorted(set(idxs))
                 self.logger.debug("pruning %s channels %s", name, unique)
+                exists = name in self.layer_names
+                in_dg = layer in getattr(self.DG, "modules", [])
+                self.logger.debug(
+                    "Layer %s exists in layer_names: %s, in DG.modules: %s",
+                    name,
+                    exists,
+                    in_dg,
+                )
                 self.logger.debug("Attempting to obtain pruning group for %s", name)
                 try:
                     group = self.DG.get_pruning_group(
