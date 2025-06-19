@@ -1,3 +1,9 @@
+"""Algorithmic stubs for pruning used during testing.
+
+Only minimal logic is provided for unit tests. For full functionality install
+the ``torch-pruning`` package.
+"""
+
 import torch
 from torch import nn
 

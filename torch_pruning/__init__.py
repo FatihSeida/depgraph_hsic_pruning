@@ -1,3 +1,10 @@
+"""Simplified placeholder for tests.
+
+This stub mimics a tiny portion of the real :mod:`torch_pruning` package so
+the unit tests can run without the actual dependency. Install the real
+``torch-pruning`` library for any production usage.
+"""
+
 import types
 import importlib.metadata as _metadata
 import torch
