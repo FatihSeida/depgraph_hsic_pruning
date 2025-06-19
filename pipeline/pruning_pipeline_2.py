@@ -135,7 +135,12 @@ class PruningPipeline2(BasePruningPipeline):
         self.logger.info("Analyzing model structure")
         self.pruning_method.analyze_model()
         groups = len(getattr(self.pruning_method, "channel_groups", []))
-        self.logger.info("Analysis complete; %d channel groups detected", groups)
+        convs = len(getattr(self.pruning_method, "layers", []))
+        self.logger.info(
+            "Analysis summary: %d convolution layers, %d channel groups",
+            convs,
+            groups,
+        )
 
     def generate_pruning_mask(self, ratio: float) -> None:
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
@@ -143,7 +148,17 @@ class PruningPipeline2(BasePruningPipeline):
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         self.pruning_method.generate_pruning_mask(ratio)
         channels = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values())
-        self.logger.info("Pruning mask ready; %d channels selected for removal", channels)
+        total = sum(
+            getattr(layer, "out_channels", 0)
+            for layer in getattr(self.pruning_method, "layers", [])
+        )
+        ratio_pruned = (channels / total * 100) if total else 0
+        self.logger.info(
+            "Mask summary: %d/%d channels selected for pruning (%.2f%%)",
+            channels,
+            total,
+            ratio_pruned,
+        )
 
     def apply_pruning(self) -> None:
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
@@ -160,6 +175,7 @@ class PruningPipeline2(BasePruningPipeline):
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
         self.logger.info("Skipping explicit reconfiguration – handled by depgraph")
+        self.logger.info("Dependency graph reconfiguration complete")
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         if self.model is None:
