@@ -294,15 +294,19 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.register_hooks()
         if self.layer_names:
             self.logger.info("Convolution layers found: %s", self.layer_names)
-        mapped = 0
+
+        missing: List[str] = []
         for layer, name in zip(self.layers, self.layer_names):
             pruner = self.DG.get_pruner_of_module(layer)
             if pruner is None:
-                self.logger.warning("No pruner found for layer %s", name)
-            else:
-                mapped += 1
-        if mapped:
-            self.logger.info("Successfully mapped %d layers to pruners", mapped)
+                missing.append(name)
+
+        if missing:
+            self.logger.warning("Dependency graph missing layers: %s", missing)
+        else:
+            self.logger.info(
+                "Successfully mapped %d layers to pruners", len(self.layers)
+            )
         self._build_adjacency()
         self._build_channel_groups()
         self.reset_records()
