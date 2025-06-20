@@ -123,6 +123,15 @@ class PruningPipeline2(BasePruningPipeline):
         except Exception:
             pass
 
+    def _sync_pruning_method(self, reanalyze: bool = False) -> None:
+        """Synchronize :attr:`pruning_method` with the current model."""
+        if self.pruning_method is None or self.model is None:
+            return
+        self.pruning_method.model = self.model.model
+        if reanalyze:
+            self._sync_example_inputs_device()
+            self.pruning_method.analyze_model()
+
     # ------------------------------------------------------------------
     # BasePruningPipeline interface
     # ------------------------------------------------------------------
@@ -165,23 +174,24 @@ class PruningPipeline2(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
+        original_model = self.model.model
         try:
             metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         finally:
             self._unregister_label_callback()
+        model_changed = self.model.model is not original_model
 
         num_labels = len(getattr(self.pruning_method, "labels", []))
 
         if self.pruning_method is not None:
-            self.pruning_method.model = self.model.model
             try:
-                self._sync_example_inputs_device()
-                self.pruning_method.analyze_model()
-                convs = len(getattr(self.pruning_method, "layers", []))
-                self.logger.info(
-                    "Dependency graph rebuilt; %d convolution layers registered",
-                    convs,
-                )
+                self._sync_pruning_method(reanalyze=model_changed)
+                if model_changed:
+                    convs = len(getattr(self.pruning_method, "layers", []))
+                    self.logger.info(
+                        "Dependency graph rebuilt; %d convolution layers registered",
+                        convs,
+                    )
                 self._run_short_forward_pass()
             except Exception:
                 pass
@@ -195,9 +205,7 @@ class PruningPipeline2(BasePruningPipeline):
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError("PruningPipeline2 requires DepgraphHSICMethod")
         self.logger.info("Analyzing model structure")
-        if self.pruning_method is not None:
-            self.pruning_method.model = self.model.model
-        self.pruning_method.analyze_model()
+        self._sync_pruning_method(reanalyze=True)
         groups = len(getattr(self.pruning_method, "channel_groups", []))
         convs = len(getattr(self.pruning_method, "layers", []))
         self.logger.info(
@@ -238,9 +246,8 @@ class PruningPipeline2(BasePruningPipeline):
             raise NotImplementedError
         self.logger.info("Applying pruning via DependencyGraph")
         if self.pruning_method is not None:
-            self.pruning_method.model = self.model.model
             self.logger.info("Reanalyzing model before pruning")
-            self.pruning_method.analyze_model()
+            self._sync_pruning_method(reanalyze=True)
         self.pruning_method.apply_pruning()
         pruned = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values())
         self.logger.info("Pruning applied; %d channels pruned", pruned)
