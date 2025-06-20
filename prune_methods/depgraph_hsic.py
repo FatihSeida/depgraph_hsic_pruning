@@ -260,7 +260,7 @@ class DepgraphHSICMethod(BasePruningMethod):
 
     def _log_dependency_status(self) -> None:
         """Report which layers were mapped to pruners in the current graph."""
-        if self.DG is None:
+        if self.DG is None or not hasattr(self.DG, "get_pruner_of_module"):
             return
         mapped = []
         for layer, name in zip(self.layers, self.layer_names):
