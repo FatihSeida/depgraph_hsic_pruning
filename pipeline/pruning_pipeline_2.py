@@ -240,11 +240,6 @@ class PruningPipeline2(BasePruningPipeline):
             self.logger.info("Reanalyzing model before pruning")
             self.pruning_method.analyze_model()
         self.pruning_method.apply_pruning()
-        try:
-            import torch_pruning as tp
-            tp.utils.remove_pruning_reparametrization(self.model.model)
-        except Exception as exc:  # pragma: no cover - optional dependency
-            self.logger.debug("remove_pruning_reparametrization failed: %s", exc)
         pruned = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values())
         self.logger.info("Pruning applied; %d channels pruned", pruned)
 
