@@ -165,8 +165,10 @@ class PruningPipeline2(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
-        metrics = self.model.train(data=self.data, device=device, **train_kwargs)
-        self._unregister_label_callback()
+        try:
+            metrics = self.model.train(data=self.data, device=device, **train_kwargs)
+        finally:
+            self._unregister_label_callback()
 
         num_labels = len(getattr(self.pruning_method, "labels", []))
 
