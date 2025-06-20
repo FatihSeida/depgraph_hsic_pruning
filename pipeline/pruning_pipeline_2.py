@@ -168,6 +168,8 @@ class PruningPipeline2(BasePruningPipeline):
         metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         self._unregister_label_callback()
 
+        num_labels = len(getattr(self.pruning_method, "labels", []))
+
         if self.pruning_method is not None:
             self.pruning_method.model = self.model.model
             try:
@@ -182,7 +184,6 @@ class PruningPipeline2(BasePruningPipeline):
             except Exception:
                 pass
 
-        num_labels = len(getattr(self.pruning_method, "labels", []))
         self.logger.info("Training finished; recorded %d label batches", num_labels)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics or {}
