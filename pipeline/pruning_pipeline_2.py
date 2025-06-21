@@ -312,8 +312,13 @@ class PruningPipeline2(BasePruningPipeline):
             except Exception:  # pragma: no cover - torch_pruning optional
                 pass
 
-        pruned = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values()) if isinstance(self.pruning_method.pruning_plan, dict) else len(getattr(self.pruning_method, "pruning_plan", []))
-        self.logger.info("Pruning applied; %d channels pruned", pruned)
+        plan = getattr(self.pruning_method, "pruning_plan", [])
+        if isinstance(plan, dict):
+            pruned = sum(len(v) for v in plan.values())
+            self.logger.info("Pruning applied; %d channels pruned", pruned)
+        else:
+            pruned = len(plan)
+            self.logger.info("Pruning applied; %d groups pruned", pruned)
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
         self.logger.info("Skipping explicit reconfiguration – handled by depgraph")
