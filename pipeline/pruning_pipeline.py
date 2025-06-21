@@ -216,12 +216,26 @@ class PruningPipeline(BasePruningPipeline):
                 dataloader = None
         self.pruning_method.generate_pruning_mask(ratio, dataloader)
 
-    def apply_pruning(self) -> None:
-        """Apply the previously generated pruning mask to the model."""
+    def apply_pruning(self, rebuild: bool = False) -> None:
+        """Apply the previously generated pruning mask to the model.
+
+        Parameters
+        ----------
+        rebuild : bool, optional
+            Force rebuilding the dependency graph before pruning when using
+            :class:`DepgraphHSICMethod`.  Defaults to ``False``.
+        """
         if self.pruning_method is None:
             raise NotImplementedError
         self.logger.info("Applying pruning mask")
-        self.pruning_method.apply_pruning()
+        try:
+            from prune_methods.depgraph_hsic import DepgraphHSICMethod
+        except Exception:  # pragma: no cover - optional dependency
+            DepgraphHSICMethod = None
+        if DepgraphHSICMethod is not None and isinstance(self.pruning_method, DepgraphHSICMethod):
+            self.pruning_method.apply_pruning(rebuild=rebuild)
+        else:
+            self.pruning_method.apply_pruning()
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
         """Reconfigure the model after pruning if necessary."""
