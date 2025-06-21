@@ -356,7 +356,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         self._build_adjacency()
         self._build_channel_groups()
 
-    def generate_pruning_mask(self, ratio: float) -> None:
+    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if not self.activations or not self.labels:
             self.logger.debug(

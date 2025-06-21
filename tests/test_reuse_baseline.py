@@ -38,7 +38,7 @@ class DummyPipeline:
         pass
     def analyze_structure(self):
         pass
-    def generate_pruning_mask(self, ratio):
+    def generate_pruning_mask(self, ratio, dataloader=None):
         pass
     def apply_pruning(self):
         pass

@@ -214,7 +214,7 @@ class PruningPipeline2(BasePruningPipeline):
             groups,
         )
 
-    def generate_pruning_mask(self, ratio: float) -> None:
+    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
@@ -227,7 +227,13 @@ class PruningPipeline2(BasePruningPipeline):
                 self._run_short_forward_pass()
                 if not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None):
                     self.logger.warning("Short forward pass did not record activations/labels")
-        self.pruning_method.generate_pruning_mask(ratio)
+        if dataloader is None:
+            try:
+                trainer = getattr(self.model, "trainer", None)
+                dataloader = getattr(trainer, "train_loader", None) or getattr(trainer, "train_dataloader", None) or getattr(trainer, "val_loader", None) or getattr(trainer, "val_dataloader", None)
+            except Exception:  # pragma: no cover - best effort
+                dataloader = None
+        self.pruning_method.generate_pruning_mask(ratio, dataloader)
         channels = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values())
         total = sum(
             getattr(layer, "out_channels", 0)
