@@ -7,7 +7,12 @@ from . import PipelineStep
 
 
 class ShortForwardPassStep(PipelineStep):
-    """Run short forward passes on a couple of validation images."""
+    """Run short forward passes on a couple of validation images.
+
+    ``DepgraphHSICMethod.generate_pruning_mask`` now requires a minimum number
+    of label batches.  This step helps collect a few labels quickly so the
+    ``min_labels`` threshold can be met.
+    """
 
     def run(self, context: PipelineContext) -> None:  # pragma: no cover - heavy deps
         step = self.__class__.__name__
