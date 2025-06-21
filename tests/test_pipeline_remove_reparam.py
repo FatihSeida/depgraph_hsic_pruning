@@ -83,6 +83,8 @@ pipeline = PruningPipeline2('m', 'd', pruning_method=method)
 pipeline.model = DummyYOLO()
 method.model = pipeline.model.model
 
+method.analyze_model()
+
 pipeline.apply_pruning()
 
 print(len(calls))

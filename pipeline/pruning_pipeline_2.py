@@ -264,53 +264,14 @@ class PruningPipeline2(BasePruningPipeline):
             )
 
     def apply_pruning(self, rebuild: bool = False) -> None:
-        """Apply the pruning plan using ``DependencyGraph``.
-
-        Parameters
-        ----------
-        rebuild : bool, optional
-            Deprecated and ignored. Maintained for backward compatibility.
-        """
+        """Apply the pruning plan using :class:`DepgraphHSICMethod`."""
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError
         self.logger.info("Applying pruning via DependencyGraph")
         if self.pruning_method is not None:
-            plan = getattr(self.pruning_method, "pruning_plan", [])
-            # always resync right before applying pruning
-            self._sync_pruning_method(reanalyze=True)
-            if isinstance(plan, dict):
-                named = dict(self.model.model.named_modules())
-                try:
-                    import torch_pruning as tp
-                except Exception:
-                    tp = None
-                for name, idxs in plan.items():
-                    layer = named.get(name)
-                    if layer is None or tp is None:
-                        continue
-                    group = self.pruning_method.DG.get_pruning_group(
-                        layer, tp.prune_conv_out_channels, idxs
-                    )
-                    try:
-                        self.pruning_method.DG.prune_group(group)
-                    except AttributeError:
-                        group.prune()
-            else:
-                for group in plan:
-                    try:
-                        self.pruning_method.DG.prune_group(group)
-                    except AttributeError:
-                        group.prune()
-
-            try:
-                import torch_pruning as tp
-                tp.utils.remove_pruning_reparametrization(self.model.model)
-            except Exception:  # pragma: no cover - torch_pruning optional
-                pass
-            try:
-                self.pruning_method.remove_hooks()
-            except Exception:
-                pass
+            # keep pruning method in sync with the current model
+            self._sync_pruning_method()
+            self.pruning_method.apply_pruning()
 
         plan = getattr(self.pruning_method, "pruning_plan", [])
         if isinstance(plan, dict):
