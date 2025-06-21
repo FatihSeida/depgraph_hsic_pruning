@@ -35,14 +35,16 @@ moved to that device automatically.
 When using `DepgraphHSICMethod`, ensure that `analyze_structure()` is run after every training phase. The `execute_pipeline` helper automatically performs this analysis just before pruning mask generation.
 
 `DepgraphHSICMethod.apply_pruning` relies on `torch_pruning`'s
-`DependencyGraph` to remove pruned channels. If layers are replaced or
-reconstructed during training, the method rebuilds the graph
-automatically, so you generally do not need to manually adjust the
-model before pruning. Always call `analyze_model()` before applying the
-pruning plan or invoke ``apply_pruning(rebuild=True)`` to rebuild the
-graph automatically. Should pruning fail because a layer is reported as
-missing from the dependency graph, rerun ``apply_pruning(rebuild=True)``
-to rebuild the graph before applying the mask.
+`DependencyGraph` to remove pruned channels and handle layer dependencies
+automatically. If layers are replaced or reconstructed during training,
+the method rebuilds the graph automatically, so you generally do not
+need to manually adjust the model before pruning. Always call
+`analyze_model()` before applying the pruning plan or invoke
+``apply_pruning(rebuild=True)`` to rebuild the graph automatically.
+Should pruning fail because a layer is reported as missing from the
+dependency graph, rerun ``apply_pruning(rebuild=True)`` to rebuild the
+graph before applying the mask. Avoid manually replacing layers unless
+you fully understand the dependency structure.
 
 Example usage:
 
