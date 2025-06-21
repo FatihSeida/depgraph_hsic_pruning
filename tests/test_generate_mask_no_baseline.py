@@ -74,9 +74,11 @@ sys.modules['yaml'] = yaml_mod
 
 tmp = Path("{tmp_path}")
 (tmp / 'images').mkdir()
-(tmp / 'images' / 'img.jpg').write_text('x')
+for i in range(2):
+    (tmp / 'images' / f'img{{i}}.jpg').write_text('x')
 (tmp / 'labels').mkdir()
-(tmp / 'labels' / 'img.txt').write_text('0')
+for i in range(2):
+    (tmp / 'labels' / f'img{{i}}.txt').write_text('0')
 data_file = tmp / 'd.yaml'
 data_file.write_text('path: .\\nval: images')
 
