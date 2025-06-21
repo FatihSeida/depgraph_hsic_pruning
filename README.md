@@ -38,7 +38,10 @@ When using `DepgraphHSICMethod`, ensure that `analyze_structure()` is run after 
 `DependencyGraph` to remove pruned channels. If layers are replaced or
 reconstructed during training, the method rebuilds the graph
 automatically, so you generally do not need to manually adjust the
-model before pruning.
+model before pruning.  Should pruning fail because a layer is reported
+as missing from the dependency graph, rerun
+``apply_pruning(rebuild=True)`` to rebuild the graph before applying the
+mask.
 
 Example usage:
 

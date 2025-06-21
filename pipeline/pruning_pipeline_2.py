@@ -247,14 +247,28 @@ class PruningPipeline2(BasePruningPipeline):
             ratio_pruned,
         )
 
-    def apply_pruning(self) -> None:
+    def apply_pruning(self, rebuild: bool = False) -> None:
+        """Apply the pruning plan using ``DependencyGraph``.
+
+        Parameters
+        ----------
+        rebuild : bool, optional
+            Rebuild the dependency graph before pruning.  This is forwarded to
+            :meth:`DepgraphHSICMethod.apply_pruning`.  Defaults to ``False``.
+        """
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError
         self.logger.info("Applying pruning via DependencyGraph")
         if self.pruning_method is not None:
             self.logger.info("Reanalyzing model before pruning")
             self._sync_pruning_method(reanalyze=True)
-        self.pruning_method.apply_pruning()
+        import inspect
+
+        sig = inspect.signature(self.pruning_method.apply_pruning)
+        if "rebuild" in sig.parameters:
+            self.pruning_method.apply_pruning(rebuild=rebuild)
+        else:
+            self.pruning_method.apply_pruning()
         pruned = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values())
         self.logger.info("Pruning applied; %d channels pruned", pruned)
 
