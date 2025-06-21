@@ -20,6 +20,8 @@ class DummyDG:
         pass
     def get_pruning_group(self, conv, fn, idxs):
         return DummyGroup(conv, idxs)
+    def prune_group(self, group):
+        group.prune()
 
 tp = types.ModuleType('torch_pruning')
 tp.DependencyGraph = DummyDG
@@ -74,7 +76,8 @@ def analyze_stub(self):
     self.layer_names = ['0']
 
 method.analyze_model = t.MethodType(analyze_stub, method)
-method.pruning_plan = {{'0': [0]}}
+conv = DummyYOLO().model[0]
+method.pruning_plan = [DummyDG().get_pruning_group(conv, None, [0])]
 
 pipeline = PruningPipeline2('m', 'd', pruning_method=method)
 pipeline.model = DummyYOLO()
