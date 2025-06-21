@@ -36,6 +36,8 @@ class DummyDG:
             def prune(self):
                 pass
         return Group()
+    def prune_group(self, group):
+        group.prune()
 
 tp = types.ModuleType('torch_pruning')
 tp.DependencyGraph = DummyDG
@@ -89,6 +91,16 @@ from prune_methods.depgraph_hsic import DepgraphHSICMethod
 ctx = PipelineContext('m', 'd', workdir=Path('{tmp_path}'))
 method = DepgraphHSICMethod(None, workdir='{tmp_path}')
 method.example_inputs = torch.randn(1,3,8,8)
+def analyze_stub(self):
+    self.DG = DummyDG()
+    self._dg_model = self.model
+    self.layers = [self.model[0]]
+    self.layer_names = ['0']
+method.analyze_model = types.MethodType(analyze_stub, method)
+def mask_stub(self, ratio, dataloader=None):
+    conv = self.layers[0]
+    self.pruning_plan = [self.DG.get_pruning_group(conv, None, [0])]
+method.generate_pruning_mask = types.MethodType(mask_stub, method)
 ctx.pruning_method = method
 
 steps = [

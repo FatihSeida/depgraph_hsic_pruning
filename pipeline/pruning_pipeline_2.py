@@ -253,23 +253,46 @@ class PruningPipeline2(BasePruningPipeline):
         Parameters
         ----------
         rebuild : bool, optional
-            Rebuild the dependency graph before pruning.  This is forwarded to
-            :meth:`DepgraphHSICMethod.apply_pruning`.  Defaults to ``False``.
+            Deprecated and ignored. Maintained for backward compatibility.
         """
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError
         self.logger.info("Applying pruning via DependencyGraph")
         if self.pruning_method is not None:
-            self.logger.info("Reanalyzing model before pruning")
             self._sync_pruning_method(reanalyze=True)
-        import inspect
 
-        sig = inspect.signature(self.pruning_method.apply_pruning)
-        if "rebuild" in sig.parameters:
-            self.pruning_method.apply_pruning(rebuild=rebuild)
-        else:
-            self.pruning_method.apply_pruning()
-        pruned = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values())
+            plan = getattr(self.pruning_method, "pruning_plan", [])
+            if isinstance(plan, dict):
+                named = dict(self.model.model.named_modules())
+                try:
+                    import torch_pruning as tp
+                except Exception:
+                    tp = None
+                for name, idxs in plan.items():
+                    layer = named.get(name)
+                    if layer is None or tp is None:
+                        continue
+                    group = self.pruning_method.DG.get_pruning_group(
+                        layer, tp.prune_conv_out_channels, idxs
+                    )
+                    try:
+                        self.pruning_method.DG.prune_group(group)
+                    except AttributeError:
+                        group.prune()
+            else:
+                for group in plan:
+                    try:
+                        self.pruning_method.DG.prune_group(group)
+                    except AttributeError:
+                        group.prune()
+
+            try:
+                import torch_pruning as tp
+                tp.utils.remove_pruning_reparametrization(self.model.model)
+            except Exception:  # pragma: no cover - torch_pruning optional
+                pass
+
+        pruned = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values()) if isinstance(self.pruning_method.pruning_plan, dict) else len(getattr(self.pruning_method, "pruning_plan", []))
         self.logger.info("Pruning applied; %d channels pruned", pruned)
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:

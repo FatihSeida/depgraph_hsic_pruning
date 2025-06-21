@@ -30,10 +30,10 @@ def test_analyze_model_called(monkeypatch):
     class DummyMethod:
         def __init__(self, model=None, **kw):
             self.model = model
+            self.pruning_plan = [object()]
+            self.DG = types.SimpleNamespace(prune_group=lambda g: calls.append('prune'))
         def analyze_model(self):
             calls.append('analyze')
-        def apply_pruning(self):
-            calls.append('apply')
 
     monkeypatch.setattr(pp, 'DepgraphHSICMethod', DummyMethod)
 
@@ -42,4 +42,4 @@ def test_analyze_model_called(monkeypatch):
 
     pipeline.apply_pruning()
 
-    assert calls == ['analyze', 'apply']
+    assert calls == ['analyze', 'prune']
