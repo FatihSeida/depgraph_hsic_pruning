@@ -29,7 +29,7 @@ class DummyPipeline:
         pass
     def set_pruning_method(self, method):
         self.pruning_method = method
-    def generate_pruning_mask(self, ratio, dataloader=None):
+    def generate_pruning_mask(self, ratio):
         pass
     def apply_pruning(self):
         pass

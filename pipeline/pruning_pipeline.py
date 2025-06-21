@@ -203,18 +203,12 @@ class PruningPipeline(BasePruningPipeline):
         self.logger.info("Analyzing model structure")
         self.pruning_method.analyze_model()
 
-    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
+    def generate_pruning_mask(self, ratio: float) -> None:
         """Generate pruning mask at ``ratio`` sparsity."""
         if self.pruning_method is None:
             raise NotImplementedError
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
-        if dataloader is None:
-            try:
-                trainer = getattr(self.model, "trainer", None)
-                dataloader = getattr(trainer, "train_loader", None) or getattr(trainer, "train_dataloader", None) or getattr(trainer, "val_loader", None) or getattr(trainer, "val_dataloader", None)
-            except Exception:  # pragma: no cover - best effort
-                dataloader = None
-        self.pruning_method.generate_pruning_mask(ratio, dataloader)
+        self.pruning_method.generate_pruning_mask(ratio)
 
     def apply_pruning(self, rebuild: bool = False) -> None:
         """Apply the previously generated pruning mask to the model.

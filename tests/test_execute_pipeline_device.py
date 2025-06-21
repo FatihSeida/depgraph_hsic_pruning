@@ -64,7 +64,7 @@ def test_execute_pipeline_moves_model_to_device(monkeypatch, tmp_path):
             pass
         def set_pruning_method(self, method):
             self.pruning_method = method
-        def generate_pruning_mask(self, ratio, dataloader=None):
+        def generate_pruning_mask(self, ratio):
             pass
         def apply_pruning(self):
             pass
@@ -88,7 +88,7 @@ def test_execute_pipeline_moves_model_to_device(monkeypatch, tmp_path):
             self.model = model
         def analyze_model(self):
             pass
-        def generate_pruning_mask(self, ratio, dataloader=None):
+        def generate_pruning_mask(self, ratio):
             pass
         def apply_pruning(self):
             pass

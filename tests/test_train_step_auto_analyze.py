@@ -99,7 +99,7 @@ def analyze_stub(self):
     self.layers = [self.model[0]]
     self.layer_names = ['0']
 method.analyze_model = types.MethodType(analyze_stub, method)
-def mask_stub(self, ratio, dataloader=None):
+def mask_stub(self, ratio):
     conv = self.layers[0]
     self.pruning_plan = [self.DG.get_pruning_group(conv, None, [0])]
 method.generate_pruning_mask = types.MethodType(mask_stub, method)

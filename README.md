@@ -47,6 +47,6 @@ to rebuild the graph before applying the mask.
 Example usage:
 
 ```python
-method.generate_pruning_mask(0.5, dataloader=train_loader)
+method.generate_pruning_mask(0.5)
 method.apply_pruning()
 ```
