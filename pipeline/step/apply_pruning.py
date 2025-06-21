@@ -61,6 +61,10 @@ class ApplyPruningStep(PipelineStep):
             tp.utils.remove_pruning_reparametrization(context.model.model)
         except Exception:  # pragma: no cover - optional dependency
             pass
+        try:
+            context.pruning_method.remove_hooks()
+        except Exception:
+            pass
         snapshot = context.workdir / "snapshot.pt"
         try:
             context.logger.info("Saving snapshot to %s", snapshot)
