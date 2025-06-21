@@ -322,8 +322,6 @@ class DepgraphHSICMethod(BasePruningMethod):
             self.logger.info(
                 "Successfully mapped %d layers to pruners", len(self.layers)
             )
-        self._build_adjacency()
-        self._build_channel_groups()
         self.reset_records()
 
     def refresh_dependency_graph(self) -> None:  # pragma: no cover - heavy dependency
@@ -353,8 +351,6 @@ class DepgraphHSICMethod(BasePruningMethod):
             self.num_activations,
             self.labels,
         ) = saved
-        self._build_adjacency()
-        self._build_channel_groups()
 
     def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
@@ -403,33 +399,52 @@ class DepgraphHSICMethod(BasePruningMethod):
         coef = torch.tensor(lasso.coef_)
         importance = coef.abs() * torch.stack(hsic_values)
         index_map = {(layer, ch): i for i, (layer, ch) in enumerate(group_info)}
-        group_scores: List[Tuple[float, List[Tuple[nn.Module, int]]]] = []
-        total_channels = len(importance)
-        for g in self.channel_groups:
-            idxs = []
-            chans: List[Tuple[nn.Module, int]] = []
-            for li, ci in g:
-                key = (self.layers[li], ci)
-                if key in index_map:
-                    idxs.append(index_map[key])
-                    chans.append(key)
-            if idxs:
-                score = importance[idxs].mean().item()
-                group_scores.append((score, chans))
-
-        group_scores.sort(key=lambda x: x[0])
-        target = int(total_channels * ratio)
-        removed = 0
-        name_map = dict(zip(self.layers, self.layer_names))
-        self.pruning_plan = {}
-        for score, chans in group_scores:
-            if removed >= target:
-                break
-            for layer, ch in chans:
-                name = name_map.get(layer)
-                if name is not None:
-                    self.pruning_plan.setdefault(name, []).append(ch)
-            removed += len(chans)
+        groups = self.DG.get_all_groups(root_module_types=(nn.Conv2d,))
+        if not groups:
+            self._build_adjacency()
+            self._build_channel_groups()
+            group_scores: List[Tuple[float, List[Tuple[nn.Module, int]]]] = []
+            for g in self.channel_groups:
+                idxs = []
+                chans: List[Tuple[nn.Module, int]] = []
+                for li, ci in g:
+                    key = (self.layers[li], ci)
+                    if key in index_map:
+                        idxs.append(index_map[key])
+                        chans.append(key)
+                if idxs:
+                    score = importance[idxs].mean().item()
+                    group_scores.append((score, chans))
+            group_scores.sort(key=lambda x: x[0])
+            target = int(len(group_scores) * ratio)
+            name_map = dict(zip(self.layers, self.layer_names))
+            self.pruning_plan = {}
+            removed = 0
+            for score, chans in group_scores:
+                if removed >= target:
+                    break
+                for layer, ch in chans:
+                    name = name_map.get(layer)
+                    if name is not None:
+                        self.pruning_plan.setdefault(name, []).append(ch)
+                removed += len(chans)
+        else:
+            scored_groups: List[Tuple[float, Any]] = []
+            for g in groups:
+                idxs = []
+                for dep, chs in g:
+                    mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
+                    if isinstance(mod, nn.Conv2d) and mod in self.layers:
+                        for c in chs:
+                            key = (mod, c)
+                            if key in index_map:
+                                idxs.append(index_map[key])
+                if idxs:
+                    score = importance[idxs].mean().item()
+                    scored_groups.append((score, g))
+            scored_groups.sort(key=lambda x: x[0])
+            keep = int(len(scored_groups) * ratio)
+            self.pruning_plan = [g for _, g in scored_groups[:keep]]
 
     def apply_pruning(self, rebuild: bool = False) -> None:  # pragma: no cover - heavy dependency
         self.logger.info("Applying pruning")
@@ -447,87 +462,68 @@ class DepgraphHSICMethod(BasePruningMethod):
                 self.register_hooks()
             self._log_dependency_status()
 
-        named_modules = dict(self.model.named_modules())
-
         try:
-            for name, idxs in self.pruning_plan.items():
-                layer = named_modules.get(name)
-                if layer is None:
-                    raise RuntimeError(f"Layer {name!r} not found in model")
-                if layer not in self.layers:
-                    self.logger.info("Rebuilding dependency graph before pruning")
-                    self.DG = tp.DependencyGraph()
-                    self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
-                    self._dg_model = self.model
-                    self._log_dependency_status()
-                    named_modules = dict(self.model.named_modules())
+            if isinstance(self.pruning_plan, dict):
+                named_modules = dict(self.model.named_modules())
+                for name, idxs in self.pruning_plan.items():
                     layer = named_modules.get(name)
-                    if layer is None or layer not in self.layers:
-                        self.logger.debug(
-                            "Analyzing model and rebuilding dependency graph for final retry"
-                        )
-                        saved = (
-                            self.activations,
-                            self.layer_shapes,
-                            self.num_activations,
-                            self.labels,
-                        )
-                        self.analyze_model()
-                        self.activations, self.layer_shapes, self.num_activations, self.labels = saved
+                    if layer is None:
+                        raise RuntimeError(f"Layer {name!r} not found in model")
+                    if layer not in self.layers:
+                        self.logger.info("Rebuilding dependency graph before pruning")
+                        self.DG = tp.DependencyGraph()
+                        self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+                        self._dg_model = self.model
+                        self._log_dependency_status()
                         named_modules = dict(self.model.named_modules())
                         layer = named_modules.get(name)
-                if layer is None or layer not in self.layers:
-                    raise RuntimeError(
-                        f"Layer {name!r} not found after model update. Run analyze_model() after changing layers."
-                    )
-                unique = sorted(set(idxs))
-                self.logger.debug("pruning %s channels %s", name, unique)
-                exists = name in self.layer_names
-                in_dg = layer in getattr(self.DG, "modules", [])
-                self.logger.debug(
-                    "Layer %s exists in layer_names: %s, in DG.modules: %s",
-                    name,
-                    exists,
-                    in_dg,
-                )
-                self.logger.debug("Attempting to obtain pruning group for %s", name)
-                try:
-                    group = self.DG.get_pruning_group(
-                        layer,
-                        tp.prune_conv_out_channels,
-                        unique,
-                    )
-                except ValueError as e:
-                    self.logger.debug("get_pruning_group failed: %s", e)
-                    self.logger.info("Rebuilding dependency graph before pruning")
-                    self.DG = tp.DependencyGraph()
-                    self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
-                    self._dg_model = self.model
-                    self._log_dependency_status()
-                    named_modules = dict(self.model.named_modules())
-                    layer = named_modules.get(name)
+                        if layer is None or layer not in self.layers:
+                            self.logger.debug(
+                                "Analyzing model and rebuilding dependency graph for final retry"
+                            )
+                            saved = (
+                                self.activations,
+                                self.layer_shapes,
+                                self.num_activations,
+                                self.labels,
+                            )
+                            self.analyze_model()
+                            (
+                                self.activations,
+                                self.layer_shapes,
+                                self.num_activations,
+                                self.labels,
+                            ) = saved
+                            named_modules = dict(self.model.named_modules())
+                            layer = named_modules.get(name)
                     if layer is None or layer not in self.layers:
                         raise RuntimeError(
                             f"Layer {name!r} not found after model update. Run analyze_model() after changing layers."
                         )
+                    unique = sorted(set(idxs))
+                    self.logger.debug("pruning %s channels %s", name, unique)
+                    exists = name in self.layer_names
+                    in_dg = layer in getattr(self.DG, "modules", [])
+                    self.logger.debug(
+                        "Layer %s exists in layer_names: %s, in DG.modules: %s",
+                        name,
+                        exists,
+                        in_dg,
+                    )
+                    self.logger.debug("Attempting to obtain pruning group for %s", name)
                     try:
                         group = self.DG.get_pruning_group(
                             layer,
                             tp.prune_conv_out_channels,
                             unique,
                         )
-                    except ValueError as err:
-                        self.logger.debug(
-                            "Analyzing model and rebuilding dependency graph for final retry"
-                        )
-                        saved = (
-                            self.activations,
-                            self.layer_shapes,
-                            self.num_activations,
-                            self.labels,
-                        )
-                        self.analyze_model()
-                        self.activations, self.layer_shapes, self.num_activations, self.labels = saved
+                    except ValueError as e:
+                        self.logger.debug("get_pruning_group failed: %s", e)
+                        self.logger.info("Rebuilding dependency graph before pruning")
+                        self.DG = tp.DependencyGraph()
+                        self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+                        self._dg_model = self.model
+                        self._log_dependency_status()
                         named_modules = dict(self.model.named_modules())
                         layer = named_modules.get(name)
                         if layer is None or layer not in self.layers:
@@ -540,18 +536,53 @@ class DepgraphHSICMethod(BasePruningMethod):
                                 tp.prune_conv_out_channels,
                                 unique,
                             )
-                        except ValueError as err2:
-                            self.logger.error(
-                                "get_pruning_group failed after rebuilding: %s",
-                                err2,
+                        except ValueError as err:
+                            self.logger.debug(
+                                "Analyzing model and rebuilding dependency graph for final retry"
                             )
-                            raise RuntimeError(
-                                f"Failed to obtain pruning group for layer {name}"
-                            ) from err2
-                group.prune()
-                try:
-                    tp.utils.remove_pruning_reparametrization(self.model)
-                except Exception:  # pragma: no cover - safeguard against tp versions
-                    pass
+                            saved = (
+                                self.activations,
+                                self.layer_shapes,
+                                self.num_activations,
+                                self.labels,
+                            )
+                            self.analyze_model()
+                            (
+                                self.activations,
+                                self.layer_shapes,
+                                self.num_activations,
+                                self.labels,
+                            ) = saved
+                            named_modules = dict(self.model.named_modules())
+                            layer = named_modules.get(name)
+                            if layer is None or layer not in self.layers:
+                                raise RuntimeError(
+                                    f"Layer {name!r} not found after model update. Run analyze_model() after changing layers."
+                                )
+                            try:
+                                group = self.DG.get_pruning_group(
+                                    layer,
+                                    tp.prune_conv_out_channels,
+                                    unique,
+                                )
+                            except ValueError as err2:
+                                self.logger.error(
+                                    "get_pruning_group failed after rebuilding: %s",
+                                    err2,
+                                )
+                                raise RuntimeError(
+                                    f"Failed to obtain pruning group for layer {name}"
+                                ) from err2
+                    group.prune()
+            else:
+                for group in self.pruning_plan:
+                    try:
+                        self.DG.prune_group(group)
+                    except AttributeError:
+                        group.prune()
+            try:
+                tp.utils.remove_pruning_reparametrization(self.model)
+            except Exception:  # pragma: no cover - safeguard against tp versions
+                pass
         finally:
             self.remove_hooks()
