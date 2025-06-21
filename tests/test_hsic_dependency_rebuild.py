@@ -21,7 +21,8 @@ method = DepgraphHSICMethod(model, workdir='{tmp_path}')
 method.example_inputs = torch.randn(1, 3, 8, 8)
 method.analyze_model()
 model[0] = torch.nn.Conv2d(3, 4, 3)
-method.pruning_plan = {{'0': [0]}}
+conv = model[0]
+method.pruning_plan = [method.DG.get_pruning_group(conv, tp.prune_conv_out_channels, [0])]
 method.apply_pruning()
 print('ok')
 """
