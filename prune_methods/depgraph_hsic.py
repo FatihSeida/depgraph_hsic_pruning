@@ -160,6 +160,82 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.num_activations.clear()
         self.labels.clear()
 
+    def _collect_activations(self, dataloader) -> None:
+        """Run ``dataloader`` once to populate hooks and labels."""
+        try:
+            device = next(self.model.parameters()).device
+        except Exception:  # pragma: no cover - model without parameters
+            device = torch.device("cpu")
+
+        train_state = self.model.training
+        self.model.eval()
+        with torch.no_grad():
+            for batch in dataloader:
+                images = None
+                labels = None
+                if isinstance(batch, dict):
+                    images = batch.get("img") or batch.get("images") or batch.get("inputs")
+                    labels = batch.get("cls") or batch.get("label") or batch.get("labels")
+                elif isinstance(batch, (list, tuple)):
+                    if len(batch) > 0:
+                        images = batch[0]
+                    if len(batch) > 1:
+                        labels = batch[1]
+                else:  # pragma: no cover - fallback
+                    images = batch
+                if images is None:
+                    continue
+                self.model(images.to(device))
+                if labels is not None:
+                    self.add_labels(labels)
+        self.model.train(train_state)
+
+    def _l1_norm_plan(self, ratio: float) -> None:
+        """Generate pruning plan based on convolution weight L1 norms."""
+        if self.DG is None:
+            raise RuntimeError("analyze_model must be called first")
+
+        ch_scores: Dict[nn.Module, torch.Tensor] = {}
+        for layer in self.layers:
+            ch_scores[layer] = layer.weight.data.abs().sum(dim=(1, 2, 3))
+
+        index_map = {(layer, idx): ch_scores[layer][idx].item() for layer in self.layers for idx in range(layer.out_channels)}
+        groups = self.DG.get_all_groups(root_module_types=(nn.Conv2d,))
+        scored_groups: List[Tuple[float, Any]] = []
+        for g in groups:
+            vals = []
+            for dep, chs in g:
+                mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
+                if isinstance(mod, nn.Conv2d) and mod in ch_scores:
+                    vals.extend(index_map.get((mod, c)) for c in chs if (mod, c) in index_map)
+            if vals:
+                scored_groups.append((sum(vals) / len(vals), g))
+
+        scored_groups.sort(key=lambda x: x[0])
+
+        remaining = {layer: layer.out_channels for layer in self.layers}
+        num_to_prune = max(1, int(len(scored_groups) * ratio)) if ratio > 0 else 0
+        plan: List[Any] = []
+        for score, g in scored_groups:
+            if len(plan) >= num_to_prune:
+                break
+            valid = True
+            for dep, chs in g:
+                mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
+                if isinstance(mod, nn.Conv2d) and mod in remaining:
+                    if remaining[mod] - len(chs) < 1:
+                        valid = False
+                        break
+            if not valid:
+                continue
+            plan.append(g)
+            for dep, chs in g:
+                mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
+                if isinstance(mod, nn.Conv2d) and mod in remaining:
+                    remaining[mod] -= len(chs)
+
+        self.pruning_plan = plan
+
     # ------------------------------------------------------------------
     # HSIC helpers
     # ------------------------------------------------------------------
@@ -226,6 +302,21 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
         self._dg_model = self.model
         self.logger.debug("Dependency graph built")
+        if hasattr(self.DG, "get_pruning_group") and not hasattr(self.DG, "_wrapped"):
+            orig = self.DG.get_pruning_group
+
+            def _wrapped_get_pg(*args, **kwargs):
+                attempts = 0
+                while True:
+                    try:
+                        return orig(*args, **kwargs)
+                    except Exception:
+                        attempts += 1
+                        if attempts >= 3:
+                            raise
+
+            self.DG.get_pruning_group = _wrapped_get_pg  # type: ignore[attr-defined]
+            self.DG._wrapped = True  # type: ignore[attr-defined]
         try:
             param = next(self.model.parameters())
             model_device = param.device
@@ -287,15 +378,17 @@ class DepgraphHSICMethod(BasePruningMethod):
             self.labels,
         ) = saved
 
-    def generate_pruning_mask(self, ratio: float) -> None:
+    def generate_pruning_mask(self, ratio: float, dataloader: Any | None = None) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
+        if dataloader is not None:
+            self.reset_records()
+            self._collect_activations(dataloader)
         if not self.activations or not self.labels:
-            self.logger.debug(
-                "generate_pruning_mask called with %d labels and activations for %d layers",
-                len(self.labels),
-                len(self.activations),
+            self.logger.warning(
+                "No activations/labels collected. Falling back to L1-norm importance"
             )
-            raise RuntimeError("No activations/labels collected. Run a forward pass first.")
+            self._l1_norm_plan(ratio)
+            return
         label_batches = len(self.labels)
         self.logger.info("Recorded %d label batches", label_batches)
         for idx, count in self.num_activations.items():
@@ -350,7 +443,26 @@ class DepgraphHSICMethod(BasePruningMethod):
                 scored_groups.append((score, g))
         scored_groups.sort(key=lambda x: x[0])
         num_to_prune = max(1, int(len(scored_groups) * ratio)) if ratio > 0 else 0
-        self.pruning_plan = [g for _, g in scored_groups[:num_to_prune]]
+        remaining = {layer: layer.out_channels for layer in self.layers}
+        plan: List[Any] = []
+        for score, g in scored_groups:
+            if len(plan) >= num_to_prune:
+                break
+            valid = True
+            for dep, chs in g:
+                mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
+                if isinstance(mod, nn.Conv2d) and mod in remaining:
+                    if remaining[mod] - len(chs) < 1:
+                        valid = False
+                        break
+            if not valid:
+                continue
+            plan.append(g)
+            for dep, chs in g:
+                mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
+                if isinstance(mod, nn.Conv2d) and mod in remaining:
+                    remaining[mod] -= len(chs)
+        self.pruning_plan = plan
 
     def apply_pruning(self, rebuild: bool = False) -> None:  # pragma: no cover - heavy dependency
         self.logger.info("Applying pruning")
