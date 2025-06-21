@@ -50,3 +50,14 @@ Example usage:
 method.generate_pruning_mask(0.5)
 method.apply_pruning()
 ```
+
+When calling ``generate_pruning_mask`` you may optionally provide a
+``DataLoader``. The method will perform a short inference run over the
+dataloader, recording activations through its registered hooks and storing the
+labels via :func:`add_labels`.  This can be useful when pruning without running
+the training pipeline:
+
+```python
+method.analyze_model()
+method.generate_pruning_mask(0.5, dataloader=loader)
+```
