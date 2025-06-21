@@ -61,3 +61,8 @@ the training pipeline:
 method.analyze_model()
 method.generate_pruning_mask(0.5, dataloader=loader)
 ```
+
+HSIC pruning relies on comparing activations across multiple label batches.
+If fewer than two label batches are recorded, the method issues a warning
+and falls back to L1-norm importance as HSIC scores cannot be computed
+reliably.
