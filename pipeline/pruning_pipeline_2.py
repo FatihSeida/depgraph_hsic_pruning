@@ -313,6 +313,10 @@ class PruningPipeline2(BasePruningPipeline):
                 tp.utils.remove_pruning_reparametrization(self.model.model)
             except Exception:  # pragma: no cover - torch_pruning optional
                 pass
+            try:
+                self.pruning_method.remove_hooks()
+            except Exception:
+                pass
 
         plan = getattr(self.pruning_method, "pruning_plan", [])
         if isinstance(plan, dict):
