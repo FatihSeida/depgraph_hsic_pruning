@@ -401,12 +401,21 @@ class DepgraphHSICMethod(BasePruningMethod):
             )
         label_batches = len(self.labels)
         self.logger.info("Recorded %d label batches", label_batches)
+        mismatch = False
         for idx, count in self.num_activations.items():
             self.logger.info("Layer %d recorded %d activations", idx, count)
             if count != label_batches:
+                mismatch = True
                 self.logger.warning(
                     "Layer %d has %d activations but %d labels", idx, count, label_batches
                 )
+        if label_batches < 2 and not mismatch:
+            self.logger.warning(
+                "Fewer than two label batches recorded; HSIC computation may be invalid"
+            )
+            self.logger.warning("Falling back to L1-norm importance")
+            self._l1_norm_plan(ratio)
+            return
         features = {}
         for idx, feats in self.activations.items():
             try:

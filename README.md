@@ -64,8 +64,15 @@ method.analyze_model()
 method.generate_pruning_mask(0.5, dataloader=loader)
 ```
 
+
+HSIC pruning relies on comparing activations across multiple label batches.
+If fewer than two label batches are recorded, the method issues a warning
+and falls back to L1-norm importance as HSIC scores cannot be computed
+reliably.
+
 ``generate_pruning_mask`` accepts an ``allow_l1_fallback`` flag. When set to
 ``False`` and no activations or labels were recorded, the method raises a
 ``RuntimeError`` instead of falling back to a simple L1-norm based plan.  The
 ``PruningPipeline2.generate_pruning_mask`` helper forwards this flag to the
 underlying method.
+
