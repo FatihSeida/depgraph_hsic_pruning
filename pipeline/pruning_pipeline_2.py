@@ -210,8 +210,10 @@ class PruningPipeline2(BasePruningPipeline):
         groups = []
         if getattr(self.pruning_method, "DG", None) is not None:
             try:
-                groups = self.pruning_method.DG.get_all_groups(
-                    root_module_types=(nn.Conv2d,)
+                groups = list(
+                    self.pruning_method.DG.get_all_groups(
+                        root_module_types=(nn.Conv2d,)
+                    )
                 )
             except Exception:
                 groups = []
