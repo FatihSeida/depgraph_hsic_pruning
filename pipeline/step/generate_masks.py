@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from ..context import PipelineContext
 from . import PipelineStep
+from typing import Any
 
 
 class GenerateMasksStep(PipelineStep):
     """Generate pruning masks at a given sparsity ratio."""
 
-    def __init__(self, ratio: float) -> None:
+    def __init__(self, ratio: float, dataloader: Any | None = None) -> None:
         self.ratio = ratio
+        self.dataloader = dataloader
 
     def run(self, context: PipelineContext) -> None:
         step = self.__class__.__name__
@@ -16,7 +18,8 @@ class GenerateMasksStep(PipelineStep):
         if context.pruning_method is None:
             raise NotImplementedError
         context.logger.info("Generating pruning mask at ratio %.2f", self.ratio)
-        context.pruning_method.generate_pruning_mask(self.ratio)
+        dataloader = self.dataloader or getattr(context, "dataloader", None)
+        context.pruning_method.generate_pruning_mask(self.ratio, dataloader=dataloader)
         context.logger.info("Finished %s", step)
 
 __all__ = ["GenerateMasksStep"]

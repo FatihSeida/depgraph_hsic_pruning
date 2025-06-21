@@ -18,6 +18,7 @@ class PipelineContext:
     pruning_method: Optional[BasePruningMethod] = None
     logger: Logger = field(default_factory=get_logger)
     model: Any = None
+    dataloader: Any = None
     initial_stats: Dict[str, float] = field(default_factory=dict)
     pruned_stats: Dict[str, float] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
