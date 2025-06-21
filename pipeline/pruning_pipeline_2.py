@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ultralytics import YOLO
 from ultralytics.utils.torch_utils import get_flops, get_num_params
+from torch import nn
 
 from .base_pipeline import BasePruningPipeline
 from prune_methods.depgraph_hsic import DepgraphHSICMethod
@@ -206,12 +207,19 @@ class PruningPipeline2(BasePruningPipeline):
             raise NotImplementedError("PruningPipeline2 requires DepgraphHSICMethod")
         self.logger.info("Analyzing model structure")
         self._sync_pruning_method(reanalyze=True)
-        groups = len(getattr(self.pruning_method, "channel_groups", []))
+        groups = []
+        if getattr(self.pruning_method, "DG", None) is not None:
+            try:
+                groups = self.pruning_method.DG.get_all_groups(
+                    root_module_types=(nn.Conv2d,)
+                )
+            except Exception:
+                groups = []
         convs = len(getattr(self.pruning_method, "layers", []))
         self.logger.info(
-            "Analysis summary: %d convolution layers, %d channel groups",
+            "Analysis summary: %d convolution layers, %d dependency groups",
             convs,
-            groups,
+            len(groups),
         )
 
     def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
