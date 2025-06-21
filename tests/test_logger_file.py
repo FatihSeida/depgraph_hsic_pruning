@@ -38,7 +38,7 @@ def test_log_file_created_with_logger(tmp_path, monkeypatch):
         def analyze_structure(self):
             pass
 
-        def generate_pruning_mask(self, ratio):
+        def generate_pruning_mask(self, ratio, dataloader=None):
             pass
 
         def apply_pruning(self):
