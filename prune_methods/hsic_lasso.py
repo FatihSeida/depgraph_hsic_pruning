@@ -6,6 +6,48 @@ from typing import Any, Dict, List, Tuple
 
 import torch
 from torch import nn
+from sklearn.linear_model import LassoLars
+
+
+def _rbf_kernel(x: torch.Tensor, gamma: float) -> torch.Tensor:
+    """Compute a centred RBF kernel matrix."""
+    b = x.shape[0]
+    flat = x.view(b, -1)
+    dist = torch.cdist(flat, flat)
+    k = torch.exp(-gamma * dist.pow(2))
+    h = torch.eye(b, device=k.device) - 1.0 / b
+    return h @ k @ h
+
+
+def compute_channel_wise_hsic(
+    features: torch.Tensor, labels: torch.Tensor, gamma: float
+) -> torch.Tensor:
+    """Return HSIC values between each channel in ``features`` and ``labels``."""
+
+    b, c, _, _ = features.shape
+    ky = _rbf_kernel(labels.unsqueeze(1), gamma)
+    scores = []
+    for j in range(c):
+        kj = _rbf_kernel(features[:, j, :, :], gamma)
+        scores.append((kj * ky).mean())
+    return torch.stack(scores)
+
+
+def solve_hsic_lasso(
+    features: torch.Tensor,
+    labels: torch.Tensor,
+    gamma: float,
+    alpha: float = 0.001,
+) -> torch.Tensor:
+    """Compute HSIC-Lasso importance for each channel."""
+
+    hsic = compute_channel_wise_hsic(features, labels, gamma)
+    x = features.mean(dim=(2, 3)).cpu().numpy()
+    y = labels.view(len(labels), -1).mean(dim=1).cpu().numpy()
+    lasso = LassoLars(alpha=alpha)
+    lasso.fit(x, y)
+    coef = torch.tensor(lasso.coef_)
+    return coef.abs() * hsic.cpu()
 
 from .base import BasePruningMethod
 
@@ -43,22 +85,6 @@ class HSICLassoMethod(BasePruningMethod):
     # ------------------------------------------------------------------
     # Pruning logic
     # ------------------------------------------------------------------
-    def _rbf_kernel(self, X: torch.Tensor) -> torch.Tensor:
-        B = X.shape[0]
-        X = X.view(B, -1)
-        dist = torch.cdist(X, X)
-        K = torch.exp(-self.gamma * dist ** 2)
-        H = torch.eye(B, device=K.device) - 1.0 / B
-        return H @ K @ H
-
-    def _hsic_scores(self, F: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        B, C, H, W = F.shape
-        Ky = self._rbf_kernel(y.unsqueeze(1))
-        scores = []
-        for j in range(C):
-            Kj = self._rbf_kernel(F[:, j, :, :])
-            scores.append((Kj * Ky).mean())
-        return torch.tensor(scores)
 
     def generate_pruning_mask(self, ratio: float) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
@@ -68,7 +94,7 @@ class HSICLassoMethod(BasePruningMethod):
             conv = getattr(parent, attr)
             if idx in self.layer_data:
                 F, y = self.layer_data[idx]
-                scores = self._hsic_scores(F, y)
+                scores = solve_hsic_lasso(F, y, gamma=self.gamma)
             else:
                 scores = conv.weight.data.abs().sum(dim=(1, 2, 3))
             num_keep = max(int(conv.out_channels * (1 - ratio)), 1)
