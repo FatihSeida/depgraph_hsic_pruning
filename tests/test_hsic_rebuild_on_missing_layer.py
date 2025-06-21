@@ -18,9 +18,14 @@ sys.modules['matplotlib.pyplot'] = types.ModuleType('matplotlib.pyplot')
 
 class DummyDG:
     def build_dependency(self, model, example_inputs):
-        pass
+        self.model = model
+
     def get_all_groups(self, root_module_types=None):
-        return []
+        groups = []
+        for layer in getattr(self, "model", []).modules():
+            if isinstance(layer, torch.nn.Conv2d):
+                groups.append(self.get_pruning_group(layer, None, [0]))
+        return groups
     def get_pruner_of_module(self, layer):
         return types.SimpleNamespace(get_out_channels=lambda l: getattr(l, 'out_channels', 0))
     def get_pruning_group(self, conv, fn, idxs):

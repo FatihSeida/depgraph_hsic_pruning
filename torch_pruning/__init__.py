@@ -22,10 +22,19 @@ prune_conv_out_channels = None
 
 class DependencyGraph:
     def build_dependency(self, model, example_inputs):
-        pass
+        self.model = model
 
     def get_all_groups(self, root_module_types=None):
-        return []
+        if not hasattr(self, 'model'):
+            return []
+        groups = []
+        for layer in self.model.modules():
+            if root_module_types is not None and not isinstance(layer, root_module_types):
+                continue
+            if isinstance(layer, nn.Conv2d):
+                for idx in range(layer.out_channels):
+                    groups.append(self.get_pruning_group(layer, prune_conv_out_channels, [idx]))
+        return groups
 
     def get_pruner_of_module(self, layer):
         return SimpleNamespace(get_out_channels=lambda l: getattr(l, 'out_channels', 0))
