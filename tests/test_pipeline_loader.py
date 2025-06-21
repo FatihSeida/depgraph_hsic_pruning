@@ -47,12 +47,12 @@ def test_loader_passed(monkeypatch):
             super().__init__(model)
         def analyze_model(self):
             pass
-        def generate_pruning_mask(self, ratio, dataloader=None):
-            calls.append(dataloader)
+        def generate_pruning_mask(self, ratio):
+            calls.append(ratio)
         def apply_pruning(self):
             pass
 
     pipeline = pp.PruningPipeline2('m', 'd', pruning_method=DummyMethod(None))
     pipeline.load_model()
     pipeline.generate_pruning_mask(0.5)
-    assert calls == [loader]
+    assert calls == [0.5]

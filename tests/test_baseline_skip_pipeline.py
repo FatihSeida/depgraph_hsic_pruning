@@ -96,7 +96,7 @@ def test_pipeline_runs_without_baseline(monkeypatch, tmp_path):
             DummyMethod.calls = []
         def analyze_model(self):
             DummyMethod.calls.append('analyze')
-        def generate_pruning_mask(self, ratio, dataloader=None):
+        def generate_pruning_mask(self, ratio):
             DummyMethod.calls.append('mask')
         def apply_pruning(self):
             DummyMethod.calls.append('apply')
@@ -127,7 +127,7 @@ def test_pipeline_runs_without_baseline(monkeypatch, tmp_path):
             DummyMethod.calls.append('pipeline_analyze')
         def set_pruning_method(self, method):
             self.pruning_method = method
-        def generate_pruning_mask(self, ratio, dataloader=None):
+        def generate_pruning_mask(self, ratio):
             pass
         def apply_pruning(self):
             pass

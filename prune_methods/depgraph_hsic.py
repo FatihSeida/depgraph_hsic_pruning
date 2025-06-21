@@ -287,7 +287,7 @@ class DepgraphHSICMethod(BasePruningMethod):
             self.labels,
         ) = saved
 
-    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
+    def generate_pruning_mask(self, ratio: float) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if not self.activations or not self.labels:
             self.logger.debug(
