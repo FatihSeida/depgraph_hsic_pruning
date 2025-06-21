@@ -349,8 +349,8 @@ class DepgraphHSICMethod(BasePruningMethod):
                 score = importance[idxs].mean().item()
                 scored_groups.append((score, g))
         scored_groups.sort(key=lambda x: x[0])
-        keep = int(len(scored_groups) * ratio)
-        self.pruning_plan = [g for _, g in scored_groups[:keep]]
+        num_to_prune = max(1, int(len(scored_groups) * ratio)) if ratio > 0 else 0
+        self.pruning_plan = [g for _, g in scored_groups[:num_to_prune]]
 
     def apply_pruning(self, rebuild: bool = False) -> None:  # pragma: no cover - heavy dependency
         self.logger.info("Applying pruning")
