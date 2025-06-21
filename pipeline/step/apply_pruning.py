@@ -14,9 +14,19 @@ class ApplyPruningStep(PipelineStep):
             raise NotImplementedError
         context.logger.info("Applying pruning mask")
 
-        # sync and prune directly without using the method's apply_pruning
+        # sync method with the current model and rebuild the dependency graph
         try:
             context.pruning_method.model = context.model.model
+            ex_inputs = getattr(context.pruning_method, "example_inputs", None)
+            if ex_inputs is not None:
+                try:
+                    import torch
+
+                    device = next(context.model.model.parameters()).device
+                    if torch.is_tensor(ex_inputs):
+                        context.pruning_method.example_inputs = ex_inputs.to(device)
+                except Exception:  # pragma: no cover - optional deps missing
+                    pass
             context.pruning_method.analyze_model()
         except Exception:  # pragma: no cover - best effort
             pass

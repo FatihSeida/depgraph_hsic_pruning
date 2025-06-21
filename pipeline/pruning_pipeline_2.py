@@ -259,9 +259,9 @@ class PruningPipeline2(BasePruningPipeline):
             raise NotImplementedError
         self.logger.info("Applying pruning via DependencyGraph")
         if self.pruning_method is not None:
-            self._sync_pruning_method(reanalyze=True)
-
             plan = getattr(self.pruning_method, "pruning_plan", [])
+            # always resync right before applying pruning
+            self._sync_pruning_method(reanalyze=True)
             if isinstance(plan, dict):
                 named = dict(self.model.model.named_modules())
                 try:
