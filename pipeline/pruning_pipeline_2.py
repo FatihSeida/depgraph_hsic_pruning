@@ -234,18 +234,30 @@ class PruningPipeline2(BasePruningPipeline):
             except Exception:  # pragma: no cover - best effort
                 dataloader = None
         self.pruning_method.generate_pruning_mask(ratio, dataloader)
-        channels = sum(len(v) for v in getattr(self.pruning_method, "pruning_plan", {}).values())
+        plan = getattr(self.pruning_method, "pruning_plan", {})
+        if isinstance(plan, list):
+            channels = len(plan)
+        else:
+            channels = sum(len(v) for v in plan.values())
         total = sum(
             getattr(layer, "out_channels", 0)
             for layer in getattr(self.pruning_method, "layers", [])
         )
         ratio_pruned = (channels / total * 100) if total else 0
-        self.logger.info(
-            "Mask summary: %d/%d channels selected for pruning (%.2f%%)",
-            channels,
-            total,
-            ratio_pruned,
-        )
+        if isinstance(plan, list):
+            self.logger.info(
+                "Mask summary: %d groups selected for pruning (%.2f%% of %d channels)",
+                channels,
+                ratio_pruned,
+                total,
+            )
+        else:
+            self.logger.info(
+                "Mask summary: %d/%d channels selected for pruning (%.2f%%)",
+                channels,
+                total,
+                ratio_pruned,
+            )
 
     def apply_pruning(self, rebuild: bool = False) -> None:
         """Apply the pruning plan using ``DependencyGraph``.
