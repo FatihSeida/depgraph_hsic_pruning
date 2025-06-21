@@ -63,7 +63,8 @@ method.analyze_model()
 DummyDG.calls = 0
 start = DummyDG.calls
 model[0] = torch.nn.Conv2d(3,4,3)
-method.pruning_plan = {{'0': [0]}}
+conv = model[0]
+method.pruning_plan = [method.DG.get_pruning_group(conv, None, [0])]
 method.apply_pruning()
 print(json.dumps([DummyDG.calls - start]))
 """

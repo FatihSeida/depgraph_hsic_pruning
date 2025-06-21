@@ -47,7 +47,8 @@ model = torch.nn.Sequential(
 method = DepgraphHSICMethod(model, workdir='{tmp_path}')
 method.example_inputs = torch.randn(1,3,8,8)
 method.DG = DummyDG()
-method.pruning_plan = {{'0': [0]}}
+conv = model[0]
+method.pruning_plan = [DummyDG().get_pruning_group(conv, None, [0])]
 method.apply_pruning()
 print(len(calls))
 print(hasattr(model[0], 'reparam'))

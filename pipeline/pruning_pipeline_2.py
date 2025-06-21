@@ -238,30 +238,19 @@ class PruningPipeline2(BasePruningPipeline):
                 if not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None):
                     self.logger.warning("Short forward pass did not record activations/labels")
         self.pruning_method.generate_pruning_mask(ratio)
-        plan = getattr(self.pruning_method, "pruning_plan", {})
-        if isinstance(plan, list):
-            channels = len(plan)
-        else:
-            channels = sum(len(v) for v in plan.values())
+        plan = getattr(self.pruning_method, "pruning_plan", [])
+        channels = len(plan)
         total = sum(
             getattr(layer, "out_channels", 0)
             for layer in getattr(self.pruning_method, "layers", [])
         )
         ratio_pruned = (channels / total * 100) if total else 0
-        if isinstance(plan, list):
-            self.logger.info(
-                "Mask summary: %d groups selected for pruning (%.2f%% of %d channels)",
-                channels,
-                ratio_pruned,
-                total,
-            )
-        else:
-            self.logger.info(
-                "Mask summary: %d/%d channels selected for pruning (%.2f%%)",
-                channels,
-                total,
-                ratio_pruned,
-            )
+        self.logger.info(
+            "Mask summary: %d groups selected for pruning (%.2f%% of %d channels)",
+            channels,
+            ratio_pruned,
+            total,
+        )
 
     def apply_pruning(self, rebuild: bool = False) -> None:
         """Apply the pruning plan using :class:`DepgraphHSICMethod`."""
@@ -274,12 +263,8 @@ class PruningPipeline2(BasePruningPipeline):
             self.pruning_method.apply_pruning()
 
         plan = getattr(self.pruning_method, "pruning_plan", [])
-        if isinstance(plan, dict):
-            pruned = sum(len(v) for v in plan.values())
-            self.logger.info("Pruning applied; %d channels pruned", pruned)
-        else:
-            pruned = len(plan)
-            self.logger.info("Pruning applied; %d groups pruned", pruned)
+        pruned = len(plan)
+        self.logger.info("Pruning applied; %d groups pruned", pruned)
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
         self.logger.info("Skipping explicit reconfiguration – handled by depgraph")
