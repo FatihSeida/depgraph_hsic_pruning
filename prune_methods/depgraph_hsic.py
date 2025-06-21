@@ -384,6 +384,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         dataloader: Any | None = None,
         *,
         allow_l1_fallback: bool = True,
+        min_labels: int = 4,
     ) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if dataloader is not None:
@@ -409,13 +410,19 @@ class DepgraphHSICMethod(BasePruningMethod):
                 self.logger.warning(
                     "Layer %d has %d activations but %d labels", idx, count, label_batches
                 )
-        if label_batches < 2 and not mismatch:
+        if label_batches < min_labels and not mismatch:
             self.logger.warning(
-                "Fewer than two label batches recorded; HSIC computation may be invalid"
+                "Insufficient labels recorded: %d provided but %d required",
+                label_batches,
+                min_labels,
             )
-            self.logger.warning("Falling back to L1-norm importance")
-            self._l1_norm_plan(ratio)
-            return
+            if allow_l1_fallback:
+                self.logger.warning("Falling back to L1-norm importance")
+                self._l1_norm_plan(ratio)
+                return
+            raise RuntimeError(
+                f"At least {min_labels} label batches are required for HSIC pruning"
+            )
         features = {}
         for idx, feats in self.activations.items():
             try:
