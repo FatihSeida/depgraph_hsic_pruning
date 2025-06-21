@@ -378,17 +378,27 @@ class DepgraphHSICMethod(BasePruningMethod):
             self.labels,
         ) = saved
 
-    def generate_pruning_mask(self, ratio: float, dataloader: Any | None = None) -> None:
+    def generate_pruning_mask(
+        self,
+        ratio: float,
+        dataloader: Any | None = None,
+        *,
+        allow_l1_fallback: bool = True,
+    ) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if dataloader is not None:
             self.reset_records()
             self._collect_activations(dataloader)
         if not self.activations or not self.labels:
-            self.logger.warning(
-                "No activations/labels collected. Falling back to L1-norm importance"
+            if allow_l1_fallback:
+                self.logger.warning(
+                    "No activations/labels collected. Falling back to L1-norm importance"
+                )
+                self._l1_norm_plan(ratio)
+                return
+            raise RuntimeError(
+                "No activations or labels recorded and L1 fallback is disabled"
             )
-            self._l1_norm_plan(ratio)
-            return
         label_batches = len(self.labels)
         self.logger.info("Recorded %d label batches", label_batches)
         for idx, count in self.num_activations.items():
