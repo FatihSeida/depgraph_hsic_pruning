@@ -5,7 +5,7 @@ import types
 import pytest
 
 
-def test_analyze_model_called(monkeypatch):
+def test_apply_pruning_uses_method(monkeypatch):
     tp = types.ModuleType('torch_pruning')
     tp.utils = types.SimpleNamespace(remove_pruning_reparametrization=lambda m: None)
     monkeypatch.setitem(sys.modules, 'torch_pruning', tp)
@@ -31,9 +31,8 @@ def test_analyze_model_called(monkeypatch):
         def __init__(self, model=None, **kw):
             self.model = model
             self.pruning_plan = [object()]
-            self.DG = types.SimpleNamespace(prune_group=lambda g: calls.append('prune'))
-        def analyze_model(self):
-            calls.append('analyze')
+        def apply_pruning(self):
+            calls.append(self.model)
 
     monkeypatch.setattr(pp, 'DepgraphHSICMethod', DummyMethod)
 
@@ -42,4 +41,4 @@ def test_analyze_model_called(monkeypatch):
 
     pipeline.apply_pruning()
 
-    assert calls == ['analyze', 'prune']
+    assert calls == [pipeline.model.model]
