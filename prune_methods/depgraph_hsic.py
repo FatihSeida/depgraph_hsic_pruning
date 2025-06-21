@@ -54,8 +54,6 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.labels: List[torch.Tensor] = []
         self.layers: List[nn.Conv2d] = []
         self.layer_names: List[str] = []
-        self.adjacency: torch.Tensor | None = None
-        self.channel_groups: List[List[Tuple[int, int]]] = []
 
     # ------------------------------------------------------------------
     # Utility hooks
@@ -194,69 +192,6 @@ class DepgraphHSICMethod(BasePruningMethod):
             scores.append((Kj * Ky).mean())
         return torch.stack(scores)
 
-    # ------------------------------------------------------------------
-    # Adjacency and grouping helpers
-    # ------------------------------------------------------------------
-    def _build_adjacency(self) -> None:
-        """Construct an adjacency matrix between convolution layers."""
-        if self.DG is None:
-            self.adjacency = None
-            return
-        n = len(self.layers)
-        adj = torch.zeros(n, n, dtype=torch.int8)
-        for group in self.DG.get_all_groups(root_module_types=(nn.Conv2d,)):
-            conv_ids: List[int] = []
-            for dep, _ in group:
-                mod = dep.target.module
-                if isinstance(mod, nn.Conv2d) and mod in self.layers:
-                    conv_ids.append(self.layers.index(mod))
-            for i in range(len(conv_ids)):
-                for j in range(i + 1, len(conv_ids)):
-                    adj[conv_ids[i], conv_ids[j]] = 1
-                    adj[conv_ids[j], conv_ids[i]] = 1
-        self.adjacency = adj
-
-    def _build_channel_groups(self) -> None:
-        """Group channels across layers via BFS on the adjacency matrix."""
-        if self.adjacency is None or self.DG is None:
-            self.channel_groups = []
-            return
-        import torch_pruning as tp
-        visited = set()
-        groups: List[List[Tuple[int, int]]] = []
-        for li, layer in enumerate(self.layers):
-            pruner = self.DG.get_pruner_of_module(layer)
-            if pruner is None or pruner.get_out_channels(layer) is None:
-                continue
-            out_ch = pruner.get_out_channels(layer)
-            for ci in range(out_ch):
-                if (li, ci) in visited:
-                    continue
-                queue = [(li, ci)]
-                current: List[Tuple[int, int]] = []
-                while queue:
-                    lidx, cidx = queue.pop(0)
-                    if (lidx, cidx) in visited:
-                        continue
-                    visited.add((lidx, cidx))
-                    current.append((lidx, cidx))
-                    conv = self.layers[lidx]
-                    try:
-                        grp = self.DG.get_pruning_group(
-                            conv, tp.prune_conv_out_channels, [cidx]
-                        )
-                    except ValueError:
-                        continue
-                    for dep, idxs in grp:
-                        mod = dep.target.module
-                        if isinstance(mod, nn.Conv2d) and mod in self.layers:
-                            ni = self.layers.index(mod)
-                            for ch in idxs:
-                                if (ni, ch) not in visited:
-                                    queue.append((ni, ch))
-                if current:
-                    groups.append(current)
-        self.channel_groups = groups
 
     def _log_dependency_status(self) -> None:
         """Report which layers were mapped to pruners in the current graph."""
@@ -400,51 +335,22 @@ class DepgraphHSICMethod(BasePruningMethod):
         importance = coef.abs() * torch.stack(hsic_values)
         index_map = {(layer, ch): i for i, (layer, ch) in enumerate(group_info)}
         groups = self.DG.get_all_groups(root_module_types=(nn.Conv2d,))
-        if not groups:
-            self._build_adjacency()
-            self._build_channel_groups()
-            group_scores: List[Tuple[float, List[Tuple[nn.Module, int]]]] = []
-            for g in self.channel_groups:
-                idxs = []
-                chans: List[Tuple[nn.Module, int]] = []
-                for li, ci in g:
-                    key = (self.layers[li], ci)
-                    if key in index_map:
-                        idxs.append(index_map[key])
-                        chans.append(key)
-                if idxs:
-                    score = importance[idxs].mean().item()
-                    group_scores.append((score, chans))
-            group_scores.sort(key=lambda x: x[0])
-            target = int(len(group_scores) * ratio)
-            name_map = dict(zip(self.layers, self.layer_names))
-            self.pruning_plan = {}
-            removed = 0
-            for score, chans in group_scores:
-                if removed >= target:
-                    break
-                for layer, ch in chans:
-                    name = name_map.get(layer)
-                    if name is not None:
-                        self.pruning_plan.setdefault(name, []).append(ch)
-                removed += len(chans)
-        else:
-            scored_groups: List[Tuple[float, Any]] = []
-            for g in groups:
-                idxs = []
-                for dep, chs in g:
-                    mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
-                    if isinstance(mod, nn.Conv2d) and mod in self.layers:
-                        for c in chs:
-                            key = (mod, c)
-                            if key in index_map:
-                                idxs.append(index_map[key])
-                if idxs:
-                    score = importance[idxs].mean().item()
-                    scored_groups.append((score, g))
-            scored_groups.sort(key=lambda x: x[0])
-            keep = int(len(scored_groups) * ratio)
-            self.pruning_plan = [g for _, g in scored_groups[:keep]]
+        scored_groups: List[Tuple[float, Any]] = []
+        for g in groups:
+            idxs = []
+            for dep, chs in g:
+                mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
+                if isinstance(mod, nn.Conv2d) and mod in self.layers:
+                    for c in chs:
+                        key = (mod, c)
+                        if key in index_map:
+                            idxs.append(index_map[key])
+            if idxs:
+                score = importance[idxs].mean().item()
+                scored_groups.append((score, g))
+        scored_groups.sort(key=lambda x: x[0])
+        keep = int(len(scored_groups) * ratio)
+        self.pruning_plan = [g for _, g in scored_groups[:keep]]
 
     def apply_pruning(self, rebuild: bool = False) -> None:  # pragma: no cover - heavy dependency
         self.logger.info("Applying pruning")

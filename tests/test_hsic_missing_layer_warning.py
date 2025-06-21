@@ -46,7 +46,6 @@ model = torch.nn.Sequential(
 model[0].skip = True
 method = DepgraphHSICMethod(model, workdir='{tmp_path}')
 method.example_inputs = torch.randn(1, 3, 8, 8)
-method._build_channel_groups = lambda: None
 logging.basicConfig(level=logging.WARNING)
 method.analyze_model()
 """
