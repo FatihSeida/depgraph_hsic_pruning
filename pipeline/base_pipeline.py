@@ -58,8 +58,8 @@ class BasePruningPipeline(abc.ABC):
         """Analyze model structure to guide pruning decisions."""
 
     @abc.abstractmethod
-    def generate_pruning_mask(self, ratio: float) -> None:
-        """Create a pruning mask with the given sparsity ``ratio``."""
+    def generate_pruning_mask(self, ratio: float, dataloader: Any | None = None) -> None:
+        """Create a pruning mask with the given sparsity ``ratio`` using ``dataloader`` if provided."""
 
     @abc.abstractmethod
     def apply_pruning(self) -> None:
