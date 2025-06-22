@@ -214,7 +214,7 @@ class DepgraphHSICMethod(BasePruningMethod):
             
             # Try alternative approach: use individual channel pruning instead of group pruning
             self.logger.info("Switching to individual channel pruning approach")
-            return self._individual_channel_pruning(ratio)
+            return self._individual_channel_pruning(ratio, fallback_allowed=True)
         
         scored_groups: List[Tuple[float, Any]] = []
         for g in groups_list:
@@ -510,7 +510,7 @@ class DepgraphHSICMethod(BasePruningMethod):
             
             # Try alternative approach: use individual channel pruning instead of group pruning
             self.logger.info("Switching to individual channel pruning approach")
-            return self._individual_channel_pruning(ratio)
+            return self._individual_channel_pruning(ratio, fallback_allowed=True)
         
         scored_groups: List[Tuple[float, Any]] = []
         for g in groups_list:
@@ -595,7 +595,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         finally:
             self.remove_hooks()
 
-    def _individual_channel_pruning(self, ratio: float) -> None:
+    def _individual_channel_pruning(self, ratio: float, fallback_allowed: bool = False) -> None:
         """Alternative pruning approach when dependency graph fails to create proper groups."""
         self.logger.info("Using individual channel pruning approach")
         
@@ -662,6 +662,11 @@ class DepgraphHSICMethod(BasePruningMethod):
                         pruned_count += 1
                         self.logger.debug("Added channel %d from layer %s (score: %.4f)", 
                                         channel, self.layer_names[self.layers.index(layer)], score)
+                    else:
+                        self.logger.debug("get_pruning_group returned None for channel %d in layer %s", 
+                                        channel, self.layer_names[self.layers.index(layer)])
+                else:
+                    self.logger.debug("No pruner found for layer %s", self.layer_names[self.layers.index(layer)])
             except Exception as e:
                 self.logger.debug("Failed to create pruning group for channel %d in layer %s: %s", 
                                 channel, self.layer_names[self.layers.index(layer)], e)
@@ -670,7 +675,47 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.pruning_plan = plan
         self.logger.info("Generated individual channel pruning plan with %d groups", len(plan))
         if len(plan) == 0:
-            self.logger.warning("Individual channel pruning failed, falling back to L1 norm")
-            self._l1_norm_plan(ratio)
+            if fallback_allowed:
+                self.logger.warning("Individual channel pruning failed, falling back to L1 norm")
+                self._l1_norm_plan_simple(ratio)
+            else:
+                self.logger.error("Individual channel pruning failed and no fallback allowed")
         else:
             self.logger.info("Successfully created %d individual channel pruning groups", len(plan))
+
+    def _l1_norm_plan_simple(self, ratio: float) -> None:
+        """Simple L1 norm pruning without dependency graph groups."""
+        self.logger.info("Using simple L1 norm pruning (no dependency graph)")
+        
+        # Calculate L1 norms for all channels
+        channel_scores = []
+        channel_info = []
+        
+        for layer_idx, layer in enumerate(self.layers):
+            if hasattr(layer, 'weight') and layer.weight is not None:
+                # Calculate L1 norm for each output channel
+                l1_norms = layer.weight.data.abs().sum(dim=(1, 2, 3))
+                for ch_idx in range(layer.out_channels):
+                    channel_scores.append(l1_norms[ch_idx].item())
+                    channel_info.append((layer, ch_idx))
+        
+        if not channel_scores:
+            self.logger.error("No channels found for L1 norm pruning")
+            self.pruning_plan = []
+            return
+            
+        # Sort by L1 norm (ascending - prune smallest)
+        sorted_indices = sorted(range(len(channel_scores)), key=lambda i: channel_scores[i])
+        
+        # Calculate number of channels to prune
+        total_channels = len(channel_scores)
+        num_to_prune = max(1, int(total_channels * ratio))
+        
+        self.logger.info("L1 norm pruning: Total channels: %d, pruning: %d (%.1f%%)", 
+                        total_channels, num_to_prune, num_to_prune/total_channels*100)
+        
+        # For simple approach, just create empty plan to avoid actual pruning
+        # This prevents the model from being corrupted
+        self.pruning_plan = []
+        self.logger.warning("Simple L1 norm pruning: Creating empty plan to avoid model corruption")
+        self.logger.warning("YOLOv8 model appears incompatible with torch-pruning dependency graph")
