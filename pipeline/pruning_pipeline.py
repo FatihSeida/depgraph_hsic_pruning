@@ -229,15 +229,13 @@ class PruningPipeline(BasePruningPipeline):
             "filters": filters,
             "model_size_mb": size_mb,
         }
-        self.metrics_mgr.record_pruning(
-            {
-                "parameters": {"pruned": params},
-                "flops": {"pruned": flops},
-                "filters": {"pruned": filters},
-                "model_size_mb": {"pruned": size_mb},
-            }
-        )
-        log_stats_comparison(self.initial_stats, self.pruned_stats)
+        self.metrics_mgr.record_pruning({
+            "parameters": {"pruned": params},
+            "flops": {"pruned": flops},
+            "filters": {"pruned": filters},
+            "model_size_mb": {"pruned": size_mb},
+        })
+        log_stats_comparison(self.initial_stats, self.pruned_stats, self.logger)
         return self.pruned_stats
 
     def finetune(self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any) -> Dict[str, Any]:

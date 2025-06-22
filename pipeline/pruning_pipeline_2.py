@@ -288,7 +288,7 @@ class PruningPipeline2(BasePruningPipeline):
             "filters": {"pruned": filters},
             "model_size_mb": {"pruned": size_mb},
         })
-        log_stats_comparison(self.initial_stats, self.pruned_stats)
+        log_stats_comparison(self.initial_stats, self.pruned_stats, self.logger)
         return self.pruned_stats
 
     def finetune(self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any) -> Dict[str, Any]:
