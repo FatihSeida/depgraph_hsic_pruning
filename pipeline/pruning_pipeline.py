@@ -179,15 +179,7 @@ class PruningPipeline(BasePruningPipeline):
                         self.pruning_method.refresh_dependency_graph()
                         self.logger.debug("refreshed pruning method dependency graph")
                     else:
-                        import torch  # local import to avoid heavy dependency at module import
-                        try:
-                            device = next(self.pruning_method.model.parameters()).device
-                        except Exception:
-                            device = torch.device("cpu") if hasattr(torch, "device") else "cpu"
-                        example_inputs = getattr(self.pruning_method, "example_inputs", None)
-                        if hasattr(torch, "is_tensor") and torch.is_tensor(example_inputs):
-                            self.pruning_method.example_inputs = example_inputs.to(device)
-                        self.pruning_method.analyze_model()
+                        self._sync_pruning_method(reanalyze=True)
                         self.logger.debug("reanalyzed pruning method model")
                 except Exception:  # pragma: no cover - best effort
                     pass
@@ -198,50 +190,27 @@ class PruningPipeline(BasePruningPipeline):
 
     def analyze_structure(self) -> None:
         """Analyze model structure to guide pruning."""
-        if self.pruning_method is None:
-            raise NotImplementedError
-        self.logger.info("Analyzing model structure")
-        self.pruning_method.analyze_model()
+        if self.pruning_method is not None:
+            self.logger.info("Analyzing model structure")
+            self.pruning_method.analyze_model()
 
     def generate_pruning_mask(self, ratio: float, dataloader: Any | None = None) -> None:
-        """Generate pruning mask at ``ratio`` sparsity using ``dataloader`` if provided."""
-        if self.pruning_method is None:
-            raise NotImplementedError
-        self.logger.info("Generating pruning mask at ratio %.2f", ratio)
-        self.pruning_method.generate_pruning_mask(ratio, dataloader=dataloader)
+        """Generate pruning mask at the given ratio."""
+        if self.pruning_method is not None:
+            self.logger.info("Generating pruning mask at ratio %.2f", ratio)
+            self.pruning_method.generate_pruning_mask(ratio, dataloader=dataloader)
 
     def apply_pruning(self, rebuild: bool = False) -> None:
-        """Apply the previously generated pruning mask to the model.
-
-        Parameters
-        ----------
-        rebuild : bool, optional
-            Force rebuilding the dependency graph before pruning when using
-            :class:`DepgraphHSICMethod`.  Defaults to ``False``.
-        """
-        if self.pruning_method is None:
-            raise NotImplementedError
-        self.logger.info("Applying pruning mask")
-        try:
-            from prune_methods.depgraph_hsic import DepgraphHSICMethod
-        except Exception:  # pragma: no cover - optional dependency
-            DepgraphHSICMethod = None
-        if DepgraphHSICMethod is not None and isinstance(self.pruning_method, DepgraphHSICMethod):
+        """Apply the generated pruning mask."""
+        if self.pruning_method is not None:
+            self.logger.info("Applying pruning")
             self.pruning_method.apply_pruning(rebuild=rebuild)
-        else:
-            self.pruning_method.apply_pruning()
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
-        """Reconfigure the model after pruning if necessary."""
-        if self.pruning_method is None:
-            raise NotImplementedError
-        if not getattr(self.pruning_method, "requires_reconfiguration", True):
-            return
-        self.logger.info("Reconfiguring pruned model")
-        if self.model is not None:
-            self.model = self.reconfigurator.reconfigure_model(
-                self.model, output_path=output_path
-            )
+        """Reconfigure the model after pruning."""
+        if self.reconfigurator is not None:
+            self.logger.info("Reconfiguring model")
+            self.reconfigurator.reconfigure(self.model.model, output_path)
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         """Calculate parameter count and FLOPs after pruning."""
@@ -258,43 +227,15 @@ class PruningPipeline(BasePruningPipeline):
             "filters": filters,
             "model_size_mb": size_mb,
         }
-        orig_params = self.initial_stats.get("parameters", params)
-        orig_flops = self.initial_stats.get("flops", flops)
-        orig_filters = self.initial_stats.get("filters", filters)
-        orig_size = self.initial_stats.get("model_size_mb", size_mb)
         self.metrics_mgr.record_pruning(
             {
-                "parameters": {
-                    "pruned": params,
-                    "reduction": orig_params - params,
-                    "reduction_percent": ((orig_params - params) / orig_params * 100)
-                    if orig_params
-                    else 0,
-                },
-                "flops": {
-                    "pruned": flops,
-                    "reduction": orig_flops - flops,
-                    "reduction_percent": ((orig_flops - flops) / orig_flops * 100)
-                    if orig_flops
-                    else 0,
-                },
-                "filters": {
-                    "pruned": filters,
-                    "reduction": orig_filters - filters,
-                    "reduction_percent": ((orig_filters - filters) / orig_filters * 100)
-                    if orig_filters
-                    else 0,
-                },
-                "model_size_mb": {
-                    "pruned": size_mb,
-                    "reduction": orig_size - size_mb,
-                    "reduction_percent": ((orig_size - size_mb) / orig_size * 100)
-                    if orig_size
-                    else 0,
-                },
+                "parameters": {"pruned": params},
+                "flops": {"pruned": flops},
+                "filters": {"pruned": filters},
+                "model_size_mb": {"pruned": size_mb},
             }
         )
-        log_stats_comparison(self.initial_stats, self.pruned_stats, self.logger)
+        log_stats_comparison(self.initial_stats, self.pruned_stats)
         return self.pruned_stats
 
     def finetune(self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any) -> Dict[str, Any]:
@@ -306,62 +247,30 @@ class PruningPipeline(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
-        original_model = self.model.model
         try:
             metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         finally:
             self._unregister_label_callback()
-        model_changed = self.model.model is not original_model
-        if self.pruning_method is not None:
-            self.pruning_method.model = self.model.model
-            self.logger.debug("updated pruning method model reference")
-            if model_changed:
-                try:
-                    if hasattr(self.pruning_method, "refresh_dependency_graph"):
-                        # Preserve recorded activations while rebuilding dependencies
-                        self.pruning_method.refresh_dependency_graph()
-                        self.logger.debug("refreshed pruning method dependency graph")
-                    else:
-                        import torch  # local import to avoid heavy dependency at module import
-                        try:
-                            device = next(self.pruning_method.model.parameters()).device
-                        except Exception:
-                            device = torch.device("cpu") if hasattr(torch, "device") else "cpu"
-                        example_inputs = getattr(self.pruning_method, "example_inputs", None)
-                        if hasattr(torch, "is_tensor") and torch.is_tensor(example_inputs):
-                            self.pruning_method.example_inputs = example_inputs.to(device)
-                        self.pruning_method.analyze_model()
-                        self.logger.debug("reanalyzed pruning method model")
-                except Exception:  # pragma: no cover - best effort
-                    pass
         self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics
         return metrics or {}
 
     def record_metrics(self) -> Dict[str, Any]:
-        """Return a dictionary containing all recorded metrics."""
-        self.logger.info("Recording metrics")
-        data = self.metrics_mgr.as_dict()
-        data["initial"] = self.initial_stats
-        data["pruned"] = self.pruned_stats
-        return data
+        """Record all metrics."""
+        return {
+            "initial": self.initial_stats,
+            "pruned": self.pruned_stats,
+            "training": self.metrics,
+        }
 
     def save_metrics_csv(self, path: str | Path) -> Path:
-        """Persist recorded metrics to ``path`` using :class:`MetricManager`."""
-
-        self.logger.info("Saving metrics CSV to %s", path)
-        self.metrics_csv = self.metrics_mgr.to_csv(path)
-        return self.metrics_csv
+        """Save metrics to CSV file."""
+        return self.metrics_mgr.to_csv(path)
 
     def save_model(self, path: str | Path) -> Path:
-        """Persist the current YOLO model to ``path``."""
-
-        if self.model is None:
-            raise ValueError("Model is not loaded")
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self.logger.info("Saving model to %s", path)
-        self.model.save(str(path))
-        return path
+        """Save the pruned model."""
+        if self.model is not None:
+            self.model.save(path)
+        return Path(path)
 

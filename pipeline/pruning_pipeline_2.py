@@ -33,27 +33,16 @@ class PruningPipeline2(BasePruningPipeline):
         self.model: YOLO | None = None
         self.metrics_mgr = MetricManager()
         self.metrics_csv: Path | None = None
-        self._label_callback = None
 
-    def _run_short_forward_pass(self) -> None:
-        """Execute :class:`ShortForwardPassStep` to collect activations."""
+    def _collect_synthetic_activations_for_hsic(self) -> int:
+        """Collect activations using synthetic data for HSIC methods."""
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
-            return
-        try:  # pragma: no cover - optional heavy deps
-            from . import ShortForwardPassStep, PipelineContext
-
-            ctx = PipelineContext(
-                model_path=self.model_path,
-                data=self.data,
-                workdir=Path(self.workdir),
-                pruning_method=self.pruning_method,
-                logger=self.logger,
-            )
-            ctx.model = self.model
-            ctx.metrics_mgr = self.metrics_mgr
-            ShortForwardPassStep().run(ctx)
-        except Exception as exc:  # pragma: no cover - best effort
-            self.logger.warning("short forward pass failed: %s", exc)
+            return 0
+            
+        self.logger.info("Collecting activations using synthetic data for HSIC")
+        collected = self._collect_synthetic_activations(num_samples=4)
+        self.logger.info(f"Collected activations from {collected} synthetic samples")
+        return collected
 
     # ------------------------------------------------------------------
     # Helper callbacks
@@ -193,7 +182,8 @@ class PruningPipeline2(BasePruningPipeline):
                         "Dependency graph rebuilt; %d convolution layers registered",
                         convs,
                     )
-                self._run_short_forward_pass()
+                # Use synthetic data collection instead of short forward pass
+                self._collect_synthetic_activations_for_hsic()
             except Exception:
                 pass
 
@@ -242,10 +232,10 @@ class PruningPipeline2(BasePruningPipeline):
                 dataloader is None
                 and (not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None))
             ):
-                self.logger.info("No activations/labels found; running short forward pass")
-                self._run_short_forward_pass()
+                self.logger.info("No activations/labels found; collecting synthetic activations")
+                self._collect_synthetic_activations_for_hsic()
                 if not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None):
-                    self.logger.warning("Short forward pass did not record activations/labels")
+                    self.logger.warning("Synthetic activation collection did not record activations/labels")
         if dataloader is None:
             dataloader = getattr(getattr(self.model, "trainer", None), "val_loader", None)
         self.pruning_method.generate_pruning_mask(
@@ -268,22 +258,15 @@ class PruningPipeline2(BasePruningPipeline):
         )
 
     def apply_pruning(self, rebuild: bool = False) -> None:
-        """Apply the pruning plan using :class:`DepgraphHSICMethod`."""
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError
-        self.logger.info("Applying pruning via DependencyGraph")
+        self.logger.info("Applying pruning")
         if self.pruning_method is not None:
-            # keep pruning method in sync with the current model
-            self._sync_pruning_method()
-            self.pruning_method.apply_pruning()
-
-        plan = getattr(self.pruning_method, "pruning_plan", [])
-        pruned = len(plan)
-        self.logger.info("Pruning applied; %d groups pruned", pruned)
+            self.pruning_method.apply_pruning(rebuild=rebuild)
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
-        self.logger.info("Skipping explicit reconfiguration – handled by depgraph")
-        self.logger.info("Dependency graph reconfiguration complete")
+        # DepGraph methods don't require reconfiguration
+        self.logger.info("Skipping reconfiguration (not required for DepGraph methods)")
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         if self.model is None:
@@ -299,33 +282,13 @@ class PruningPipeline2(BasePruningPipeline):
             "filters": filters,
             "model_size_mb": size_mb,
         }
-        orig_params = self.initial_stats.get("parameters", params)
-        orig_flops = self.initial_stats.get("flops", flops)
-        orig_filters = self.initial_stats.get("filters", filters)
-        orig_size = self.initial_stats.get("model_size_mb", size_mb)
         self.metrics_mgr.record_pruning({
-            "parameters": {
-                "pruned": params,
-                "reduction": orig_params - params,
-                "reduction_percent": ((orig_params - params) / orig_params * 100) if orig_params else 0,
-            },
-            "flops": {
-                "pruned": flops,
-                "reduction": orig_flops - flops,
-                "reduction_percent": ((orig_flops - flops) / orig_flops * 100) if orig_flops else 0,
-            },
-            "filters": {
-                "pruned": filters,
-                "reduction": orig_filters - filters,
-                "reduction_percent": ((orig_filters - filters) / orig_filters * 100) if orig_filters else 0,
-            },
-            "model_size_mb": {
-                "pruned": size_mb,
-                "reduction": orig_size - size_mb,
-                "reduction_percent": ((orig_size - size_mb) / orig_size * 100) if orig_size else 0,
-            },
+            "parameters": {"pruned": params},
+            "flops": {"pruned": flops},
+            "filters": {"pruned": filters},
+            "model_size_mb": {"pruned": size_mb},
         })
-        log_stats_comparison(self.initial_stats, self.pruned_stats, self.logger)
+        log_stats_comparison(self.initial_stats, self.pruned_stats)
         return self.pruned_stats
 
     def finetune(self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any) -> Dict[str, Any]:
@@ -336,23 +299,11 @@ class PruningPipeline2(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
-        metrics = self.model.train(data=self.data, device=device, **train_kwargs)
-        self._unregister_label_callback()
-
-        if self.pruning_method is not None:
-            self.pruning_method.model = self.model.model
-            try:
-                self._sync_example_inputs_device()
-                self.pruning_method.analyze_model()
-                convs = len(getattr(self.pruning_method, "layers", []))
-                self.logger.debug(
-                    "reanalyzed pruning method model; %d convolution layers registered",
-                    convs,
-                )
-            except Exception:
-                pass
-
-        self.logger.info("Finetuning completed")
+        try:
+            metrics = self.model.train(data=self.data, device=device, **train_kwargs)
+        finally:
+            self._unregister_label_callback()
+        self.logger.debug(metrics)
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics or {}
         return metrics or {}

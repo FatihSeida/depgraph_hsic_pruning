@@ -38,6 +38,36 @@ from prune_methods import (
 )
 
 
+def create_pipeline(
+    model_path: str,
+    data: str,
+    workdir: str,
+    pruning_method: BasePruningMethod | None,
+    logger: Logger | None = None,
+) -> BasePruningPipeline:
+    """Create appropriate pipeline based on pruning method type."""
+    
+    # Metode yang menggunakan DepGraph
+    depgraph_methods = (DepgraphHSICMethod, DepgraphMethod, IsomorphicMethod)
+    
+    if isinstance(pruning_method, depgraph_methods):
+        return PruningPipeline2(
+            model_path=model_path,
+            data=data,
+            workdir=workdir,
+            pruning_method=pruning_method,
+            logger=logger
+        )
+    else:
+        return PruningPipeline(
+            model_path=model_path,
+            data=data,
+            workdir=workdir,
+            pruning_method=pruning_method,
+            logger=logger
+        )
+
+
 def aggregate_labels(batch):
     """Return a representative label for each image.
 
@@ -184,17 +214,24 @@ def execute_pipeline(
             if isinstance(h, logging.FileHandler):
                 logger.logger.removeHandler(h)
         add_file_handler(logger, str(log_file))
-    if method_cls is not None and issubclass(method_cls, DepgraphHSICMethod):
-        pipeline_cls: type[BasePruningPipeline] = PruningPipeline2
-    else:
-        pipeline_cls = PruningPipeline
-    pipeline = pipeline_cls(model_path, data=data, workdir=str(workdir), logger=logger)
+    
+    # Create pipeline based on method type
+    pipeline = create_pipeline(
+        model_path=model_path,
+        data=data,
+        workdir=str(workdir),
+        pruning_method=None,  # Will be set later
+        logger=logger
+    )
+    
     pipeline.load_model()
     if hasattr(pipeline.model, "to"):
         pipeline.model.to(config.device)
     pipeline.calc_initial_stats()
     if method_cls is not None:
-        pipeline.set_pruning_method(method_cls(pipeline.model.model, workdir=workdir))
+        pruning_method = method_cls(pipeline.model.model, workdir=workdir)
+        pipeline.set_pruning_method(pruning_method)
+        
         # When skipping pretraining, run analysis immediately so hooks are
         # active for the forthcoming pruning steps.
         if config.baseline_epochs == 0:
@@ -226,47 +263,12 @@ def execute_pipeline(
             from helper import MetricManager
             mgr = pipeline.metrics_mgr = MetricManager()
         monitor.stop(mgr)
-        if method_cls is not None:
-            if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod):
-                try:
-                    from pipeline import ShortForwardPassStep
-                    from pipeline.context import PipelineContext
-
-                    ctx = PipelineContext(
-                        model_path=model_path,
-                        data=data,
-                        workdir=workdir,
-                        pruning_method=pipeline.pruning_method,
-                        logger=logger,
-                    )
-                    ctx.model = pipeline.model
-                    ctx.metrics_mgr = pipeline.metrics_mgr
-                    ShortForwardPassStep().run(ctx)
-                except Exception as exc:  # pragma: no cover - best effort
-                    logger.warning("short forward pass failed: %s", exc)
+        # Synthetic data collection is now handled within pipeline.pretrain()
 
     if method_cls is not None and config.baseline_epochs == 0:
-        if (
-            isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
-            and config.reuse_baseline
-            and config.baseline_epochs == 0
-        ):
-            try:
-                from pipeline import ShortForwardPassStep
-                from pipeline.context import PipelineContext
-
-                ctx = PipelineContext(
-                    model_path=model_path,
-                    data=data,
-                    workdir=workdir,
-                    pruning_method=pipeline.pruning_method,
-                    logger=logger,
-                )
-                ctx.model = pipeline.model
-                ctx.metrics_mgr = pipeline.metrics_mgr
-                ShortForwardPassStep().run(ctx)
-            except Exception as exc:  # pragma: no cover - best effort
-                logger.warning("short forward pass failed: %s", exc)
+        # Synthetic data collection is handled within pipeline methods when needed
+        pass
+        
     if method_cls is not None:
         if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod):
             # Ensure analysis runs on the latest model state before mask generation
@@ -320,23 +322,7 @@ def execute_pipeline(
         monitor.stop(mgr)
         if method_cls is not None and config.finetune_epochs > 0:
             pipeline.analyze_structure()
-            if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod):
-                try:
-                    from pipeline import ShortForwardPassStep
-                    from pipeline.context import PipelineContext
-
-                    ctx = PipelineContext(
-                        model_path=model_path,
-                        data=data,
-                        workdir=workdir,
-                        pruning_method=pipeline.pruning_method,
-                        logger=logger,
-                    )
-                    ctx.model = pipeline.model
-                    ctx.metrics_mgr = pipeline.metrics_mgr
-                    ShortForwardPassStep().run(ctx)
-                except Exception as exc:  # pragma: no cover - best effort
-                    logger.warning("short forward pass failed: %s", exc)
+            # Synthetic data collection is handled within pipeline methods when needed
     pipeline.visualize_results()
     pipeline.save_pruning_results(workdir / "results.pt")
     if hasattr(pipeline, "save_metrics_csv"):
