@@ -108,9 +108,13 @@ def aggregate_labels(batch):
                     result.append(labels_i.mode().values.item())
 
             if result:
-                cls = torch.tensor(result, dtype=cls.dtype, device=cls.device)
+                cls = torch.tensor(result, dtype=cls.dtype, device=cls.device).float()  # Convert to float for cdist compatibility
     except Exception:
         pass
+
+    # Ensure cls is float for cdist compatibility
+    if torch.is_tensor(cls):
+        cls = cls.float()
 
     logger.debug("aggregate_labels output shape=%s", getattr(cls, "shape", None))
 

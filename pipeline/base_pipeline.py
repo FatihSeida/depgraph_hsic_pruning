@@ -145,7 +145,7 @@ class BasePruningPipeline(abc.ABC):
             for i in range(num_samples):
                 # Generate synthetic data
                 synthetic_image = torch.randn(1, 3, 640, 640)
-                synthetic_label = torch.randint(0, 80, (1,))  # COCO classes
+                synthetic_label = torch.randint(0, 80, (1,)).float()  # Convert to float for cdist compatibility
 
                 # Forward pass
                 with torch.no_grad():

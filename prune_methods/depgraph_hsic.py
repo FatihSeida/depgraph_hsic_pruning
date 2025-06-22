@@ -431,7 +431,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                 target_shape = self.layer_shapes.get(idx)
                 pooled = [torch.nn.functional.adaptive_avg_pool2d(f, target_shape) if f.shape[2:] != target_shape else f for f in feats]
                 features[idx] = torch.cat(pooled, dim=0)
-        y = torch.cat(self.labels, dim=0)
+        y = torch.cat(self.labels, dim=0).float()
         group_feats: List[torch.Tensor] = []
         hsic_values: List[torch.Tensor] = []
         group_info: List[Tuple[nn.Module, int]] = []
