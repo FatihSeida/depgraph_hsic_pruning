@@ -201,6 +201,9 @@ class DepgraphHSICMethod(BasePruningMethod):
 
         index_map = {(layer, idx): ch_scores[layer][idx].item() for layer in self.layers for idx in range(layer.out_channels)}
         groups = self.DG.get_all_groups(root_module_types=(nn.Conv2d,))
+        self.logger.info("Dependency graph contains %d pruning groups", len(groups))
+        if len(groups) == 0:
+            self.logger.warning("No pruning groups found in dependency graph!")
         scored_groups: List[Tuple[float, Any]] = []
         for g in groups:
             vals = []
@@ -235,6 +238,12 @@ class DepgraphHSICMethod(BasePruningMethod):
                     remaining[mod] -= len(chs)
 
         self.pruning_plan = plan
+        self.logger.info("Generated pruning plan with %d groups", len(plan))
+        if len(plan) == 0:
+            self.logger.warning("No pruning groups selected! This may indicate an issue with the HSIC computation or dependency graph.")
+        else:
+            total_channels_pruned = sum(len(chs) for g in plan for _, chs in g)
+            self.logger.info("Total channels to be pruned: %d", total_channels_pruned)
 
     # ------------------------------------------------------------------
     # HSIC helpers
@@ -454,6 +463,9 @@ class DepgraphHSICMethod(BasePruningMethod):
         importance = coef.abs() * torch.stack(hsic_values)
         index_map = {(layer, ch): i for i, (layer, ch) in enumerate(group_info)}
         groups = self.DG.get_all_groups(root_module_types=(nn.Conv2d,))
+        self.logger.info("Dependency graph contains %d pruning groups", len(groups))
+        if len(groups) == 0:
+            self.logger.warning("No pruning groups found in dependency graph!")
         scored_groups: List[Tuple[float, Any]] = []
         for g in groups:
             idxs = []
@@ -489,11 +501,23 @@ class DepgraphHSICMethod(BasePruningMethod):
                 if isinstance(mod, nn.Conv2d) and mod in remaining:
                     remaining[mod] -= len(chs)
         self.pruning_plan = plan
+        self.logger.info("Generated pruning plan with %d groups", len(plan))
+        if len(plan) == 0:
+            self.logger.warning("No pruning groups selected! This may indicate an issue with the HSIC computation or dependency graph.")
+        else:
+            total_channels_pruned = sum(len(chs) for g in plan for _, chs in g)
+            self.logger.info("Total channels to be pruned: %d", total_channels_pruned)
 
     def apply_pruning(self, rebuild: bool = False) -> None:  # pragma: no cover - heavy dependency
         self.logger.info("Applying pruning")
         if self.DG is None:
             raise RuntimeError("analyze_model must be called first")
+        
+        if not hasattr(self, 'pruning_plan') or not self.pruning_plan:
+            self.logger.warning("No pruning plan available! Pruning will not be applied.")
+            return
+            
+        self.logger.info("Applying pruning plan with %d groups", len(self.pruning_plan))
         import torch_pruning as tp
 
         model_changed = self.model is not self._dg_model
@@ -507,11 +531,17 @@ class DepgraphHSICMethod(BasePruningMethod):
             self._log_dependency_status()
 
         try:
+            groups_pruned = 0
             for group in self.pruning_plan:
                 try:
                     self.DG.prune_group(group)
+                    groups_pruned += 1
                 except AttributeError:
                     group.prune()
+                    groups_pruned += 1
+                except Exception as e:
+                    self.logger.error("Failed to prune group: %s", e)
+            self.logger.info("Successfully pruned %d groups", groups_pruned)
             try:
                 tp.utils.remove_pruning_reparametrization(self.model)
             except Exception:  # pragma: no cover - safeguard against tp versions
