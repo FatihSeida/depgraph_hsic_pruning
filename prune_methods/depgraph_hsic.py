@@ -201,11 +201,12 @@ class DepgraphHSICMethod(BasePruningMethod):
 
         index_map = {(layer, idx): ch_scores[layer][idx].item() for layer in self.layers for idx in range(layer.out_channels)}
         groups = self.DG.get_all_groups(root_module_types=(nn.Conv2d,))
-        self.logger.info("Dependency graph contains %d pruning groups", len(groups))
-        if len(groups) == 0:
+        groups_list = list(groups)  # Convert generator to list
+        self.logger.info("Dependency graph contains %d pruning groups", len(groups_list))
+        if len(groups_list) == 0:
             self.logger.warning("No pruning groups found in dependency graph!")
         scored_groups: List[Tuple[float, Any]] = []
-        for g in groups:
+        for g in groups_list:
             vals = []
             for dep, chs in g:
                 mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
@@ -463,11 +464,12 @@ class DepgraphHSICMethod(BasePruningMethod):
         importance = coef.abs() * torch.stack(hsic_values)
         index_map = {(layer, ch): i for i, (layer, ch) in enumerate(group_info)}
         groups = self.DG.get_all_groups(root_module_types=(nn.Conv2d,))
-        self.logger.info("Dependency graph contains %d pruning groups", len(groups))
-        if len(groups) == 0:
+        groups_list = list(groups)  # Convert generator to list
+        self.logger.info("Dependency graph contains %d pruning groups", len(groups_list))
+        if len(groups_list) == 0:
             self.logger.warning("No pruning groups found in dependency graph!")
         scored_groups: List[Tuple[float, Any]] = []
-        for g in groups:
+        for g in groups_list:
             idxs = []
             for dep, chs in g:
                 mod = getattr(dep, "target", dep).module if hasattr(dep, "target") else dep.module
