@@ -205,6 +205,17 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.info("Dependency graph contains %d pruning groups", len(groups_list))
         if len(groups_list) == 0:
             self.logger.warning("No pruning groups found in dependency graph!")
+        elif len(groups_list) == 1:
+            self.logger.warning("Only 1 pruning group found! This suggests the dependency graph sees the entire model as one connected component.")
+            # Log details about the single group
+            single_group = groups_list[0]
+            total_channels_in_group = sum(len(chs) for _, chs in single_group)
+            self.logger.info("Single group contains %d channels total", total_channels_in_group)
+            
+            # Try alternative approach: use individual channel pruning instead of group pruning
+            self.logger.info("Switching to individual channel pruning approach")
+            return self._individual_channel_pruning(ratio)
+        
         scored_groups: List[Tuple[float, Any]] = []
         for g in groups_list:
             vals = []
@@ -312,6 +323,28 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
         self._dg_model = self.model
         self.logger.debug("Dependency graph built")
+        
+        # Debug dependency graph structure
+        try:
+            # Check how many groups would be created with different strategies
+            all_groups = list(self.DG.get_all_groups(root_module_types=(nn.Conv2d,)))
+            self.logger.info("Dependency graph analysis: %d total groups found", len(all_groups))
+            
+            if len(all_groups) <= 3:  # Log details if few groups
+                for i, group in enumerate(all_groups):
+                    group_size = sum(len(chs) for _, chs in group)
+                    self.logger.info("Group %d: %d total channels", i, group_size)
+                    
+            # Try different grouping strategies
+            try:
+                linear_groups = list(self.DG.get_all_groups(root_module_types=(nn.Linear,)))
+                self.logger.debug("Linear groups: %d", len(linear_groups))
+            except:
+                pass
+                
+        except Exception as e:
+            self.logger.debug("Failed to analyze dependency graph: %s", e)
+            
         if hasattr(self.DG, "get_pruning_group") and not hasattr(self.DG, "_wrapped"):
             orig = self.DG.get_pruning_group
 
@@ -468,6 +501,17 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.info("Dependency graph contains %d pruning groups", len(groups_list))
         if len(groups_list) == 0:
             self.logger.warning("No pruning groups found in dependency graph!")
+        elif len(groups_list) == 1:
+            self.logger.warning("Only 1 pruning group found! This suggests the dependency graph sees the entire model as one connected component.")
+            # Log details about the single group
+            single_group = groups_list[0]
+            total_channels_in_group = sum(len(chs) for _, chs in single_group)
+            self.logger.info("Single group contains %d channels total", total_channels_in_group)
+            
+            # Try alternative approach: use individual channel pruning instead of group pruning
+            self.logger.info("Switching to individual channel pruning approach")
+            return self._individual_channel_pruning(ratio)
+        
         scored_groups: List[Tuple[float, Any]] = []
         for g in groups_list:
             idxs = []
@@ -550,3 +594,83 @@ class DepgraphHSICMethod(BasePruningMethod):
                 pass
         finally:
             self.remove_hooks()
+
+    def _individual_channel_pruning(self, ratio: float) -> None:
+        """Alternative pruning approach when dependency graph fails to create proper groups."""
+        self.logger.info("Using individual channel pruning approach")
+        
+        # Collect HSIC scores for individual channels
+        features = {}
+        for idx, feats in self.activations.items():
+            try:
+                features[idx] = torch.cat(feats, dim=0)
+            except RuntimeError:
+                target_shape = self.layer_shapes.get(idx)
+                pooled = [torch.nn.functional.adaptive_avg_pool2d(f, target_shape) if f.shape[2:] != target_shape else f for f in feats]
+                features[idx] = torch.cat(pooled, dim=0)
+        
+        y = torch.cat(self.labels, dim=0).float()
+        
+        # Calculate HSIC scores for each channel
+        channel_scores = []
+        channel_info = []
+        
+        for idx, layer in enumerate(self.layers):
+            if idx not in features:
+                continue
+            F = features[idx]
+            scores = self._hsic_scores(F, y, layer_idx=idx)
+            for j in range(F.shape[1]):
+                channel_scores.append(scores[j].item())
+                channel_info.append((layer, j))
+        
+        if not channel_scores:
+            self.logger.warning("No HSIC scores computed, falling back to L1 norm")
+            self._l1_norm_plan(ratio)
+            return
+            
+        # Sort channels by HSIC scores (ascending - prune least important)
+        sorted_indices = sorted(range(len(channel_scores)), key=lambda i: channel_scores[i])
+        
+        # Calculate number of channels to prune
+        total_channels = len(channel_scores)
+        num_to_prune = max(1, int(total_channels * ratio))
+        
+        self.logger.info("Total channels: %d, pruning: %d (%.1f%%)", 
+                        total_channels, num_to_prune, num_to_prune/total_channels*100)
+        
+        # Create individual pruning groups for selected channels
+        plan = []
+        pruned_count = 0
+        
+        for i in sorted_indices:
+            if pruned_count >= num_to_prune:
+                break
+                
+            layer, channel = channel_info[i]
+            score = channel_scores[i]
+            
+            # Try to create a pruning group for this individual channel
+            try:
+                import torch_pruning as tp
+                # Create a group for this specific channel
+                pruner = self.DG.get_pruner_of_module(layer)
+                if pruner is not None:
+                    group = self.DG.get_pruning_group(layer, tp.prune_conv_out_channels, [channel])
+                    if group is not None:
+                        plan.append(group)
+                        pruned_count += 1
+                        self.logger.debug("Added channel %d from layer %s (score: %.4f)", 
+                                        channel, self.layer_names[self.layers.index(layer)], score)
+            except Exception as e:
+                self.logger.debug("Failed to create pruning group for channel %d in layer %s: %s", 
+                                channel, self.layer_names[self.layers.index(layer)], e)
+                continue
+        
+        self.pruning_plan = plan
+        self.logger.info("Generated individual channel pruning plan with %d groups", len(plan))
+        if len(plan) == 0:
+            self.logger.warning("Individual channel pruning failed, falling back to L1 norm")
+            self._l1_norm_plan(ratio)
+        else:
+            self.logger.info("Successfully created %d individual channel pruning groups", len(plan))
