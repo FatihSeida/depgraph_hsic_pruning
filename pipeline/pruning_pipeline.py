@@ -206,11 +206,13 @@ class PruningPipeline(BasePruningPipeline):
             self.logger.info("Applying pruning")
             self.pruning_method.apply_pruning(rebuild=rebuild)
 
-    def reconfigure_model(self, output_path: str | Path | None = None) -> None:
+    def reconfigure_model(self, output_path: str | None = None) -> None:
         """Reconfigure the model after pruning."""
+        self.logger.info("Reconfiguring model")
         if self.reconfigurator is not None:
-            self.logger.info("Reconfiguring model")
-            self.reconfigurator.reconfigure(self.model.model, output_path)
+            self.reconfigurator.reconfigure_model(self.model, output_path)
+        else:
+            self.logger.warning("No reconfigurator available")
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         """Calculate parameter count and FLOPs after pruning."""

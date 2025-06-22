@@ -42,7 +42,7 @@ def create_pipeline(
     model_path: str,
     data: str,
     workdir: str,
-    pruning_method: BasePruningMethod | None,
+    method_cls: Type[BasePruningMethod] | None,
     logger: Logger | None = None,
 ) -> BasePruningPipeline:
     """Create appropriate pipeline based on pruning method type."""
@@ -50,12 +50,12 @@ def create_pipeline(
     # Metode yang menggunakan DepGraph
     depgraph_methods = (DepgraphHSICMethod, DepgraphMethod, IsomorphicMethod)
     
-    if isinstance(pruning_method, depgraph_methods):
+    if method_cls in depgraph_methods:
         return PruningPipeline2(
             model_path=model_path,
             data=data,
             workdir=workdir,
-            pruning_method=pruning_method,
+            pruning_method=None,  # Will be set later
             logger=logger
         )
     else:
@@ -63,7 +63,7 @@ def create_pipeline(
             model_path=model_path,
             data=data,
             workdir=workdir,
-            pruning_method=pruning_method,
+            pruning_method=None,  # Will be set later
             logger=logger
         )
 
@@ -220,7 +220,7 @@ def execute_pipeline(
         model_path=model_path,
         data=data,
         workdir=str(workdir),
-        pruning_method=None,  # Will be set later
+        method_cls=method_cls,
         logger=logger
     )
     
