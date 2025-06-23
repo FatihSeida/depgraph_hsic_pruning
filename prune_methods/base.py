@@ -59,16 +59,102 @@ class BasePruningMethod(abc.ABC):
     # Optional visualization and saving methods
     # ------------------------------------------------------------------
     def visualize_comparison(self) -> None:
-        """Visualize baseline vs pruned metrics comparison."""
-        # Default implementation - subclasses can override
-        pass
+        """Visualize baseline vs pruned metrics comparison.
+
+        The default implementation generates a simple bar chart comparing
+        the values stored in :attr:`initial_stats` and :attr:`pruned_stats`.
+        If plotting libraries are unavailable the method fails silently and a
+        warning is logged instead of raising an exception.
+        """
+
+        if not self.initial_stats or not self.pruned_stats:
+            return
+
+        try:  # optional dependency
+            import matplotlib.pyplot as plt
+        except Exception as exc:  # pragma: no cover - plotting optional
+            self.logger.warning("Failed to import matplotlib: %s", exc)
+            return
+
+        try:
+            metrics = sorted(set(self.initial_stats) | set(self.pruned_stats))
+            baseline = [self.initial_stats.get(m, 0) for m in metrics]
+            pruned = [self.pruned_stats.get(m, 0) for m in metrics]
+
+            fig, ax = plt.subplots(figsize=(8, 4))
+            x = range(len(metrics))
+            width = 0.35
+            ax.bar([i - width / 2 for i in x], baseline, width=width, label="initial")
+            ax.bar([i + width / 2 for i in x], pruned, width=width, label="pruned")
+            ax.set_xticks(list(x))
+            ax.set_xticklabels(metrics, rotation=45, ha="right")
+            ax.legend()
+            fig.tight_layout()
+            plt.savefig(self.workdir / "comparison.png")
+            plt.close(fig)
+        except Exception as exc:  # pragma: no cover - plotting optional
+            self.logger.warning("Failed to create comparison plot: %s", exc)
 
     def visualize_pruned_filters(self) -> None:
-        """Visualize which filters were pruned."""
-        # Default implementation - subclasses can override
-        pass
+        """Visualize which filters were pruned.
+
+        When :attr:`masks` is populated a heatmap is produced illustrating the
+        pruned channels for every layer.  Layers are placed on the y-axis and
+        channel indices on the x-axis.  Unavailable plotting libraries are
+        tolerated and only result in a warning.
+        """
+
+        if not self.masks:
+            return
+
+        try:  # optional dependency
+            import matplotlib.pyplot as plt
+            import numpy as np
+        except Exception as exc:  # pragma: no cover
+            self.logger.warning("Failed to import plotting libs: %s", exc)
+            return
+
+        try:
+            lengths = [len(m) for m in self.masks]
+            max_channels = max(lengths)
+            matrix = np.zeros((len(self.masks), max_channels), dtype=int)
+            for i, mask in enumerate(self.masks):
+                arr = (~mask).cpu().numpy().astype(int)
+                matrix[i, : len(arr)] = arr
+
+            fig, ax = plt.subplots(figsize=(8, 0.5 * len(self.masks) + 1))
+            ax.imshow(matrix, cmap="Greys", aspect="auto")
+            ax.set_ylabel("Layer")
+            ax.set_xlabel("Channel index")
+            ax.set_title("Pruned filter map (dark = pruned)")
+            plt.tight_layout()
+            plt.savefig(self.workdir / "pruned_filters.png")
+            plt.close(fig)
+        except Exception as exc:  # pragma: no cover - plotting optional
+            self.logger.warning("Failed to create pruned filter map: %s", exc)
 
     def save_results(self, path: str | Path) -> None:
-        """Save pruning results to the specified path."""
-        # Default implementation - subclasses can override
-        pass
+        """Save pruning results to the specified path.
+
+        A pickle file is written containing the attributes ``masks``,
+        ``initial_stats`` and ``pruned_stats``.  Any I/O error is caught and
+        logged without raising an exception.
+        """
+
+        try:
+            import pickle
+
+            data = {
+                "masks": self.masks,
+                "initial_stats": self.initial_stats,
+                "pruned_stats": self.pruned_stats,
+            }
+
+            path = Path(path)
+            with path.open("wb") as f:
+                pickle.dump(data, f)
+
+            self.logger.info("Pruning results saved to %s", path)
+        except Exception as exc:  # pragma: no cover - optional
+            self.logger.warning("Failed to save pruning results: %s", exc)
+
