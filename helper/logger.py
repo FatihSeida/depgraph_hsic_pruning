@@ -45,6 +45,10 @@ class Logger:
     def error(self, msg: str, *args, **kwargs) -> None:
         self.logger.error(msg, *args, **kwargs)
 
+    def exception(self, msg: str, *args, **kwargs) -> None:
+        """Log ``msg`` with exception information."""
+        self.logger.exception(msg, *args, **kwargs)
+
     def debug(self, msg: str, *args, **kwargs) -> None:
         self.logger.debug(msg, *args, **kwargs)
 
