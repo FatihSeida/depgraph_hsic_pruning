@@ -10,7 +10,7 @@
 ### Changed
 - **Pipeline Architecture**: 
   - `PruningPipeline` untuk metode non-DepGraph (menggunakan AdaptiveReconfigurator)
-  - `PruningPipeline2` untuk metode DepGraph (tidak memerlukan rekonfigurasi)
+  - `PruningPipeline2` untuk metode DepGraph (tidak memerlukan rekonfigurasi) dan kini mendukung semua metode berbasis DepGraph
 - **Activation Collection**: Mengganti `ShortForwardPassStep` dengan synthetic data collection
 - **Memory Efficiency**: Menghilangkan penggunaan dataloader untuk activation collection
 
@@ -26,10 +26,10 @@
 - `DepgraphHSICMethod`
 - `DepgraphMethod`
 - `IsomorphicMethod`
+- `TorchRandomMethod`
 
 ## Metode Pruning Non-DepGraph:
 - `L1NormMethod`
 - `RandomMethod`
-- `TorchRandomMethod`
 - `HSICLassoMethod`
-- `WeightedHybridMethod` 
+- `WeightedHybridMethod`
