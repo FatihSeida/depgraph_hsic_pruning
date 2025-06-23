@@ -7,7 +7,7 @@ from .logger import (
     format_header,
     format_step,
 )
-from .metric_manager import MetricManager
+from .metric_manager import MetricManager, format_training_summary
 from .experiment_manager import ExperimentManager
 from .heatmap_visualizer import (
     plot_metric_heatmaps,
@@ -32,4 +32,5 @@ __all__ = [
     "log_stats_comparison",
     "format_header",
     "format_step",
+    "format_training_summary",
 ]

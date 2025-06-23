@@ -19,6 +19,21 @@ TRAINING_METRIC_FIELDS = [
     "cls_loss",
 ]
 
+# ------------------------------------------------------------------
+# Helper functions
+# ------------------------------------------------------------------
+
+def format_training_summary(metrics: Dict[str, Any]) -> str:
+    """Return a concise comma separated summary from ``metrics``.
+
+    Only values corresponding to :data:`TRAINING_METRIC_FIELDS` (or their
+    Ultralytics equivalents) are included.  Unknown keys are ignored.
+    """
+
+    mgr = MetricManager()
+    mgr.record_training(metrics or {})
+    return ", ".join(f"{k}={mgr.training[k]}" for k in mgr.training)
+
 # Mapping of Ultralytics training output names to canonical fields
 ULTRALYTICS_FIELD_MAP = {
     "metrics/precision": "precision",

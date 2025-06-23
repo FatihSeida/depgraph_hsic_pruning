@@ -15,6 +15,7 @@ from helper import (
     log_stats_comparison,
     format_header,
     format_step,
+    format_training_summary,
 )
 from .model_reconfig import AdaptiveLayerReconfiguration
 from .context import PipelineContext
@@ -145,6 +146,8 @@ class PruningPipeline(BasePruningPipeline):
                 except Exception:  # pragma: no cover - best effort
                     pass
         self.logger.debug(metrics)
+        if metrics:
+            self.logger.info("Training summary: %s", format_training_summary(metrics))
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics
         return metrics or {}
@@ -208,11 +211,28 @@ class PruningPipeline(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
+        original_model = self.model.model
         try:
             metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         finally:
             self._unregister_label_callback()
+        model_changed = self.model.model is not original_model
+        if self.pruning_method is not None:
+            self.pruning_method.model = self.model.model
+            self.logger.debug("updated pruning method model reference")
+            if model_changed:
+                try:
+                    if hasattr(self.pruning_method, "refresh_dependency_graph"):
+                        self.pruning_method.refresh_dependency_graph()
+                        self.logger.debug("refreshed pruning method dependency graph")
+                    else:
+                        self._sync_pruning_method(reanalyze=True)
+                        self.logger.debug("reanalyzed pruning method model")
+                except Exception:  # pragma: no cover - best effort
+                    pass
         self.logger.debug(metrics)
+        if metrics:
+            self.logger.info("Training summary: %s", format_training_summary(metrics))
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics
         return metrics or {}
