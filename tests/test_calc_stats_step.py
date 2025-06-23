@@ -9,8 +9,9 @@ def test_calc_stats_records_filters_and_size(monkeypatch):
     monkeypatch.setitem(sys.modules, "ultralytics", types.ModuleType("ultralytics"))
     utils = types.ModuleType("ultralytics.utils")
     torch_utils = types.ModuleType("ultralytics.utils.torch_utils")
-    torch_utils.get_flops = lambda *a, **k: 20
     torch_utils.get_num_params = lambda *a, **k: 10
+    from helper import flops_utils as fu
+    monkeypatch.setattr(fu, "get_flops_reliable", lambda *a, **k: 20, raising=False)
     monkeypatch.setitem(sys.modules, "ultralytics.utils", utils)
     monkeypatch.setitem(sys.modules, "ultralytics.utils.torch_utils", torch_utils)
 
@@ -56,8 +57,9 @@ def test_calc_stats_records_compression_ratio(monkeypatch):
     monkeypatch.setitem(sys.modules, "ultralytics", types.ModuleType("ultralytics"))
     utils = types.ModuleType("ultralytics.utils")
     torch_utils = types.ModuleType("ultralytics.utils.torch_utils")
-    torch_utils.get_flops = lambda *a, **k: 20
     torch_utils.get_num_params = lambda *a, **k: 10
+    from helper import flops_utils as fu
+    monkeypatch.setattr(fu, "get_flops_reliable", lambda *a, **k: 20, raising=False)
     monkeypatch.setitem(sys.modules, "ultralytics.utils", utils)
     monkeypatch.setitem(sys.modules, "ultralytics.utils.torch_utils", torch_utils)
 
@@ -109,8 +111,14 @@ def test_calc_stats_split_metrics(monkeypatch):
     monkeypatch.setitem(sys.modules, "ultralytics.utils", utils)
     monkeypatch.setitem(sys.modules, "ultralytics.utils.torch_utils", torch_utils)
 
-    torch_utils.get_flops = lambda m: sum(1 for mod in m.modules() if isinstance(mod, nn.Conv2d))
     torch_utils.get_num_params = lambda m: sum(p.numel() for p in m.parameters())
+    from helper import flops_utils as fu
+    monkeypatch.setattr(
+        fu,
+        "get_flops_reliable",
+        lambda m: sum(1 for mod in m.modules() if isinstance(mod, nn.Conv2d)),
+        raising=False,
+    )
 
     from pipeline.step.calc_stats import CalcStatsStep
     from pipeline.context import PipelineContext

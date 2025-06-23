@@ -25,8 +25,9 @@ up = types.ModuleType('ultralytics')
 up.YOLO = lambda *a, **k: dummy
 utils = types.ModuleType('ultralytics.utils')
 torch_utils = types.ModuleType('ultralytics.utils.torch_utils')
-torch_utils.get_flops = lambda *a, **k: 100
 torch_utils.get_num_params = lambda *a, **k: 200
+from helper import flops_utils as fu
+fu.get_flops_reliable = lambda *a, **k: 100
 utils.torch_utils = torch_utils
 up.utils = utils
 
@@ -37,7 +38,7 @@ sys.modules['ultralytics.utils.torch_utils'] = torch_utils
 import main
 import pipeline.pruning_pipeline as pp
 pp.YOLO = up.YOLO
-pp.get_flops_reliable = torch_utils.get_flops
+pp.get_flops_reliable = fu.get_flops_reliable
 pp.get_num_params_reliable = torch_utils.get_num_params
 hsic_mod = types.ModuleType('prune_methods.depgraph_hsic')
 class DummyMethod:  # pragma: no cover - placeholder

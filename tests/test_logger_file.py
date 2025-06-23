@@ -9,8 +9,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 up = types.ModuleType('ultralytics')
 utils = types.ModuleType('ultralytics.utils')
 torch_utils = types.ModuleType('ultralytics.utils.torch_utils')
-torch_utils.get_flops = lambda *a, **k: 0
 torch_utils.get_num_params = lambda *a, **k: 0
+from helper import flops_utils as fu
+fu.get_flops_reliable = lambda *a, **k: 0
 utils.torch_utils = torch_utils
 up.YOLO = lambda *a, **k: None
 sys.modules['ultralytics'] = up
