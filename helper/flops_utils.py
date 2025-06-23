@@ -12,11 +12,9 @@ except Exception:  # pragma: no cover - torch may be missing
 
 try:
     from ultralytics.utils.torch_utils import (
-        get_flops as _get_flops,
         get_num_params as _get_num_params,
     )  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
-    _get_flops = None  # type: ignore
     _get_num_params = None  # type: ignore
 
 
@@ -85,16 +83,8 @@ def calculate_flops_manual(model: Any, imgsz: int | Iterable[int] = 640) -> floa
 
 
 def get_flops_reliable(model: Any, imgsz: int | Iterable[int] = 640) -> float:
-    """Return FLOPs using ``ultralytics`` if available, else manual calculation."""
-    flops = 0.0
-    if _get_flops is not None:
-        try:
-            flops = float(_get_flops(model, imgsz=imgsz))
-        except Exception:  # pragma: no cover - best effort
-            flops = 0.0
-    if not flops:
-        flops = calculate_flops_manual(model, imgsz)
-    return flops
+    """Return FLOPs using the built-in manual calculation."""
+    return calculate_flops_manual(model, imgsz)
 
 
 def get_num_params_reliable(model: Any) -> int:

@@ -18,7 +18,6 @@ def test_get_flops_reliable_fallback(monkeypatch):
     model = nn.Sequential(nn.Conv2d(3, 8, 1))
     fu = importlib.import_module("helper.flops_utils")
     importlib.reload(fu)
-    monkeypatch.setattr(fu, "_get_flops", lambda *a, **k: 0, raising=False)
     flops = fu.get_flops_reliable(model, imgsz=8)
     assert flops > 0
 
@@ -56,8 +55,6 @@ def test_calculate_flops_manual_respects_device(monkeypatch):
     model = nn.Sequential(nn.Conv2d(3, 8, 1))
     device = next(model.parameters()).device
 
-    monkeypatch.setattr(fu, "_get_flops", lambda *a, **k: 0, raising=False)
-
     recorded = {}
     orig_zeros = torch.zeros
 
@@ -91,8 +88,6 @@ def test_calculate_flops_manual_handles_errors(monkeypatch):
             return x
 
     model = BadModel()
-
-    monkeypatch.setattr(fu, "_get_flops", lambda *a, **k: 0, raising=False)
 
     flops = fu.calculate_flops_manual(model, imgsz=8)
 

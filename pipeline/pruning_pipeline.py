@@ -88,7 +88,7 @@ class PruningPipeline(BasePruningPipeline):
         flops = get_flops_reliable(self.model.model)
         if flops == 0:
             self.logger.warning(
-                "FLOPs reported as 0; verify that 'ultralytics-thop' is installed or fallback may be inaccurate"
+                "FLOPs reported as 0; fallback calculation may be inaccurate"
             )
         filters = count_filters(self.model.model)
         size_mb = model_size_mb(self.model.model)
@@ -190,7 +190,7 @@ class PruningPipeline(BasePruningPipeline):
         flops = get_flops_reliable(self.model.model)
         if flops == 0:
             self.logger.warning(
-                "FLOPs reported as 0; verify that 'ultralytics-thop' is installed or fallback may be inaccurate"
+                "FLOPs reported as 0; fallback calculation may be inaccurate"
             )
         filters = count_filters(self.model.model)
         size_mb = model_size_mb(self.model.model)
