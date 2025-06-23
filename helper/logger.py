@@ -51,6 +51,9 @@ class Logger:
     def __init__(self, name: str = "pruning", log_file: Optional[str] = None) -> None:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
+        # Prevent messages from propagating to ancestor loggers
+        # which can lead to duplicate entries if the root logger is configured.
+        self.logger.propagate = False
         
         # Clear existing handlers to prevent duplication
         for handler in self.logger.handlers[:]:
