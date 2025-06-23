@@ -76,9 +76,10 @@ def calculate_flops_manual(model: Any, imgsz: int | Iterable[int] = 640) -> floa
         with torch.no_grad():
             model(dummy)
     except Exception:
+        # forward failed; return partial FLOPs collected so far
         for h in hooks:
             h.remove()
-        return 0.0
+        return totals[0] * 2 / 1e9
     for h in hooks:
         h.remove()
     return totals[0] * 2 / 1e9

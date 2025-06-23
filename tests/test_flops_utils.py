@@ -91,4 +91,4 @@ def test_calculate_flops_manual_handles_errors(monkeypatch):
 
     flops = fu.calculate_flops_manual(model, imgsz=8)
 
-    assert flops == 0.0
+    assert flops > 0
