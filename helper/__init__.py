@@ -24,7 +24,11 @@ from .model_stats import (
     file_size_mb,
     log_stats_comparison,
 )
-from .flops_utils import calculate_flops_manual, get_flops_reliable
+from .flops_utils import (
+    calculate_flops_manual,
+    get_flops_reliable,
+    get_num_params_reliable,
+)
 
 __all__ = [
     "Logger",
@@ -45,6 +49,7 @@ __all__ = [
     "log_stats_comparison",
     "calculate_flops_manual",
     "get_flops_reliable",
+    "get_num_params_reliable",
     "format_header",
     "format_step",
     "format_training_summary",

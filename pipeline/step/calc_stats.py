@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ultralytics.utils.torch_utils import get_flops, get_num_params
+from helper.flops_utils import get_flops_reliable, get_num_params_reliable
 
 from pathlib import Path
 
@@ -27,8 +27,8 @@ class CalcStatsStep(PipelineStep):
         if context.model is None:
             raise ValueError("Model is not loaded")
         context.logger.info("Calculating %s statistics", self.dest)
-        params = get_num_params(context.model.model)
-        flops = get_flops(context.model.model)
+        params = get_num_params_reliable(context.model.model)
+        flops = get_flops_reliable(context.model.model)
         filters = count_filters(context.model.model)
 
         params_bb = count_params_in_layers(context.model, 0, 10)

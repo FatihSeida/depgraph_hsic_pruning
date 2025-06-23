@@ -37,8 +37,13 @@ sys.modules['ultralytics.utils.torch_utils'] = torch_utils
 import main
 import pipeline.pruning_pipeline as pp
 pp.YOLO = up.YOLO
-pp.get_flops = torch_utils.get_flops
-pp.get_num_params = torch_utils.get_num_params
+pp.get_flops_reliable = torch_utils.get_flops
+pp.get_num_params_reliable = torch_utils.get_num_params
+hsic_mod = types.ModuleType('prune_methods.depgraph_hsic')
+class DummyMethod:  # pragma: no cover - placeholder
+    pass
+hsic_mod.DepgraphHSICMethod = DummyMethod
+sys.modules['prune_methods.depgraph_hsic'] = hsic_mod
 
 
 def test_metrics_csv_created(tmp_path):

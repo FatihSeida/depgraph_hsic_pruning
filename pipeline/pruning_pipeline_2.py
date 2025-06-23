@@ -4,7 +4,7 @@ from typing import Any, Dict
 from pathlib import Path
 
 from ultralytics import YOLO
-from ultralytics.utils.torch_utils import get_flops, get_num_params
+from helper.flops_utils import get_flops_reliable, get_num_params_reliable
 from torch import nn
 
 from .base_pipeline import BasePruningPipeline
@@ -109,11 +109,11 @@ class PruningPipeline2(BasePruningPipeline):
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Calculating initial model statistics")
-        params = get_num_params(self.model.model)
-        flops = get_flops(self.model.model)
+        params = get_num_params_reliable(self.model.model)
+        flops = get_flops_reliable(self.model.model)
         if flops == 0:
             self.logger.warning(
-                "FLOPs reported as 0; verify that 'ultralytics-thop' is installed"
+                "FLOPs reported as 0; verify that 'ultralytics-thop' is installed or fallback may be inaccurate"
             )
         filters = count_filters(self.model.model)
         size_mb = model_size_mb(self.model.model)
@@ -253,11 +253,11 @@ class PruningPipeline2(BasePruningPipeline):
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Calculating pruned model statistics")
-        params = get_num_params(self.model.model)
-        flops = get_flops(self.model.model)
+        params = get_num_params_reliable(self.model.model)
+        flops = get_flops_reliable(self.model.model)
         if flops == 0:
             self.logger.warning(
-                "FLOPs reported as 0; verify that 'ultralytics-thop' is installed"
+                "FLOPs reported as 0; verify that 'ultralytics-thop' is installed or fallback may be inaccurate"
             )
         filters = count_filters(self.model.model)
         size_mb = model_size_mb(self.model.model)

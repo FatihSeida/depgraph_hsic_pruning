@@ -11,9 +11,13 @@ except Exception:  # pragma: no cover - torch may be missing
     nn = None  # type: ignore
 
 try:
-    from ultralytics.utils.torch_utils import get_flops as _get_flops  # type: ignore
+    from ultralytics.utils.torch_utils import (
+        get_flops as _get_flops,
+        get_num_params as _get_num_params,
+    )  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
     _get_flops = None  # type: ignore
+    _get_num_params = None  # type: ignore
 
 
 def _conv_hook(module: Any, _inp: Iterable[Any], output: Any, totals: list[int]) -> None:
@@ -81,4 +85,26 @@ def get_flops_reliable(model: Any, imgsz: int | Iterable[int] = 640) -> float:
     return flops
 
 
-__all__ = ["calculate_flops_manual", "get_flops_reliable"]
+def get_num_params_reliable(model: Any) -> int:
+    """Return parameter count using ``ultralytics`` if available, else manual count."""
+    params = 0
+    if _get_num_params is not None:
+        try:
+            params = int(_get_num_params(model))
+        except Exception:  # pragma: no cover - best effort
+            params = 0
+    if not params:
+        params = 0
+        for p in getattr(model, "parameters", lambda: [])():
+            try:
+                params += p.numel()
+            except Exception:  # pragma: no cover - non-tensor params
+                continue
+    return params
+
+
+__all__ = [
+    "calculate_flops_manual",
+    "get_flops_reliable",
+    "get_num_params_reliable",
+]
