@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import Optional, callable
+from typing import Optional, Callable
 
 
 # ------------------------------------------------------------------
@@ -106,7 +106,7 @@ def get_logger(
 
 
 @contextmanager
-def timed_step(logger: "Logger", title: str, recover: Optional[callable] = None):
+def timed_step(logger: "Logger", title: str, recover: Optional[Callable[[], None]] = None):
     """Context manager to log the duration of *title* step.
 
     Example
