@@ -51,14 +51,20 @@ class Logger:
     def __init__(self, name: str = "pruning", log_file: Optional[str] = None) -> None:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
+        
+        # Clear existing handlers to prevent duplication
+        for handler in self.logger.handlers[:]:
+            self.logger.removeHandler(handler)
+        
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
-        if not any(isinstance(h, logging.StreamHandler) for h in self.logger.handlers):
-            handler = logging.StreamHandler()
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
+        # Add console handler
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
-        if log_file is not None and not any(isinstance(h, logging.FileHandler) for h in self.logger.handlers):
+        # Add file handler if specified
+        if log_file is not None:
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
