@@ -215,8 +215,14 @@ class BasePruningPipeline(abc.ABC):
         """Produce plots comparing the baseline and pruned model."""
         if self.pruning_method is not None:
             self.logger.info("Visualizing pruning results")
-            self.pruning_method.visualize_comparison()
-            self.pruning_method.visualize_pruned_filters()
+            
+            # Call visualize_comparison if available
+            if hasattr(self.pruning_method, 'visualize_comparison'):
+                self.pruning_method.visualize_comparison()
+            
+            # Call visualize_pruned_filters if available
+            if hasattr(self.pruning_method, 'visualize_pruned_filters'):
+                self.pruning_method.visualize_pruned_filters()
 
     def save_pruning_results(self, path: str | Path) -> None:
         """Delegate result saving to the active pruning method."""

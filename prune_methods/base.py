@@ -54,3 +54,21 @@ class BasePruningMethod(abc.ABC):
     def apply_pruning(self, rebuild=False) -> None:
         """Apply the previously generated pruning mask to ``self.model``."""
         raise NotImplementedError
+
+    # ------------------------------------------------------------------
+    # Optional visualization and saving methods
+    # ------------------------------------------------------------------
+    def visualize_comparison(self) -> None:
+        """Visualize baseline vs pruned metrics comparison."""
+        # Default implementation - subclasses can override
+        pass
+
+    def visualize_pruned_filters(self) -> None:
+        """Visualize which filters were pruned."""
+        # Default implementation - subclasses can override
+        pass
+
+    def save_results(self, path: str | Path) -> None:
+        """Save pruning results to the specified path."""
+        # Default implementation - subclasses can override
+        pass
