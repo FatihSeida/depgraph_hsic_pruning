@@ -3,19 +3,46 @@ from __future__ import annotations
 """Central logging utilities for the pruning pipeline."""
 
 import logging
-from typing import Optional
+import time
+from contextlib import contextmanager
+from typing import Optional, callable
 
 
-def format_header(text: str, width: int = 60, fill: str = "-") -> str:
-    """Return ``text`` centered within ``width`` using ``fill``."""
+# ------------------------------------------------------------------
+# Formatting helpers
+# ------------------------------------------------------------------
+
+def format_header(text: str, width: int = 60, fill: str = "=") -> str:
+    """Return ``text`` centered within ``width`` using ``fill`` characters.
+
+    Parameters
+    ----------
+    text : str
+        Text to display inside the header.
+    width : int, optional
+        Total width of the header, by default ``60``.
+    fill : str, optional
+        Single character used to pad the header, by default ``"="``.
+    """
     if len(fill) != 1:
         raise ValueError("fill must be a single character")
     return text.center(width, fill)
 
 
-def format_step(num: int, total: int, name: str) -> str:
-    """Format a pipeline step description."""
-    return f"Step {num}/{total}: {name}"
+def format_subheader(text: str, width: int = 60, fill: str = "-") -> str:
+    """Return subheader centered using '-' characters."""
+    return format_header(text, width=width, fill=fill)
+
+
+def format_step(num: int, total: int, name: str, icon: str = "📌") -> str:
+    """Return a formatted step description with emoji/icon.
+
+    Example
+    -------
+    >>> format_step(1, 8, "LoadModel")
+    '📌 Step 1/8: LoadModel'
+    """
+    return f"{icon} Step {num}/{total}: {name}"
 
 
 class Logger:
@@ -76,3 +103,50 @@ def get_logger(
     log = Logger(name, log_file=log_file)
     log.set_level(level)
     return log
+
+
+@contextmanager
+def timed_step(logger: "Logger", title: str, recover: Optional[callable] = None):
+    """Context manager to log the duration of *title* step.
+
+    Example
+    -------
+    >>> with timed_step(logger, "Load model"):
+    ...     do_something()
+    2025-06-23 10:00:00 - INFO - ===== Load model =====
+    2025-06-23 10:00:01 - INFO - ✅ Load model selesai dalam 1.00s
+    """
+    logger.info(format_header(title))
+    start = time.time()
+    success = True
+    try:
+        yield
+    except Exception as exc:
+        success = False
+        logger.exception("❌ %s gagal: %s", title, exc)
+        # Attempt recovery callback if provided
+        if recover is not None:
+            try:
+                logger.info("🔄 Mencoba pemulihan untuk %s", title)
+                recover()
+                logger.info("✅ Pemulihan untuk %s berhasil", title)
+            except Exception as rec_exc:  # pragma: no cover
+                logger.exception("❌ Pemulihan untuk %s gagal: %s", title, rec_exc)
+        raise
+    finally:
+        duration = time.time() - start
+        if success:
+            logger.info("✅ %s selesai dalam %.2fs", title, duration)
+        else:
+            logger.info("⚠️ %s berakhir dengan error setelah %.2fs", title, duration)
+
+
+__all__ = [
+    "Logger",
+    "get_logger",
+    "add_file_handler",
+    "format_header",
+    "format_subheader",
+    "format_step",
+    "timed_step",
+]

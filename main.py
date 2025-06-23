@@ -23,6 +23,7 @@ import pipeline as pipeline_mod
 from ultralytics import YOLO
 import prune_methods as pm
 from prune_methods import BasePruningMethod
+from helper.logger import timed_step, format_subheader
 
 
 def create_pipeline(
@@ -225,10 +226,26 @@ def execute_pipeline(
         logger=logger
     )
     
-    pipeline.load_model()
-    if hasattr(pipeline.model, "to"):
-        pipeline.model.to(config.device)
-    pipeline.calc_initial_stats()
+    logger.info("%s", "="*80)
+    logger.info("🚀 Memulai %s pipeline", "baseline" if method_cls is None else "pretrain")
+    logger.info("Model: %s | Metode: %s | Rasio: %.2f", model_path, method_cls.__name__ if method_cls else "baseline", ratio)
+    logger.info("Konfigurasi -> baseline_epochs=%d, finetune_epochs=%d, batch_size=%d, device=%s", 
+                config.baseline_epochs, config.finetune_epochs, config.batch_size, config.device)
+    logger.info("Lokasi kerja: %s", workdir)
+    logger.info("%s", "="*80)
+
+    with timed_step(logger, "Load model"):
+        pipeline.load_model()
+        if hasattr(pipeline.model, "to"):
+            pipeline.model.to(config.device)
+            logger.info("Model dipindahkan ke device: %s", config.device)
+
+    with timed_step(logger, "Hitung statistik awal"):
+        stats = pipeline.calc_initial_stats()
+        logger.info(format_subheader("Initial Stats"))
+        for k, v in stats.items():
+            logger.info("%s: %s", k, v)
+
     if method_cls is not None:
         pruning_method = method_cls(pipeline.model.model, workdir=workdir)
         pipeline.set_pruning_method(pruning_method)
@@ -243,27 +260,28 @@ def execute_pipeline(
             # Run analysis before training so hooks can capture activations
             pipeline.analyze_structure()
         monitor = MonitorComputationStep("pretrain")
-        monitor.start()
-        phase = "baseline" if method_cls is None else "pretrain"
-        pretrain_resume = _adjust_resume(workdir / phase, config.baseline_epochs, resume, logger)
-        pipeline.pretrain(
-            epochs=config.baseline_epochs,
-            batch=config.batch_size,
-            project=str(workdir),
-            name=phase,
-            resume=pretrain_resume,
-            device=config.device,
-            label_fn=(
-                aggregate_labels
-                if isinstance(getattr(pipeline, "pruning_method", None), pm.DepgraphHSICMethod)
-                else None
-            ),
-        )
-        mgr = getattr(pipeline, "metrics_mgr", None)
-        if mgr is None:
-            from helper import MetricManager
-            mgr = pipeline.metrics_mgr = MetricManager()
-        monitor.stop(mgr)
+        with timed_step(logger, "Pretraining/Baseline training"):
+            monitor.start()
+            phase = "baseline" if method_cls is None else "pretrain"
+            pretrain_resume = _adjust_resume(workdir / phase, config.baseline_epochs, resume, logger)
+            pipeline.pretrain(
+                epochs=config.baseline_epochs,
+                batch=config.batch_size,
+                project=str(workdir),
+                name=phase,
+                resume=pretrain_resume,
+                device=config.device,
+                label_fn=(
+                    aggregate_labels
+                    if isinstance(getattr(pipeline, "pruning_method", None), pm.DepgraphHSICMethod)
+                    else None
+                ),
+            )
+            mgr = getattr(pipeline, "metrics_mgr", None)
+            if mgr is None:
+                from helper import MetricManager
+                mgr = pipeline.metrics_mgr = MetricManager()
+            monitor.stop(mgr)
         # Synthetic data collection is now handled within pipeline.pretrain()
 
     if method_cls is not None and config.baseline_epochs == 0:
