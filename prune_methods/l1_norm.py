@@ -88,68 +88,15 @@ class L1NormMethod(BasePruningMethod):
                 setattr(parent, "bn", new_bn)
 
     def visualize_comparison(self) -> None:
-        """Visualize baseline vs pruned metrics."""
-        if not self.initial_stats or not self.pruned_stats:
-            return
-        
+        """Visualize baseline vs pruned metrics using base helper."""
         try:
-            import matplotlib.pyplot as plt
-            
-            labels = ["baseline", "pruned"]
-            params = [self.initial_stats.get("parameters", 0), self.pruned_stats.get("parameters", 0)]
-            flops = [self.initial_stats.get("flops", 0), self.pruned_stats.get("flops", 0)]
-
-            fig, axes = plt.subplots(1, 2, figsize=(8, 4))
-            axes[0].bar(labels, params)
-            axes[0].set_title("Parameters")
-            axes[1].bar(labels, flops)
-            axes[1].set_title("FLOPs")
-            plt.tight_layout()
-            plt.savefig(self.workdir / "comparison.png")
-            plt.close()
-            
-            self.logger.info("Comparison visualization saved to %s", self.workdir / "comparison.png")
-        except Exception as e:
-            self.logger.warning("Failed to create comparison visualization: %s", str(e))
+            super().visualize_comparison()
+        except Exception as exc:  # pragma: no cover - optional plotting
+            self.logger.warning("Failed to visualize comparison: %s", exc)
 
     def visualize_pruned_filters(self) -> None:
-        """Visualize which channels were pruned for each convolution layer.
-
-        Produces a heatmap with layers on the y-axis and channel indices on the
-        x-axis. Dark squares mark filters removed by pruning. The plot is saved
-        as ``pruned_filters.png`` in ``self.workdir``.
-        """
-
-        if not self.masks or not self.layers:
-            return
-
+        """Visualize pruned filters using base helper."""
         try:
-            import matplotlib.pyplot as plt
-            import numpy as np
-
-            names = [name for _, name, _ in self.layers]
-            pruned = [(~mask).cpu().numpy().astype(int) for mask in self.masks]
-            max_channels = max(len(m) for m in pruned)
-
-            matrix = np.zeros((len(pruned), max_channels), dtype=int)
-            for i, m in enumerate(pruned):
-                matrix[i, : len(m)] = m
-
-            fig, ax = plt.subplots(figsize=(8, 0.5 * len(pruned) + 1))
-            ax.imshow(matrix, cmap="Greys", aspect="auto")
-            ax.set_yticks(range(len(names)))
-            ax.set_yticklabels(names)
-            ax.set_xlabel("Channel index")
-            ax.set_title("Pruned filter map (dark = pruned)")
-            plt.tight_layout()
-            plt.savefig(self.workdir / "pruned_filters.png")
-            plt.close()
-
-            self.logger.info(
-                "Pruned filters visualization saved to %s",
-                self.workdir / "pruned_filters.png",
-            )
-        except Exception as e:
-            self.logger.warning(
-                "Failed to create pruned filters visualization: %s", str(e)
-            )
+            super().visualize_pruned_filters()
+        except Exception as exc:  # pragma: no cover - optional plotting
+            self.logger.warning("Failed to visualize pruned filters: %s", exc)

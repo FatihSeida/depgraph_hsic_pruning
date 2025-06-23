@@ -43,3 +43,17 @@ class DepgraphMethod(BasePruningMethod):
             raise RuntimeError("generate_pruning_mask must be called first")
         self.pruner.step()
 
+    def visualize_comparison(self) -> None:
+        """Visualize baseline vs pruned metrics using base helper."""
+        try:
+            super().visualize_comparison()
+        except Exception as exc:  # pragma: no cover - optional plotting
+            self.logger.warning("Failed to visualize comparison: %s", exc)
+
+    def visualize_pruned_filters(self) -> None:
+        """Visualize pruned filters using base helper."""
+        try:
+            super().visualize_pruned_filters()
+        except Exception as exc:  # pragma: no cover - optional plotting
+            self.logger.warning("Failed to visualize pruned filters: %s", exc)
+
