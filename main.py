@@ -23,7 +23,7 @@ import pipeline as pipeline_mod
 from ultralytics import YOLO
 import prune_methods as pm
 from prune_methods import BasePruningMethod
-from helper.logger import timed_step, format_subheader
+from helper.logger import timed_step, format_subheader, log_block, log_substep
 
 
 def create_pipeline(
@@ -234,17 +234,22 @@ def execute_pipeline(
     logger.info("Lokasi kerja: %s", workdir)
     logger.info("%s", "="*80)
 
-    with timed_step(logger, "Load model"):
+    # Load model
+    log_block(logger, "LOAD MODEL")
+    with timed_step(logger, "Load model", show_header=False):
         pipeline.load_model()
         if hasattr(pipeline.model, "to"):
             pipeline.model.to(config.device)
-            logger.info("Model dipindahkan ke device: %s", config.device)
+            log_substep(logger, f"Model dipindahkan ke device: {config.device}")
 
-    with timed_step(logger, "Hitung statistik awal"):
+    # Calculate initial statistics
+    log_block(logger, "HITUNG STATISTIK AWAL")
+    with timed_step(logger, "Hitung statistik awal", show_header=False):
         stats = pipeline.calc_initial_stats()
-        logger.info(format_subheader("Initial Stats"))
-        for k, v in stats.items():
-            logger.info("%s: %s", k, v)
+        log_substep(logger, f"parameters: {stats['parameters']}")
+        log_substep(logger, f"flops: {stats['flops']}")
+        log_substep(logger, f"filters: {stats['filters']}")
+        log_substep(logger, f"model_size_mb: {stats['model_size_mb']}")
 
     if method_cls is not None:
         pruning_method = method_cls(pipeline.model.model, workdir=workdir)

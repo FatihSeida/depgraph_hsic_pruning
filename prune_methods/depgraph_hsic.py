@@ -129,7 +129,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                         "Registered hook for %s at index %d", name, idx
                     )
                     idx += 1
-        self.logger.info("Registered hooks for %d Conv2d layers", len(self.layers))
+        self.logger.debug("Registered hooks for %d Conv2d layers", len(self.layers))
 
     def remove_hooks(self) -> None:
         for h in self.handles:
@@ -140,8 +140,8 @@ class DepgraphHSICMethod(BasePruningMethod):
         """Store labels observed during a forward pass."""
         processed = y.detach().cpu()
         self.labels.append(processed)
-        self.logger.info("Recorded label tensor shape %s", tuple(processed.shape))
-        self.logger.info("Cumulative labels stored: %d", len(self.labels))
+        self.logger.debug("Recorded label tensor shape %s", tuple(processed.shape))
+        self.logger.debug("Cumulative labels stored: %d", len(self.labels))
 
     def reset_records(self) -> None:
         """Clear all collected activation data and labels.
@@ -152,7 +152,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         """
         act_count = sum(len(v) for v in self.activations.values())
         label_count = len(self.labels)
-        self.logger.info(
+        self.logger.debug(
             "Resetting records: clearing %d activations and %d labels",
             act_count,
             label_count,
@@ -230,7 +230,7 @@ class DepgraphHSICMethod(BasePruningMethod):
             pruning_groups = list(self.DG.get_all_groups())
         else:  # pragma: no cover - API difference
             pruning_groups = []
-        self.logger.info("Dependency graph has %d pruning groups", len(pruning_groups))
+        self.logger.debug("Dependency graph has %d pruning groups", len(pruning_groups))
         
         for i, group in enumerate(pruning_groups):
             self.logger.debug("Group %d has %d dependencies", i, len(group))
@@ -252,7 +252,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         # Refresh hooks to track convolution layers
         self.register_hooks()
 
-        self.logger.info("Building dependency graph for model...")
+        self.logger.debug("Building dependency graph for model...")
         
         # Create dependency graph
         self.DG = tp.DependencyGraph()
@@ -263,7 +263,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         # Store the analyzed model
         self._dg_model = model_to_analyze
         
-        self.logger.info("Dependency graph analysis completed")
+        self.logger.debug("Dependency graph analysis completed")
 
     def refresh_dependency_graph(self) -> None:  # pragma: no cover - heavy dependency
         """Refresh dependency graph after model changes."""
@@ -284,7 +284,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         # Refresh hooks to track convolution layers
         self.register_hooks()
 
-        self.logger.info("Refreshing dependency graph...")
+        self.logger.debug("Refreshing dependency graph...")
         
         # Rebuild dependency graph
         self.DG = tp.DependencyGraph()
@@ -295,7 +295,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         # Update the analyzed model
         self._dg_model = model_to_analyze
         
-        self.logger.info("Dependency graph refresh completed")
+        self.logger.debug("Dependency graph refresh completed")
 
     def generate_pruning_mask(
         self,
@@ -315,7 +315,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         min_labels : int, optional
             Minimum number of labels required for HSIC computation.
         """
-        self.logger.info("Generating pruning mask with ratio %.3f", ratio)
+        self.logger.debug("Generating pruning mask with ratio %.3f", ratio)
         
         # Analyze model if not done yet
         if self.DG is None:
@@ -327,11 +327,11 @@ class DepgraphHSICMethod(BasePruningMethod):
             return
         except Exception as e:
             self.logger.warning("GroupNormPruner failed: %s", str(e))
-            self.logger.info("Falling back to dependency graph method")
+            self.logger.debug("Falling back to dependency graph method")
 
         # Collect activations and labels if dataloader provided
         if dataloader is not None:
-            self.logger.info("Collecting activations and labels...")
+            self.logger.debug("Collecting activations and labels...")
             self._collect_activations(dataloader)
             
             if len(self.labels) < min_labels:
@@ -353,12 +353,12 @@ class DepgraphHSICMethod(BasePruningMethod):
         except Exception:
             device = torch.device("cpu")
 
-        example_inputs = tuple(t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple())
+            example_inputs = tuple(t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple())
         
         # Use the model instance directly
         model_to_analyze = self.model
 
-        self.logger.info("Using GroupNormPruner with GroupMagnitudeImportance")
+        self.logger.debug("Using GroupNormPruner with GroupMagnitudeImportance")
         
         # Create pruner like in the official example
         self.pruner = tp.pruner.GroupNormPruner(
@@ -374,7 +374,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         # Execute pruning step
         self.pruner.step()
         
-        self.logger.info("GroupNormPruner pruning completed successfully")
+        self.logger.debug("GroupNormPruner pruning completed successfully")
 
     def _hsic_lasso_plan(self, ratio: float) -> None:
         """Generate pruning plan using HSIC-Lasso method."""
@@ -452,44 +452,44 @@ class DepgraphHSICMethod(BasePruningMethod):
                         pruned_count += 1
                         break
 
-        self.logger.info("Applied HSIC-Lasso pruning: %d channels", pruned_count)
+        self.logger.debug("Applied HSIC-Lasso pruning: %d channels", pruned_count)
 
     def apply_pruning(self, rebuild: bool = False) -> None:  # pragma: no cover - heavy dependency
         """Apply the generated pruning mask to the model."""
         if self.pruner is not None:
             # If using GroupNormPruner, it's already applied
-            self.logger.info("Pruning already applied by GroupNormPruner")
+            self.logger.debug("Pruning already applied by GroupNormPruner")
             return
             
         if self.DG is None:
             raise RuntimeError("No dependency graph available")
 
-        self.logger.info("Applying pruning via dependency graph...")
+        self.logger.debug("Applying pruning via dependency graph...")
         
         # The pruning is already applied during mask generation
         # Just need to rebuild if requested
         if rebuild:
-            self.logger.info("Rebuilding model after pruning...")
+            self.logger.debug("Rebuilding model after pruning...")
             # The dependency graph handles the rebuilding automatically
             pass
 
-        self.logger.info("Pruning applied successfully")
+        self.logger.debug("Pruning applied successfully")
 
     def _individual_channel_pruning(self, ratio: float, fallback_allowed: bool = False) -> None:
         """Try individual channel pruning as fallback."""
         if self.DG is None:
             raise RuntimeError("analyze_model must be called first")
 
-        self.logger.info("Attempting individual channel pruning...")
+        self.logger.debug("Attempting individual channel pruning...")
         
         # Get pruning groups
         pruning_groups = self.DG.get_pruning_groups()
-        self.logger.info("Found %d pruning groups for individual channel pruning", len(pruning_groups))
+        self.logger.debug("Found %d pruning groups for individual channel pruning", len(pruning_groups))
         
         if len(pruning_groups) <= 1:
             self.logger.warning("Only %d pruning group found, individual channel pruning may not work", len(pruning_groups))
             if fallback_allowed:
-                self.logger.info("Falling back to simple L1 norm pruning")
+                self.logger.debug("Falling back to simple L1 norm pruning")
                 self._l1_norm_plan_simple(ratio)
                 return
             else:
@@ -522,7 +522,7 @@ class DepgraphHSICMethod(BasePruningMethod):
                 self.logger.debug("Failed to prune group %d: %s", group_idx, str(e))
                 continue
 
-        self.logger.info("Individual channel pruning completed: %d/%d channels pruned", pruned_channels, total_channels)
+        self.logger.debug("Individual channel pruning completed: %d/%d channels pruned", pruned_channels, total_channels)
 
         if pruned_channels == 0:
             raise RuntimeError("Individual channel pruning produced no pruning")

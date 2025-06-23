@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import Optional, callable
+from typing import Optional, Callable
 
 
 # ------------------------------------------------------------------
@@ -106,7 +106,7 @@ def get_logger(
 
 
 @contextmanager
-def timed_step(logger: "Logger", title: str, recover: Optional[callable] = None):
+def timed_step(logger: "Logger", title: str, recover: Optional[Callable] = None, show_header: bool = True):
     """Context manager to log the duration of *title* step.
 
     Example
@@ -116,7 +116,8 @@ def timed_step(logger: "Logger", title: str, recover: Optional[callable] = None)
     2025-06-23 10:00:00 - INFO - ===== Load model =====
     2025-06-23 10:00:01 - INFO - ✅ Load model selesai dalam 1.00s
     """
-    logger.info(format_header(title))
+    if show_header:
+        logger.info(format_header(title))
     start = time.time()
     success = True
     try:
@@ -141,6 +142,16 @@ def timed_step(logger: "Logger", title: str, recover: Optional[callable] = None)
             logger.info("⚠️ %s berakhir dengan error setelah %.2fs", title, duration)
 
 
+def log_block(logger: Logger, text: str, width: int = 80):
+    border = "=" * width
+    logger.info(border)
+    logger.info(f"== {text.center(width-6)} ==")
+    logger.info(border)
+
+def log_substep(logger: Logger, text: str, width: int = 80):
+    logger.info(f"---- {text}")
+
+
 __all__ = [
     "Logger",
     "get_logger",
@@ -149,4 +160,6 @@ __all__ = [
     "format_subheader",
     "format_step",
     "timed_step",
+    "log_block",
+    "log_substep",
 ]

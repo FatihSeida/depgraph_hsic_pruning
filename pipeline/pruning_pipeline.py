@@ -61,11 +61,10 @@ class PruningPipeline(BasePruningPipeline):
         total = len(self.steps)
         for idx, step in enumerate(self.steps, 1):
             title = format_step(idx, total, step.__class__.__name__)
-            self.logger.info(format_header(title))
             start = time.time()
             step.run(context)
             elapsed = time.time() - start
-            self.logger.info(format_header(f"{title} finished in {elapsed:.2f}s"))
+            self.logger.info(f"✅ {title} finished in {elapsed:.2f}s")
         # sync results back to the pipeline instance
         self.model = context.model
         self.initial_stats = context.initial_stats
