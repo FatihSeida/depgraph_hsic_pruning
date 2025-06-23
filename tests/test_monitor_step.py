@@ -97,12 +97,14 @@ def test_monitor_metrics_recorded(monkeypatch, tmp_path):
     pipeline, _ = main.execute_pipeline('m.pt', 'd.yaml', None, 0, cfg, tmp_path)
     comp = pipeline.metrics_mgr.computation
     assert comp['gpu_utilization'] == 42
+    assert comp['gpu_memory_percent'] == 50
     assert comp['ram_percent'] == 30
     assert comp['avg_ram_used_mb'] == 3
     assert comp['power_usage_watts'] == 5
     metrics = pipeline.record_metrics()
     assert 'computation' in metrics
     assert metrics['computation']['gpu_utilization'] == 42
+    assert metrics['computation']['gpu_memory_percent'] == 50
     assert metrics['computation']['ram_percent'] == 30
     assert metrics['computation']['avg_ram_used_mb'] == 3
     assert metrics['computation']['power_usage_watts'] == 5

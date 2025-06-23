@@ -49,6 +49,7 @@ COMPUTATION_METRIC_FIELDS = [
     "gpu_utilization",
     "gpu_memory_used_mb",
     "gpu_memory_total_mb",
+    "gpu_memory_percent",
     "ram_used_mb",
     "ram_total_mb",
     "ram_percent",
