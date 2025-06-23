@@ -173,7 +173,6 @@ class PruningPipeline2(BasePruningPipeline):
     def analyze_structure(self) -> None:
         if self.pruning_method is None:
             raise ValueError("No pruning method set")
-        self.logger.info("Analyzing model structure")
         self._sync_pruning_method(reanalyze=True)
         groups = []
         if getattr(self.pruning_method, "DG", None) is not None:
@@ -199,7 +198,6 @@ class PruningPipeline2(BasePruningPipeline):
     ) -> None:
         if self.pruning_method is None:
             raise ValueError("No pruning method set")
-        self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         self.pruning_method.model = self.model.model
         self.logger.info("Reanalyzing model before mask generation")
         self.pruning_method.analyze_model()
@@ -242,7 +240,6 @@ class PruningPipeline2(BasePruningPipeline):
     def apply_pruning(self, rebuild: bool = False) -> None:
         if self.pruning_method is None:
             raise ValueError("No pruning method set")
-        self.logger.info("Applying pruning")
         self.pruning_method.apply_pruning(rebuild=rebuild)
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:

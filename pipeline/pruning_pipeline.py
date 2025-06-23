@@ -158,19 +158,16 @@ class PruningPipeline(BasePruningPipeline):
     def analyze_structure(self) -> None:
         """Analyze model structure to guide pruning."""
         if self.pruning_method is not None:
-            self.logger.info("Analyzing model structure")
             self.pruning_method.analyze_model()
 
     def generate_pruning_mask(self, ratio: float, dataloader: Any | None = None) -> None:
         """Generate pruning mask at the given ratio."""
         if self.pruning_method is not None:
-            self.logger.info("Generating pruning mask at ratio %.2f", ratio)
             self.pruning_method.generate_pruning_mask(ratio, dataloader=dataloader)
 
     def apply_pruning(self, rebuild: bool = False) -> None:
         """Apply the generated pruning mask."""
         if self.pruning_method is not None:
-            self.logger.info("Applying pruning")
             self.pruning_method.apply_pruning(rebuild=rebuild)
 
     def reconfigure_model(self, output_path: str | None = None) -> None:
