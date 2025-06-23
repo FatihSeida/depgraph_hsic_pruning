@@ -31,7 +31,7 @@ class WeightedHybridMethod(BasePruningMethod):
         sim = torch.abs(torch.mm(norm, norm.t()))
         return 1 - sim
 
-    def generate_pruning_mask(self, ratio: float) -> None:
+    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         self.ratio = ratio
         self.masks = []
@@ -59,7 +59,7 @@ class WeightedHybridMethod(BasePruningMethod):
             mask[keep] = True
             self.masks.append(mask)
 
-    def apply_pruning(self) -> None:
+    def apply_pruning(self, rebuild=False) -> None:
         self.logger.info("Applying pruning")
         for (parent, attr, bn), mask in zip(self.layers, self.masks):
             conv = getattr(parent, attr)

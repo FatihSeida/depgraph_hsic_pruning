@@ -24,7 +24,7 @@ class RandomMethod(BasePruningMethod):
         self.logger.info("Analyzing model")
         self.layers = collect_backbone_convs(self.model)
 
-    def generate_pruning_mask(self, ratio: float) -> None:
+    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         self.ratio = ratio
         self.masks = []
@@ -44,7 +44,7 @@ class RandomMethod(BasePruningMethod):
                 mask[idx[:num_prune]] = False
             self.masks.append(mask)
 
-    def apply_pruning(self) -> None:
+    def apply_pruning(self, rebuild=False) -> None:
         self.logger.info("Applying pruning")
         for (parent, attr, bn), mask in zip(self.layers, self.masks):
             conv = getattr(parent, attr)

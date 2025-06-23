@@ -218,8 +218,6 @@ class PruningPipeline2(BasePruningPipeline):
         self,
         ratio: float,
         dataloader: Any | None = None,
-        *,
-        allow_l1_fallback: bool = True,
     ) -> None:
         if not isinstance(self.pruning_method, DepgraphHSICMethod):
             raise NotImplementedError
@@ -241,7 +239,6 @@ class PruningPipeline2(BasePruningPipeline):
         self.pruning_method.generate_pruning_mask(
             ratio,
             dataloader=dataloader,
-            allow_l1_fallback=allow_l1_fallback,
         )
         plan = getattr(self.pruning_method, "pruning_plan", [])
         channels = len(plan)

@@ -19,8 +19,8 @@ model = torch.nn.Sequential(
 method = DepgraphHSICMethod(model, workdir='{tmp_path}')
 method.register_hooks()
 # no activations or labels recorded
-method.generate_pruning_mask(0.5, allow_l1_fallback=False)
+method.generate_pruning_mask(0.5)
 """
     proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert proc.returncode != 0
-    assert "fallback" in proc.stderr + proc.stdout
+    assert "HSIC-Lasso pruning failed" in proc.stderr + proc.stdout

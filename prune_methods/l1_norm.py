@@ -24,7 +24,7 @@ class L1NormMethod(BasePruningMethod):
         self.logger.info("Analyzing model")
         self.layers = collect_backbone_convs(self.model)
 
-    def generate_pruning_mask(self, ratio: float) -> None:
+    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         self.ratio = ratio
         self.masks = []
@@ -45,7 +45,7 @@ class L1NormMethod(BasePruningMethod):
                 mask[idx[:num_prune]] = False
             self.masks.append(mask)
 
-    def apply_pruning(self) -> None:
+    def apply_pruning(self, rebuild=False) -> None:
         self.logger.info("Applying pruning")
         for (parent, attr, bn), mask in zip(self.layers, self.masks):
             conv = getattr(parent, attr)
@@ -86,3 +86,28 @@ class L1NormMethod(BasePruningMethod):
                 new_bn.running_mean = bn.running_mean[keep_idx].clone()
                 new_bn.running_var = bn.running_var[keep_idx].clone()
                 setattr(parent, "bn", new_bn)
+
+    def visualize_comparison(self) -> None:
+        """Visualize baseline vs pruned metrics."""
+        if not self.initial_stats or not self.pruned_stats:
+            return
+        
+        try:
+            import matplotlib.pyplot as plt
+            
+            labels = ["baseline", "pruned"]
+            params = [self.initial_stats.get("parameters", 0), self.pruned_stats.get("parameters", 0)]
+            flops = [self.initial_stats.get("flops", 0), self.pruned_stats.get("flops", 0)]
+
+            fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+            axes[0].bar(labels, params)
+            axes[0].set_title("Parameters")
+            axes[1].bar(labels, flops)
+            axes[1].set_title("FLOPs")
+            plt.tight_layout()
+            plt.savefig(self.workdir / "comparison.png")
+            plt.close()
+            
+            self.logger.info("Comparison visualization saved to %s", self.workdir / "comparison.png")
+        except Exception as e:
+            self.logger.warning("Failed to create comparison visualization: %s", str(e))

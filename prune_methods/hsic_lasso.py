@@ -86,7 +86,7 @@ class HSICLassoMethod(BasePruningMethod):
     # Pruning logic
     # ------------------------------------------------------------------
 
-    def generate_pruning_mask(self, ratio: float) -> None:
+    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         self.ratio = ratio
         self.masks = []
@@ -103,7 +103,7 @@ class HSICLassoMethod(BasePruningMethod):
             mask[order[:num_keep]] = True
             self.masks.append(mask)
 
-    def apply_pruning(self) -> None:
+    def apply_pruning(self, rebuild=False) -> None:
         self.logger.info("Applying pruning")
         for (parent, attr, bn), mask in zip(self.layers, self.masks):
             conv = getattr(parent, attr)

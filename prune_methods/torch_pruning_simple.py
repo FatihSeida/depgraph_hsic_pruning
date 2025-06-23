@@ -25,7 +25,7 @@ class TorchRandomMethod(BasePruningMethod):
         self.DG = tp.DependencyGraph()
         self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
 
-    def generate_pruning_mask(self, ratio: float) -> None:
+    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         import torch_pruning as tp
         importance = tp.importance.RandomImportance()
@@ -38,7 +38,7 @@ class TorchRandomMethod(BasePruningMethod):
             iterative_steps=1,
         )
 
-    def apply_pruning(self) -> None:
+    def apply_pruning(self, rebuild=False) -> None:
         self.logger.info("Applying pruning")
         if self.pruner is None:
             raise RuntimeError("generate_pruning_mask must be called first")

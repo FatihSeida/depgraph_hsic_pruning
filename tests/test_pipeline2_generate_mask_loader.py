@@ -33,9 +33,9 @@ def test_pipeline2_generate_mask_with_loader(monkeypatch):
             pass
 
         def generate_pruning_mask(
-            self, ratio, dataloader=None, *, allow_l1_fallback=True
+            self, ratio, dataloader=None
         ):
-            self.calls.append((dataloader, allow_l1_fallback))
+            self.calls.append((dataloader,))
 
     hsic_mod.DepgraphHSICMethod = DummyMethod
     monkeypatch.setitem(sys.modules, 'prune_methods.depgraph_hsic', hsic_mod)
@@ -47,4 +47,4 @@ def test_pipeline2_generate_mask_with_loader(monkeypatch):
     pipeline.load_model()
     pipeline._run_short_forward_pass = lambda: (_ for _ in ()).throw(RuntimeError('called'))
     pipeline.generate_pruning_mask(0.5, dataloader=loader)
-    assert pipeline.pruning_method.calls == [(loader, True)]
+    assert pipeline.pruning_method.calls == [(loader,)]
