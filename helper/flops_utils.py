@@ -56,7 +56,14 @@ def calculate_flops_manual(model: Any, imgsz: int | Iterable[int] = 640) -> floa
             shape = (1, s[0], s[1], s[2])
         else:
             shape = tuple(s)
-    dummy = torch.zeros(*shape)
+    try:
+        device = next(model.parameters()).device
+    except Exception:  # pragma: no cover - best effort
+        device = None
+    if device is not None:
+        dummy = torch.zeros(*shape, device=device)
+    else:
+        dummy = torch.zeros(*shape)
     totals = [0]
     hooks = []
     for module in model.modules():

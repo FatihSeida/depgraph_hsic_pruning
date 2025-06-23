@@ -44,3 +44,29 @@ def test_get_num_params_reliable_fallback(monkeypatch):
     importlib.reload(fu)
     params = fu.get_num_params_reliable(model)
     assert params == 10
+
+
+def test_calculate_flops_manual_respects_device(monkeypatch):
+    import torch
+    import torch.nn as nn
+
+    fu = importlib.import_module('helper.flops_utils')
+    importlib.reload(fu)
+
+    model = nn.Sequential(nn.Conv2d(3, 8, 1))
+    device = next(model.parameters()).device
+
+    monkeypatch.setattr(fu, "_get_flops", lambda *a, **k: 0, raising=False)
+
+    recorded = {}
+    orig_zeros = torch.zeros
+
+    def spy_zeros(*args, **kwargs):
+        recorded["device"] = kwargs.get("device")
+        return orig_zeros(*args, **kwargs)
+
+    monkeypatch.setattr(torch, "zeros", spy_zeros)
+
+    fu.calculate_flops_manual(model, imgsz=8)
+
+    assert recorded["device"] == device
