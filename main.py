@@ -236,7 +236,7 @@ def execute_pipeline(
 
     # Load model
     log_block(logger, "LOAD MODEL")
-    with timed_step(logger, "Load model", show_header=False):
+    with timed_step(logger, "Load model"):
         pipeline.load_model()
         if hasattr(pipeline.model, "to"):
             pipeline.model.to(config.device)
@@ -244,7 +244,7 @@ def execute_pipeline(
 
     # Calculate initial statistics
     log_block(logger, "HITUNG STATISTIK AWAL")
-    with timed_step(logger, "Hitung statistik awal", show_header=False):
+    with timed_step(logger, "Hitung statistik awal"):
         stats = pipeline.calc_initial_stats()
         log_substep(logger, f"parameters: {stats['parameters']}")
         log_substep(logger, f"flops: {stats['flops']}")

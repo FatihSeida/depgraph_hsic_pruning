@@ -106,7 +106,7 @@ def get_logger(
 
 
 @contextmanager
-def timed_step(logger: "Logger", title: str, recover: Optional[callable] = None):
+def timed_step(logger: "Logger", title: str, recover: Optional[Callable] = None):
     """Context manager to log the duration of *title* step.
 
     Example
@@ -116,8 +116,7 @@ def timed_step(logger: "Logger", title: str, recover: Optional[callable] = None)
     2025-06-23 10:00:00 - INFO - ===== Load model =====
     2025-06-23 10:00:01 - INFO - ✅ Load model selesai dalam 1.00s
     """
-    if show_header:
-        logger.info(format_header(title))
+    logger.info(format_header(title))
     start = time.time()
     success = True
     try:
