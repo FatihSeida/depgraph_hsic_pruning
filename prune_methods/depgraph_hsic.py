@@ -246,11 +246,8 @@ class DepgraphHSICMethod(BasePruningMethod):
 
         example_inputs = tuple(t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple())
 
-        # Get the actual model to analyze
-        if hasattr(self.model, "model"):
-            model_to_analyze = self.model.model
-        else:
-            model_to_analyze = self.model
+        # Use the model instance directly
+        model_to_analyze = self.model
 
         # Refresh hooks to track convolution layers
         self.register_hooks()
@@ -281,11 +278,8 @@ class DepgraphHSICMethod(BasePruningMethod):
 
         example_inputs = tuple(t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple())
         
-        # Get the actual model to analyze
-        if hasattr(self.model, "model"):
-            model_to_analyze = self.model.model
-        else:
-            model_to_analyze = self.model
+        # Use the model instance directly
+        model_to_analyze = self.model
 
         # Refresh hooks to track convolution layers
         self.register_hooks()
@@ -361,11 +355,8 @@ class DepgraphHSICMethod(BasePruningMethod):
 
         example_inputs = tuple(t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple())
         
-        # Get the actual model to analyze
-        if hasattr(self.model, "model"):
-            model_to_analyze = self.model.model
-        else:
-            model_to_analyze = self.model
+        # Use the model instance directly
+        model_to_analyze = self.model
 
         self.logger.info("Using GroupNormPruner with GroupMagnitudeImportance")
         
