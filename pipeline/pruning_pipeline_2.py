@@ -111,6 +111,10 @@ class PruningPipeline2(BasePruningPipeline):
         self.logger.info("Calculating initial model statistics")
         params = get_num_params(self.model.model)
         flops = get_flops(self.model.model)
+        if flops == 0:
+            self.logger.warning(
+                "FLOPs reported as 0; verify that 'ultralytics-thop' is installed"
+            )
         filters = count_filters(self.model.model)
         size_mb = model_size_mb(self.model.model)
         self.initial_stats = {
@@ -251,6 +255,10 @@ class PruningPipeline2(BasePruningPipeline):
         self.logger.info("Calculating pruned model statistics")
         params = get_num_params(self.model.model)
         flops = get_flops(self.model.model)
+        if flops == 0:
+            self.logger.warning(
+                "FLOPs reported as 0; verify that 'ultralytics-thop' is installed"
+            )
         filters = count_filters(self.model.model)
         size_mb = model_size_mb(self.model.model)
         self.pruned_stats = {
