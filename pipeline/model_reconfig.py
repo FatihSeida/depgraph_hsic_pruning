@@ -30,6 +30,7 @@ class AdaptiveLayerReconfiguration(ModelReconfiguration):
     ) -> YOLO:
         self.logger.info("Applying Adaptive Layer Reconfiguration")
         model = pruned_model.model
+        device = next(model.parameters()).device
         backbone = list(model.model[:10])
 
         # Gather output channels for backbone modules
@@ -70,6 +71,7 @@ class AdaptiveLayerReconfiguration(ModelReconfiguration):
                             bias=sub.bias is not None,
                             padding_mode=sub.padding_mode,
                             groups=1,
+                            device=device,
                         )
                         nn.init.kaiming_normal_(new_conv.weight)
                         if sub.bias is not None:
@@ -105,6 +107,7 @@ class AdaptiveLayerReconfiguration(ModelReconfiguration):
                             bias=sub.bias is not None,
                             padding_mode=sub.padding_mode,
                             groups=1,
+                            device=device,
                         )
                         nn.init.kaiming_normal_(new_conv.weight)
                         if sub.bias is not None:
@@ -120,6 +123,8 @@ class AdaptiveLayerReconfiguration(ModelReconfiguration):
         if output_path:
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             pruned_model.save(output_path)
+
+        pruned_model.to(device)
 
         return pruned_model
 
