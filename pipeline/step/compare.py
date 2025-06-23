@@ -10,18 +10,11 @@ class CompareModelsStep(PipelineStep):
     def run(self, context: PipelineContext) -> None:
         step = self.__class__.__name__
         context.logger.info("Starting %s", step)
-        if context.pruning_method is None:
-            return
-        context.logger.info("Visualizing pruning results")
-        
-        # Call visualize_comparison if available
-        if hasattr(context.pruning_method, 'visualize_comparison'):
-            context.pruning_method.visualize_comparison()
-        
-        # Call visualize_pruned_filters if available
-        if hasattr(context.pruning_method, 'visualize_pruned_filters'):
-            context.pruning_method.visualize_pruned_filters()
-            
+        pipeline = getattr(context, "pipeline", None)
+        if pipeline is not None:
+            pipeline.visualize_results()
+        else:
+            context.logger.debug("No pipeline attached; skipping visualization")
         context.logger.info("Finished %s", step)
 
 __all__ = ["CompareModelsStep"]

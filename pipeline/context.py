@@ -16,6 +16,7 @@ class PipelineContext:
     data: str
     workdir: Path = Path("runs/pruning")
     pruning_method: Optional[BasePruningMethod] = None
+    pipeline: Any = None
     logger: Logger = field(default_factory=get_logger)
     model: Any = None
     dataloader: Any = None

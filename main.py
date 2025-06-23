@@ -18,12 +18,8 @@ from typing import Iterable, List, Type
 import logging
 
 from helper import ExperimentManager, get_logger, Logger, add_file_handler
-from pipeline import (
-    BasePruningPipeline,
-    PruningPipeline,
-    PruningPipeline2,
-    MonitorComputationStep,
-)
+from pipeline import BasePruningPipeline, PruningPipeline, MonitorComputationStep
+import pipeline as pipeline_mod
 from ultralytics import YOLO
 import prune_methods as pm
 from prune_methods import BasePruningMethod
@@ -46,7 +42,7 @@ def create_pipeline(
     )
     
     if method_cls in depgraph_methods:
-        return PruningPipeline2(
+        return pipeline_mod.PruningPipeline2(
             model_path=model_path,
             data=data,
             workdir=workdir,

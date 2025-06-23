@@ -52,6 +52,7 @@ class PruningPipeline(BasePruningPipeline):
             pruning_method=self.pruning_method,
             logger=self.logger,
         )
+        context.pipeline = self
         context.metrics_mgr = self.metrics_mgr
         for step in self.steps:
             step.run(context)
