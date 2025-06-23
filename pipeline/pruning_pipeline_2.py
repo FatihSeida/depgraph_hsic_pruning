@@ -17,6 +17,7 @@ from helper import (
     count_filters,
     model_size_mb,
     log_stats_comparison,
+    format_training_summary,
 )
 
 
@@ -159,6 +160,8 @@ class PruningPipeline2(BasePruningPipeline):
                 pass
 
         self.logger.info("Training finished; recorded %d label batches", num_labels)
+        if metrics:
+            self.logger.info("Training summary: %s", format_training_summary(metrics))
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics or {}
         return metrics or {}
@@ -273,11 +276,20 @@ class PruningPipeline2(BasePruningPipeline):
         if label_fn is None:
             label_fn = lambda batch: batch["cls"]
         self._register_label_callback(label_fn)
+        original_model = self.model.model
         try:
             metrics = self.model.train(data=self.data, device=device, **train_kwargs)
         finally:
             self._unregister_label_callback()
+        model_changed = self.model.model is not original_model
+        if self.pruning_method is not None:
+            try:
+                self._sync_pruning_method(reanalyze=model_changed)
+            except Exception:
+                pass
         self.logger.debug(metrics)
+        if metrics:
+            self.logger.info("Training summary: %s", format_training_summary(metrics))
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics or {}
         return metrics or {}
