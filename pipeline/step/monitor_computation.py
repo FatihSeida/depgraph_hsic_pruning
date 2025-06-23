@@ -47,6 +47,7 @@ class MonitorComputationStep(PipelineStep):
             "total_time": elapsed,
             "total_time_minutes": elapsed / 60.0,
             "gpu_utilization": gpu_summary.get("avg_utilization", 0.0),
+            "gpu_memory_percent": gpu_summary.get("avg_memory_percent", 0.0),
             "gpu_memory_used_mb": gpu_metrics.get("gpu_memory_used_mb", 0.0),
             "gpu_memory_total_mb": gpu_metrics.get("gpu_memory_total_mb", 0.0),
             "ram_used_mb": mem_metrics.get("ram_used_mb", 0.0),
