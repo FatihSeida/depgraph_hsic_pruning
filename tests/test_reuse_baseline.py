@@ -11,7 +11,6 @@ sys.modules['torch.nn'] = types.ModuleType('torch.nn')
 up = types.ModuleType('ultralytics')
 utils = types.ModuleType('ultralytics.utils')
 torch_utils = types.ModuleType('ultralytics.utils.torch_utils')
-torch_utils.get_flops = lambda *a, **k: 0
 torch_utils.get_num_params = lambda *a, **k: 0
 utils.torch_utils = torch_utils
 up.utils = utils
@@ -72,6 +71,8 @@ class DummyMgr:
 
 def test_baseline_reused_when_available(monkeypatch, tmp_path):
     calls = []
+    from helper import flops_utils as fu
+    monkeypatch.setattr(fu, "get_flops_reliable", lambda *a, **k: 0, raising=False)
 
     def fake_exec(model, data, method_cls, ratio, cfg, workdir, **kw):
         calls.append(str(model))

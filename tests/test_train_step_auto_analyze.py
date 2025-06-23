@@ -70,8 +70,9 @@ class DummyYOLO:
 up = types.ModuleType('ultralytics')
 utils = types.ModuleType('ultralytics.utils')
 torch_utils = types.ModuleType('ultralytics.utils.torch_utils')
-torch_utils.get_flops = lambda m: 0
 torch_utils.get_num_params = lambda m: 0
+from helper import flops_utils as fu
+fu.get_flops_reliable = lambda m: 0
 utils.torch_utils = torch_utils
 up.utils = utils
 up.YOLO = lambda *a, **k: DummyYOLO()

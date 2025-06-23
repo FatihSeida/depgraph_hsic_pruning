@@ -11,8 +11,9 @@ def test_pretrain_unregisters_callback_on_error(monkeypatch):
     up = types.ModuleType('ultralytics')
     utils = types.ModuleType('ultralytics.utils')
     torch_utils = types.ModuleType('ultralytics.utils.torch_utils')
-    torch_utils.get_flops = lambda *a, **k: 0
     torch_utils.get_num_params = lambda *a, **k: 0
+    from helper import flops_utils as fu
+    monkeypatch.setattr(fu, "get_flops_reliable", lambda *a, **k: 0, raising=False)
     utils.torch_utils = torch_utils
 
     class DummyYOLO:

@@ -74,9 +74,10 @@ def test_monitor_metrics_recorded(monkeypatch, tmp_path):
     up.YOLO = lambda *a, **k: dummy
     utils = types.ModuleType('ultralytics.utils')
     torch_utils = types.ModuleType('ultralytics.utils.torch_utils')
-    torch_utils.get_flops = lambda *a, **k: 10
     torch_utils.get_num_params = lambda *a, **k: 20
     utils.torch_utils = torch_utils
+    from helper import flops_utils as fu
+    fu.get_flops_reliable = lambda *a, **k: 10
     up.utils = utils
 
     monkeypatch.setitem(sys.modules, 'ultralytics', up)
@@ -86,8 +87,8 @@ def test_monitor_metrics_recorded(monkeypatch, tmp_path):
     import main
     import pipeline.pruning_pipeline as pp
     monkeypatch.setattr(pp, 'YOLO', up.YOLO, raising=False)
-    monkeypatch.setattr(pp, 'get_flops', torch_utils.get_flops, raising=False)
-    monkeypatch.setattr(pp, 'get_num_params', torch_utils.get_num_params, raising=False)
+    monkeypatch.setattr(pp, 'get_flops_reliable', fu.get_flops_reliable, raising=False)
+    monkeypatch.setattr(pp, 'get_num_params_reliable', torch_utils.get_num_params, raising=False)
 
     monkeypatch.setattr(mc, 'GPUMetric', DummyGPU)
     monkeypatch.setattr(mc, 'MemoryMetric', DummyMemory)
