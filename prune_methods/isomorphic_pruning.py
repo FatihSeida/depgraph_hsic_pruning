@@ -54,5 +54,5 @@ class IsomorphicMethod(BasePruningMethod):
                 try:
                     reparam.prune_finalize()
                 except Exception:
-                    pass
+                    self.logger.exception("reparam prune finalize failed")
 

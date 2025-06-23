@@ -27,7 +27,7 @@ class ReconfigureModelStep(PipelineStep):
                 try:
                     pm.model = context.model.model
                 except Exception:  # pragma: no cover - best effort
-                    pass
+                    context.logger.exception("failed to assign model during reconfigure")
         context.logger.info("Reconfiguring model")
         self.reconfigurator.reconfigure_model(context.model, output_path=self.output_path)
 

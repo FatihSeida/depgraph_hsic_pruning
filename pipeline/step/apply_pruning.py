@@ -20,6 +20,6 @@ class ApplyPruningStep(PipelineStep):
             context.logger.info("Saving snapshot to %s", snapshot)
             context.model.save(str(snapshot))
         except Exception:  # pragma: no cover - best effort
-            pass
+            context.logger.exception("failed to save snapshot")
 
 __all__ = ["ApplyPruningStep"]
