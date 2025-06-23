@@ -240,7 +240,15 @@ class PruningPipeline2(BasePruningPipeline):
     def apply_pruning(self, rebuild: bool = False) -> None:
         if self.pruning_method is None:
             raise ValueError("No pruning method set")
-        self.pruning_method.apply_pruning(rebuild=rebuild)
+        import inspect
+        try:
+            sig = inspect.signature(self.pruning_method.apply_pruning)
+            if 'rebuild' in sig.parameters:
+                self.pruning_method.apply_pruning(rebuild=rebuild)
+            else:
+                self.pruning_method.apply_pruning()
+        except (ValueError, TypeError):  # pragma: no cover - fallback
+            self.pruning_method.apply_pruning(rebuild=rebuild)
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
         # DepGraph methods don't require reconfiguration

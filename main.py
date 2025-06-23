@@ -210,7 +210,9 @@ def execute_pipeline(
     workdir.mkdir(parents=True, exist_ok=True)
     log_file = workdir / "pipeline.log"
     if logger is None:
-        logger = get_logger(log_file=str(log_file))
+        # Default to DEBUG logging when no logger is provided so that pipeline
+        # executions capture detailed information.
+        logger = get_logger(level=logging.DEBUG, log_file=str(log_file))
     else:
         for h in list(logger.logger.handlers):
             if isinstance(h, logging.FileHandler):
@@ -470,7 +472,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--methods", nargs="+", default=list(METHODS_MAP.keys()), help="Pruning methods to evaluate")
     parser.add_argument("--runs-dir", default="experiments", help="Root directory for comparison runs")
     parser.add_argument("--no-baseline", action="store_true", help="Skip baseline training in comparison mode")
-    parser.add_argument("--debug", action="store_true", help="Enable verbose output")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Deprecated: logging is always verbose"
+    )
     parser.add_argument("--continue", dest="cont", action="store_true", help="Continue incomplete runs")
     parser.add_argument("--compare", action="store_true", help="Run comparison across methods")
     parser.add_argument(
@@ -501,7 +507,8 @@ def run_comparison(args: argparse.Namespace) -> None:
         writer = csv.writer(f)
         writer.writerow(["method", "ratio", "run"])
 
-    logger = get_logger()
+    # Always log at DEBUG level when running comparisons for maximum detail.
+    logger = get_logger(level=logging.DEBUG)
 
     # Baseline training
     baseline_dir: Path | None = None
@@ -605,7 +612,9 @@ def main() -> None:
         device=args.device,
     )
     methods = [get_method_class(m) for m in args.methods]
-    logger = get_logger(level=logging.DEBUG if args.debug else logging.INFO)
+    # Use DEBUG logging for all runs.  The ``--debug`` flag is retained for
+    # backward compatibility but no longer controls the log level.
+    logger = get_logger(level=logging.DEBUG)
     runner = ExperimentRunner(
         args.model,
         args.data,
