@@ -58,6 +58,20 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.pruner = None
 
     # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def _get_pruning_groups(self):
+        """Return pruning groups from the dependency graph."""
+        if self.DG is None:
+            return []
+        if hasattr(self.DG, "get_pruning_groups"):
+            return list(self.DG.get_pruning_groups())
+        if hasattr(self.DG, "get_all_groups"):
+            return list(self.DG.get_all_groups())
+        # pragma: no cover - API difference
+        return []
+
+    # ------------------------------------------------------------------
     # Utility hooks
     # ------------------------------------------------------------------
     def _activation_hook(self, idx: int):
@@ -224,12 +238,7 @@ class DepgraphHSICMethod(BasePruningMethod):
             self.logger.warning("Dependency graph not initialized")
             return
 
-        if hasattr(self.DG, "get_pruning_groups"):
-            pruning_groups = list(self.DG.get_pruning_groups())
-        elif hasattr(self.DG, "get_all_groups"):
-            pruning_groups = list(self.DG.get_all_groups())
-        else:  # pragma: no cover - API difference
-            pruning_groups = []
+        pruning_groups = self._get_pruning_groups()
         self.logger.debug("Dependency graph has %d pruning groups", len(pruning_groups))
         
         for i, group in enumerate(pruning_groups):
@@ -439,7 +448,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         indices_to_prune = sorted_indices[:num_to_prune]
 
         # Apply pruning to dependency graph
-        pruning_groups = self.DG.get_pruning_groups()
+        pruning_groups = self._get_pruning_groups()
         pruned_count = 0
         
         for idx in indices_to_prune:
@@ -483,7 +492,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.debug("Attempting individual channel pruning...")
         
         # Get pruning groups
-        pruning_groups = self.DG.get_pruning_groups()
+        pruning_groups = self._get_pruning_groups()
         self.logger.debug("Found %d pruning groups for individual channel pruning", len(pruning_groups))
         
         if len(pruning_groups) <= 1:
