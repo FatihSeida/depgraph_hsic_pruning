@@ -26,6 +26,18 @@ dependencies make sure `scikit-learn` is available:
 pip install scikit-learn
 ```
 
+### FLOP statistics
+
+FLOP counting relies on the optional `ultralytics-thop` package. If it is not
+installed, functions such as `get_flops` return `0`. The pruning pipeline then
+logs a warning:
+
+```
+FLOPs reported as 0; verify that 'ultralytics-thop' is installed
+```
+
+Install `ultralytics-thop` to ensure accurate FLOP metrics.
+
 ## Usage
 
 Run `main.py` to train and prune a YOLO model. Specify the computation device
