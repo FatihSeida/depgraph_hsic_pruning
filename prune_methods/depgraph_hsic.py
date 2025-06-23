@@ -362,7 +362,9 @@ class DepgraphHSICMethod(BasePruningMethod):
         except Exception:
             device = torch.device("cpu")
 
-            example_inputs = tuple(t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple())
+        example_inputs = tuple(
+            t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple()
+        )
         
         # Use the model instance directly
         model_to_analyze = self.model
