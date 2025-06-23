@@ -24,14 +24,17 @@ def test_calc_stats_records_filters_and_size(monkeypatch):
     from pipeline.step.calc_stats import CalcStatsStep
     from pipeline.context import PipelineContext
 
-    dummy_model = types.SimpleNamespace(model=types.SimpleNamespace())
+    dummy_model = types.SimpleNamespace(
+        model=types.SimpleNamespace(),
+        save=lambda p: None,
+    )
     ctx = PipelineContext(model_path="m", data="d")
     ctx.model = dummy_model
 
     monkeypatch.setattr("pipeline.step.calc_stats.get_num_params", lambda m: 10, raising=False)
     monkeypatch.setattr("pipeline.step.calc_stats.get_flops", lambda m: 20, raising=False)
     monkeypatch.setattr("pipeline.step.calc_stats.count_filters", lambda m: 3, raising=False)
-    monkeypatch.setattr("pipeline.step.calc_stats.model_size_mb", lambda m: 1.5, raising=False)
+    monkeypatch.setattr("pipeline.step.calc_stats.file_size_mb", lambda p: 1.5, raising=False)
 
     step = CalcStatsStep("initial")
     step.run(ctx)
@@ -58,21 +61,24 @@ def test_calc_stats_records_compression_ratio(monkeypatch):
     from pipeline.step.calc_stats import CalcStatsStep
     from pipeline.context import PipelineContext
 
-    dummy_model = types.SimpleNamespace(model=types.SimpleNamespace())
+    dummy_model = types.SimpleNamespace(
+        model=types.SimpleNamespace(),
+        save=lambda p: None,
+    )
     ctx = PipelineContext(model_path="m", data="d")
     ctx.model = dummy_model
 
     monkeypatch.setattr("pipeline.step.calc_stats.get_num_params", lambda m: 10, raising=False)
     monkeypatch.setattr("pipeline.step.calc_stats.get_flops", lambda m: 20, raising=False)
     monkeypatch.setattr("pipeline.step.calc_stats.count_filters", lambda m: 3, raising=False)
-    monkeypatch.setattr("pipeline.step.calc_stats.model_size_mb", lambda m: 1.5, raising=False)
+    monkeypatch.setattr("pipeline.step.calc_stats.file_size_mb", lambda p: 1.5, raising=False)
 
     CalcStatsStep("initial").run(ctx)
 
     monkeypatch.setattr("pipeline.step.calc_stats.get_num_params", lambda m: 5, raising=False)
     monkeypatch.setattr("pipeline.step.calc_stats.get_flops", lambda m: 10, raising=False)
     monkeypatch.setattr("pipeline.step.calc_stats.count_filters", lambda m: 2, raising=False)
-    monkeypatch.setattr("pipeline.step.calc_stats.model_size_mb", lambda m: 1.0, raising=False)
+    monkeypatch.setattr("pipeline.step.calc_stats.file_size_mb", lambda p: 1.0, raising=False)
 
     CalcStatsStep("pruned").run(ctx)
 
