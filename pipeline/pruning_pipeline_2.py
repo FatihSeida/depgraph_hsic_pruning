@@ -8,10 +8,9 @@ from ultralytics.utils.torch_utils import get_flops, get_num_params
 from torch import nn
 
 from .base_pipeline import BasePruningPipeline
-from typing import TYPE_CHECKING
+from prune_methods.depgraph_hsic import DepgraphHSICMethod
+from prune_methods.base import BasePruningMethod
 
-if TYPE_CHECKING:  # pragma: no cover - for type hints only
-    from prune_methods.depgraph_hsic import DepgraphHSICMethod
 from helper import (
     Logger,
     MetricManager,
@@ -22,14 +21,21 @@ from helper import (
 
 
 class PruningPipeline2(BasePruningPipeline):
-    """Simple pipeline specialised for :class:`DepgraphHSICMethod`."""
+    """Simple pipeline specialised for DepGraph pruning methods.
+
+    The pipeline works with any :class:`BasePruningMethod` that relies on the
+    ``torch-pruning`` dependency graph.  Additional HSIC specific logic is only
+    executed when the pruning method is an instance of
+    :class:`DepgraphHSICMethod`.
+    """
 
     def __init__(
         self,
         model_path: str,
         data: str,
         workdir: str = "runs/pruning",
-        pruning_method: "DepgraphHSICMethod" | None = None,
+
+        pruning_method: BasePruningMethod | None = None,
         logger: Logger | None = None,
     ) -> None:
         super().__init__(model_path, data, workdir, pruning_method, logger)
@@ -203,8 +209,8 @@ class PruningPipeline2(BasePruningPipeline):
         return metrics or {}
 
     def analyze_structure(self) -> None:
-        if not self._is_depgraph_method():
-            raise NotImplementedError("PruningPipeline2 requires DepgraphHSICMethod")
+        if self.pruning_method is None:
+            raise ValueError("No pruning method set")
         self.logger.info("Analyzing model structure")
         self._sync_pruning_method(reanalyze=True)
         groups = []
@@ -229,21 +235,28 @@ class PruningPipeline2(BasePruningPipeline):
         ratio: float,
         dataloader: Any | None = None,
     ) -> None:
-        if not self._is_depgraph_method():
-            raise NotImplementedError
+        if self.pruning_method is None:
+            raise ValueError("No pruning method set")
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
-        if self.pruning_method is not None:
-            self.pruning_method.model = self.model.model
-            self.logger.info("Reanalyzing model before mask generation")
-            self.pruning_method.analyze_model()
-            if (
-                dataloader is None
-                and (not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None))
-            ):
-                self.logger.info("No activations/labels found; collecting synthetic activations")
-                self._collect_synthetic_activations_for_hsic()
-                if not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None):
-                    self.logger.warning("Synthetic activation collection did not record activations/labels")
+        self.pruning_method.model = self.model.model
+        self.logger.info("Reanalyzing model before mask generation")
+        self.pruning_method.analyze_model()
+        if (
+            isinstance(self.pruning_method, DepgraphHSICMethod)
+            and dataloader is None
+            and (
+                not getattr(self.pruning_method, "activations", None)
+                or not getattr(self.pruning_method, "labels", None)
+            )
+        ):
+            self.logger.info(
+                "No activations/labels found; collecting synthetic activations"
+            )
+            self._collect_synthetic_activations_for_hsic()
+            if not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None):
+                self.logger.warning(
+                    "Synthetic activation collection did not record activations/labels"
+                )
         if dataloader is None:
             dataloader = getattr(getattr(self.model, "trainer", None), "val_loader", None)
         self.pruning_method.generate_pruning_mask(
@@ -265,11 +278,10 @@ class PruningPipeline2(BasePruningPipeline):
         )
 
     def apply_pruning(self, rebuild: bool = False) -> None:
-        if not self._is_depgraph_method():
-            raise NotImplementedError
+        if self.pruning_method is None:
+            raise ValueError("No pruning method set")
         self.logger.info("Applying pruning")
-        if self.pruning_method is not None:
-            self.pruning_method.apply_pruning(rebuild=rebuild)
+        self.pruning_method.apply_pruning(rebuild=rebuild)
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
         # DepGraph methods don't require reconfiguration
