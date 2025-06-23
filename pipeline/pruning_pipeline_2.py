@@ -10,6 +10,7 @@ from torch import nn
 from .base_pipeline import BasePruningPipeline
 from prune_methods.depgraph_hsic import DepgraphHSICMethod
 from prune_methods.base import BasePruningMethod
+
 from helper import (
     Logger,
     MetricManager,
@@ -33,6 +34,7 @@ class PruningPipeline2(BasePruningPipeline):
         model_path: str,
         data: str,
         workdir: str = "runs/pruning",
+
         pruning_method: BasePruningMethod | None = None,
         logger: Logger | None = None,
     ) -> None:
@@ -41,9 +43,16 @@ class PruningPipeline2(BasePruningPipeline):
         self.metrics_mgr = MetricManager()
         self.metrics_csv: Path | None = None
 
+    def _is_depgraph_method(self) -> bool:
+        try:
+            from prune_methods.depgraph_hsic import DepgraphHSICMethod
+        except Exception:
+            return False
+        return isinstance(self.pruning_method, DepgraphHSICMethod)
+
     def _collect_synthetic_activations_for_hsic(self) -> int:
         """Collect activations using synthetic data for HSIC methods."""
-        if not isinstance(self.pruning_method, DepgraphHSICMethod):
+        if not self._is_depgraph_method():
             return 0
             
         self.logger.info("Collecting activations using synthetic data for HSIC")
@@ -56,7 +65,7 @@ class PruningPipeline2(BasePruningPipeline):
     # ------------------------------------------------------------------
     def _register_label_callback(self, label_fn) -> None:
         """Attach a callback to record labels for ``DepgraphHSICMethod``."""
-        if not isinstance(self.pruning_method, DepgraphHSICMethod):
+        if not self._is_depgraph_method():
             return
 
         if self._label_callback is None:
@@ -100,7 +109,7 @@ class PruningPipeline2(BasePruningPipeline):
     def _sync_example_inputs_device(self) -> None:
         """Move ``example_inputs`` to the current model's device if needed."""
         if not (
-            isinstance(self.pruning_method, DepgraphHSICMethod)
+            self._is_depgraph_method()
             and hasattr(self.pruning_method, "example_inputs")
             and self.model is not None
         ):
