@@ -224,7 +224,12 @@ class DepgraphHSICMethod(BasePruningMethod):
             self.logger.warning("Dependency graph not initialized")
             return
 
-        pruning_groups = self.DG.get_pruning_groups()
+        if hasattr(self.DG, "get_pruning_groups"):
+            pruning_groups = list(self.DG.get_pruning_groups())
+        elif hasattr(self.DG, "get_all_groups"):
+            pruning_groups = list(self.DG.get_all_groups())
+        else:  # pragma: no cover - API difference
+            pruning_groups = []
         self.logger.info("Dependency graph has %d pruning groups", len(pruning_groups))
         
         for i, group in enumerate(pruning_groups):
@@ -239,13 +244,16 @@ class DepgraphHSICMethod(BasePruningMethod):
         except Exception:
             device = torch.device("cpu")
 
-        example_inputs = self.example_inputs.to(device)
-        
+        example_inputs = tuple(t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple())
+
         # Get the actual model to analyze
         if hasattr(self.model, "model"):
             model_to_analyze = self.model.model
         else:
             model_to_analyze = self.model
+
+        # Refresh hooks to track convolution layers
+        self.register_hooks()
 
         self.logger.info("Building dependency graph for model...")
         
@@ -271,13 +279,16 @@ class DepgraphHSICMethod(BasePruningMethod):
         except Exception:
             device = torch.device("cpu")
 
-        example_inputs = self.example_inputs.to(device)
+        example_inputs = tuple(t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple())
         
         # Get the actual model to analyze
         if hasattr(self.model, "model"):
             model_to_analyze = self.model.model
         else:
             model_to_analyze = self.model
+
+        # Refresh hooks to track convolution layers
+        self.register_hooks()
 
         self.logger.info("Refreshing dependency graph...")
         
@@ -348,7 +359,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         except Exception:
             device = torch.device("cpu")
 
-        example_inputs = self.example_inputs.to(device)
+        example_inputs = tuple(t.to(device) if torch.is_tensor(t) else t for t in self._inputs_tuple())
         
         # Get the actual model to analyze
         if hasattr(self.model, "model"):

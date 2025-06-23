@@ -72,7 +72,6 @@ def test_pipeline2_depgraph_and_random_methods(monkeypatch):
     pp, DepgraphMethod, TorchRandomMethod = setup(monkeypatch)
 
     for Method in (DepgraphMethod, TorchRandomMethod):
-        monkeypatch.setattr(Method, '_inputs_tuple', lambda self: (self.example_inputs,), raising=False)
         method = Method(None)
         pipeline = pp.PruningPipeline2('m', 'd', pruning_method=method)
         pipeline.load_model()

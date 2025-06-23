@@ -158,3 +158,26 @@ class BasePruningMethod(abc.ABC):
         except Exception as exc:  # pragma: no cover - optional
             self.logger.warning("Failed to save pruning results: %s", exc)
 
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    def _inputs_tuple(self) -> tuple:
+        """Return ``example_inputs`` as a tuple on the model's device."""
+        inputs = self.example_inputs
+        if not isinstance(inputs, tuple):
+            if isinstance(inputs, list):
+                inputs = tuple(inputs)
+            else:
+                inputs = (inputs,)
+        try:
+            device = next(self.model.parameters()).device
+        except Exception:
+            device = torch.device("cpu")
+        moved = []
+        for t in inputs:
+            if torch.is_tensor(t):
+                moved.append(t.to(device))
+            else:
+                moved.append(t)
+        return tuple(moved)
+
