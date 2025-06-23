@@ -111,3 +111,45 @@ class L1NormMethod(BasePruningMethod):
             self.logger.info("Comparison visualization saved to %s", self.workdir / "comparison.png")
         except Exception as e:
             self.logger.warning("Failed to create comparison visualization: %s", str(e))
+
+    def visualize_pruned_filters(self) -> None:
+        """Visualize which channels were pruned for each convolution layer.
+
+        Produces a heatmap with layers on the y-axis and channel indices on the
+        x-axis. Dark squares mark filters removed by pruning. The plot is saved
+        as ``pruned_filters.png`` in ``self.workdir``.
+        """
+
+        if not self.masks or not self.layers:
+            return
+
+        try:
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            names = [name for _, name, _ in self.layers]
+            pruned = [(~mask).cpu().numpy().astype(int) for mask in self.masks]
+            max_channels = max(len(m) for m in pruned)
+
+            matrix = np.zeros((len(pruned), max_channels), dtype=int)
+            for i, m in enumerate(pruned):
+                matrix[i, : len(m)] = m
+
+            fig, ax = plt.subplots(figsize=(8, 0.5 * len(pruned) + 1))
+            ax.imshow(matrix, cmap="Greys", aspect="auto")
+            ax.set_yticks(range(len(names)))
+            ax.set_yticklabels(names)
+            ax.set_xlabel("Channel index")
+            ax.set_title("Pruned filter map (dark = pruned)")
+            plt.tight_layout()
+            plt.savefig(self.workdir / "pruned_filters.png")
+            plt.close()
+
+            self.logger.info(
+                "Pruned filters visualization saved to %s",
+                self.workdir / "pruned_filters.png",
+            )
+        except Exception as e:
+            self.logger.warning(
+                "Failed to create pruned filters visualization: %s", str(e)
+            )
