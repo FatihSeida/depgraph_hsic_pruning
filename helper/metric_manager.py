@@ -62,6 +62,12 @@ PRUNING_METRIC_FIELDS = {
     "flops": ["original", "pruned", "reduction", "reduction_percent"],
     "filters": ["original", "pruned", "reduction", "reduction_percent"],
     "model_size_mb": ["original", "pruned", "reduction", "reduction_percent"],
+    "parameters_backbone": ["original", "pruned", "reduction", "reduction_percent"],
+    "parameters_head": ["original", "pruned", "reduction", "reduction_percent"],
+    "flops_backbone": ["original", "pruned", "reduction", "reduction_percent"],
+    "flops_head": ["original", "pruned", "reduction", "reduction_percent"],
+    "filters_backbone": ["original", "pruned", "reduction", "reduction_percent"],
+    "filters_head": ["original", "pruned", "reduction", "reduction_percent"],
     "compression_ratio": None,
 }
 

@@ -40,6 +40,48 @@ def model_size_mb(model: Any) -> float:
     return size_bytes / (1024 * 1024)
 
 
+def count_params_in_layers(model: Any, start: int, end: int | None = None) -> int:
+    """Return parameter count for ``model.model[start:end]``."""
+    total = 0
+    modules = list(getattr(model, "model", [])[start:end])
+    for m in modules:
+        for p in getattr(m, "parameters", lambda: [])():
+            try:
+                total += p.numel()
+            except Exception as exc:  # pragma: no cover - non-tensor params
+                logging.debug("count_params_in_layers error: %s", exc)
+                continue
+    return total
+
+
+def count_filters_in_layers(model: Any, start: int, end: int | None = None) -> int:
+    """Return convolution filter count for ``model.model[start:end]``."""
+    total = 0
+    modules = list(getattr(model, "model", [])[start:end])
+    for module in modules:
+        for sub in getattr(module, "modules", lambda: [])():
+            if nn is not None and hasattr(nn, "Conv2d") and isinstance(sub, nn.Conv2d):
+                total += int(getattr(sub, "out_channels", 0))
+            elif hasattr(sub, "out_channels"):
+                total += int(getattr(sub, "out_channels", 0))
+    return total
+
+
+def flops_in_layers(model: Any, start: int, end: int | None = None) -> float:
+    """Return FLOPs for ``model.model[start:end]`` using ``get_flops``."""
+    try:
+        from ultralytics.utils.torch_utils import get_flops  # type: ignore
+    except Exception:  # pragma: no cover - optional dependency
+        return 0.0
+    modules = list(getattr(model, "model", [])[start:end])
+    if nn is not None and hasattr(nn, "Sequential"):
+        container = nn.Sequential(*modules)
+    else:
+        from types import SimpleNamespace
+        container = SimpleNamespace(model=modules)
+    return get_flops(container)
+
+
 
 def log_stats_comparison(initial: dict, pruned: dict, logger: Any) -> None:
     """Log a table comparing ``initial`` and ``pruned`` model statistics.
@@ -87,6 +129,9 @@ def file_size_mb(path: str | Path) -> float:
 __all__ = [
     "count_filters",
     "model_size_mb",
+    "count_params_in_layers",
+    "count_filters_in_layers",
+    "flops_in_layers",
     "file_size_mb",
     "log_stats_comparison",
 ]
