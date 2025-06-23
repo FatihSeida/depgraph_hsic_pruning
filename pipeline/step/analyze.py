@@ -10,7 +10,6 @@ class AnalyzeModelStep(PipelineStep):
     def run(self, context: PipelineContext) -> None:
         if context.pruning_method is None:
             raise NotImplementedError
-        context.logger.info("Analyzing model structure")
         context.pruning_method.analyze_model()
 
 

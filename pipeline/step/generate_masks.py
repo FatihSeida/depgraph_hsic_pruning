@@ -15,7 +15,6 @@ class GenerateMasksStep(PipelineStep):
     def run(self, context: PipelineContext) -> None:
         if context.pruning_method is None:
             raise NotImplementedError
-        context.logger.info("Generating pruning mask at ratio %.2f", self.ratio)
         dataloader = self.dataloader or getattr(context, "dataloader", None)
         context.pruning_method.generate_pruning_mask(self.ratio, dataloader=dataloader)
 
