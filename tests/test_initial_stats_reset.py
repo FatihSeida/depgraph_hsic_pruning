@@ -32,8 +32,8 @@ sys.modules['prune_methods.depgraph_hsic'] = hsic_mod
 
 import pipeline.pruning_pipeline as pp
 
-pp.get_flops = torch_utils.get_flops
-pp.get_num_params = torch_utils.get_num_params
+pp.get_flops_reliable = lambda m: 0
+pp.get_num_params_reliable = lambda m: 0
 pp.count_filters = lambda m: 0
 pp.model_size_mb = lambda m: 0
 
