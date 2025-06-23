@@ -161,7 +161,7 @@ class PruningPipeline2(BasePruningPipeline):
                 # Use synthetic data collection instead of short forward pass
                 self._collect_synthetic_activations_for_hsic()
             except Exception:
-                pass
+                self.logger.exception("failed to refresh pruning method")
 
         self.logger.info("Training finished; recorded %d label batches", num_labels)
         if metrics:
@@ -294,7 +294,7 @@ class PruningPipeline2(BasePruningPipeline):
             try:
                 self._sync_pruning_method(reanalyze=model_changed)
             except Exception:
-                pass
+                self.logger.exception("failed to sync pruning method")
         self.logger.debug(metrics)
         if metrics:
             self.logger.info("Training summary: %s", format_training_summary(metrics))

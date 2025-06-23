@@ -71,7 +71,7 @@ class BasePruningPipeline(abc.ABC):
                                 batch["img"].shape[0],
                             )
                     except Exception:
-                        pass
+                        self.logger.exception("label_fn validation failed")
                     self.logger.debug(
                         "Adding labels for batch with shape %s", tuple(getattr(labels, "shape", []))
                     )
@@ -84,7 +84,7 @@ class BasePruningPipeline(abc.ABC):
             if self._label_callback not in existing:
                 self.model.add_callback("on_train_batch_end", self._label_callback)
         except AttributeError:
-            pass
+            self.logger.exception("failed to register label callback")
 
     def _unregister_label_callback(self) -> None:
         """Remove the label recording callback if present."""
@@ -93,7 +93,7 @@ class BasePruningPipeline(abc.ABC):
             if self._label_callback in callbacks:
                 callbacks.remove(self._label_callback)
         except Exception:
-            pass
+            self.logger.exception("failed to unregister label callback")
         self._label_callback = None
 
     def _sync_pruning_method(self, reanalyze: bool = False) -> None:
@@ -123,7 +123,7 @@ class BasePruningPipeline(abc.ABC):
                 "Model device: %s, example_inputs device: %s", device, ex_device
             )
         except Exception:
-            pass
+            self.logger.exception("failed to sync example inputs device")
 
     def _collect_synthetic_activations(self, num_samples=4) -> int:
         """Collect activations using synthetic data for HSIC methods."""

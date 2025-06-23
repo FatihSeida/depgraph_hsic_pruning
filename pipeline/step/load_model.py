@@ -24,6 +24,6 @@ class LoadModelStep(PipelineStep):
                     "Assigned loaded model to pruning method %s", pm.__class__.__name__
                 )
             except Exception:  # pragma: no cover - best effort
-                pass
+                context.logger.exception("failed to assign model to pruning method")
 
 __all__ = ["LoadModelStep"]

@@ -50,7 +50,7 @@ class TrainStep(PipelineStep):
                                 batch["img"].shape[0],
                             )
                     except Exception:  # pragma: no cover - if torch missing or labels malformed
-                        pass
+                        context.logger.exception("label collection failed")
                     context.logger.debug(
                         "Adding labels for batch with shape %s", tuple(labels.shape)
                     )
@@ -61,7 +61,7 @@ class TrainStep(PipelineStep):
                 if record_labels not in existing:
                     context.model.add_callback("on_train_batch_end", record_labels)
             except AttributeError:  # pragma: no cover - fallback for stubs
-                pass
+                context.logger.exception("failed to attach label callback")
 
         original_model = getattr(context.model, "model", None)
         metrics = context.model.train(data=context.data, **self.train_kwargs)
@@ -72,7 +72,7 @@ class TrainStep(PipelineStep):
                 pm.model = context.model.model
                 context.logger.debug("updated pruning method model reference")
             except Exception:  # pragma: no cover - best effort
-                pass
+                context.logger.exception("failed to update pruning method model")
             try:
                 if hasattr(pm, "refresh_dependency_graph"):
                     # Avoid clearing collected activations when the model instance changes
@@ -89,7 +89,7 @@ class TrainStep(PipelineStep):
                     pm.analyze_model()
                     context.logger.debug("reanalyzed pruning method model")
             except Exception:  # pragma: no cover - best effort
-                pass
+                context.logger.exception("failed to refresh pruning method")
         context.metrics_mgr.record_training(metrics or {})
         context.metrics[self.phase] = metrics or {}
 

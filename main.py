@@ -102,7 +102,7 @@ def aggregate_labels(batch):
             if result:
                 cls = torch.tensor(result, dtype=cls.dtype, device=cls.device).float()  # Convert to float for cdist compatibility
     except Exception:
-        pass
+        logger.exception("aggregate_labels failed")
 
     # Ensure cls is float for cdist compatibility
     if torch.is_tensor(cls):
@@ -190,7 +190,7 @@ def _adjust_resume(phase_dir: Path, epochs: int, resume: bool, logger: Logger) -
                     logger.info("training completed previously – starting a new run")
                     return False
         except Exception:
-            pass
+            logger.exception("error checking previous training status")
     return resume
 
 
