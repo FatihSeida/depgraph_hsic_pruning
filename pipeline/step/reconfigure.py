@@ -16,8 +16,6 @@ class ReconfigureModelStep(PipelineStep):
         self.output_path = output_path
 
     def run(self, context: PipelineContext) -> None:
-        step = self.__class__.__name__
-        context.logger.info("Starting %s", step)
         if context.model is None:
             raise ValueError("Model is not loaded")
         snapshot = context.workdir / "snapshot.pt"
@@ -32,6 +30,5 @@ class ReconfigureModelStep(PipelineStep):
                     pass
         context.logger.info("Reconfiguring model")
         self.reconfigurator.reconfigure_model(context.model, output_path=self.output_path)
-        context.logger.info("Finished %s", step)
 
 __all__ = ["ReconfigureModelStep"]

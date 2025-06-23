@@ -6,6 +6,18 @@ import logging
 from typing import Optional
 
 
+def format_header(text: str, width: int = 60, fill: str = "-") -> str:
+    """Return ``text`` centered within ``width`` using ``fill``."""
+    if len(fill) != 1:
+        raise ValueError("fill must be a single character")
+    return text.center(width, fill)
+
+
+def format_step(num: int, total: int, name: str) -> str:
+    """Format a pipeline step description."""
+    return f"Step {num}/{total}: {name}"
+
+
 class Logger:
     """Simple wrapper around :mod:`logging` providing a shared logger."""
 
