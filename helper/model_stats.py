@@ -8,6 +8,8 @@ from pathlib import Path
 
 import logging
 
+from .flops_utils import get_flops_reliable
+
 try:
     import torch.nn as nn  # type: ignore
 except Exception:  # pragma: no cover - torch may not be installed
@@ -68,18 +70,14 @@ def count_filters_in_layers(model: Any, start: int, end: int | None = None) -> i
 
 
 def flops_in_layers(model: Any, start: int, end: int | None = None) -> float:
-    """Return FLOPs for ``model.model[start:end]`` using ``get_flops``."""
-    try:
-        from ultralytics.utils.torch_utils import get_flops  # type: ignore
-    except Exception:  # pragma: no cover - optional dependency
-        return 0.0
+    """Return FLOPs for ``model.model[start:end]`` using ``get_flops_reliable``."""
     modules = list(getattr(model, "model", [])[start:end])
     if nn is not None and hasattr(nn, "Sequential"):
         container = nn.Sequential(*modules)
     else:
         from types import SimpleNamespace
         container = SimpleNamespace(model=modules)
-    return get_flops(container)
+    return float(get_flops_reliable(container))
 
 
 
