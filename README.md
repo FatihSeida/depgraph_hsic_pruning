@@ -28,15 +28,19 @@ pip install scikit-learn
 
 ### FLOP statistics
 
-FLOP counting relies on the optional `ultralytics-thop` package. If it is not
-installed, functions such as `get_flops` return `0`. The pruning pipeline then
-logs a warning:
+FLOP counting relies on the optional `ultralytics-thop` package, which is **not**
+included in `requirements.txt`. Without it, functions such as `get_flops`
+return ``0`` and the pruning pipeline logs a warning:
 
 ```
 FLOPs reported as 0; verify that 'ultralytics-thop' is installed
 ```
 
-Install `ultralytics-thop` to ensure accurate FLOP metrics.
+Install ``ultralytics-thop`` separately if you require accurate FLOP metrics:
+
+```bash
+pip install ultralytics-thop
+```
 
 ## Usage
 
