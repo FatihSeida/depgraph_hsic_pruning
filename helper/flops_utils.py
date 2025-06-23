@@ -72,8 +72,13 @@ def calculate_flops_manual(model: Any, imgsz: int | Iterable[int] = 640) -> floa
         elif isinstance(module, nn.Linear):
             hooks.append(module.register_forward_hook(lambda m, i, o, t=totals: _linear_hook(m, i, o, t)))
     model.eval()
-    with torch.no_grad():
-        model(dummy)
+    try:
+        with torch.no_grad():
+            model(dummy)
+    except Exception:
+        for h in hooks:
+            h.remove()
+        return 0.0
     for h in hooks:
         h.remove()
     return totals[0] * 2 / 1e9

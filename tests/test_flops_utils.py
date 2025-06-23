@@ -70,3 +70,30 @@ def test_calculate_flops_manual_respects_device(monkeypatch):
     fu.calculate_flops_manual(model, imgsz=8)
 
     assert recorded["device"] == device
+
+
+def test_calculate_flops_manual_handles_errors(monkeypatch):
+    import torch
+    import torch.nn as nn
+
+    fu = importlib.import_module('helper.flops_utils')
+    importlib.reload(fu)
+
+    class BadModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv1 = nn.Conv2d(3, 13, 1)
+            self.conv2 = nn.Conv2d(16, 8, 1)
+
+        def forward(self, x):
+            x = self.conv1(x)
+            x = self.conv2(x)  # channel mismatch triggers error
+            return x
+
+    model = BadModel()
+
+    monkeypatch.setattr(fu, "_get_flops", lambda *a, **k: 0, raising=False)
+
+    flops = fu.calculate_flops_manual(model, imgsz=8)
+
+    assert flops == 0.0
