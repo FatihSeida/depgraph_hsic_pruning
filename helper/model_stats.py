@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from typing import Any
 
+import os
+from pathlib import Path
+
 import logging
 
 try:
@@ -76,4 +79,14 @@ def log_stats_comparison(initial: dict, pruned: dict, logger: Any) -> None:
     logger.info("\n%s", table)
 
 
-__all__ = ["count_filters", "model_size_mb", "log_stats_comparison"]
+def file_size_mb(path: str | Path) -> float:
+    """Return size of ``path`` in megabytes."""
+    return os.path.getsize(path) / (1024 * 1024)
+
+
+__all__ = [
+    "count_filters",
+    "model_size_mb",
+    "file_size_mb",
+    "log_stats_comparison",
+]

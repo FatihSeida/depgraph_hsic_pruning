@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from ultralytics.utils.torch_utils import get_flops, get_num_params
 
-from helper import count_filters, model_size_mb, log_stats_comparison
+from pathlib import Path
+
+from helper import count_filters, file_size_mb, log_stats_comparison
 
 from ..context import PipelineContext
 from . import PipelineStep
@@ -21,7 +23,13 @@ class CalcStatsStep(PipelineStep):
         params = get_num_params(context.model.model)
         flops = get_flops(context.model.model)
         filters = count_filters(context.model.model)
-        size_mb = model_size_mb(context.model.model)
+
+        model_path = context.workdir / f"{self.dest}_model.pt"
+        try:
+            context.model.save(str(model_path))
+        except Exception:  # pragma: no cover - best effort
+            context.logger.exception("failed to save %s model", self.dest)
+        size_mb = file_size_mb(model_path)
         stats = {
             "parameters": params,
             "flops": flops,
