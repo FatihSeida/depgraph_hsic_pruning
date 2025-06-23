@@ -43,6 +43,7 @@ def create_pipeline(
         pm.DepgraphHSICMethod,
         pm.DepgraphMethod,
         pm.IsomorphicMethod,
+        pm.TorchRandomMethod,
     )
     
     if method_cls in depgraph_methods:
