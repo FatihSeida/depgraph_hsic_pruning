@@ -76,6 +76,8 @@ class CalcStatsStep(PipelineStep):
                     },
                 }
             )
+            ratio = orig_params / params if params else 0
+            context.metrics_mgr.record_pruning({"compression_ratio": ratio})
             log_stats_comparison(context.initial_stats, context.pruned_stats, context.logger)
 
 __all__ = ["CalcStatsStep"]
