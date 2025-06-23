@@ -25,17 +25,8 @@ from pipeline import (
     MonitorComputationStep,
 )
 from ultralytics import YOLO
-from prune_methods import (
-    BasePruningMethod,
-    L1NormMethod,
-    RandomMethod,
-    DepgraphMethod,
-    TorchRandomMethod,
-    IsomorphicMethod,
-    HSICLassoMethod,
-    DepgraphHSICMethod,
-    WeightedHybridMethod,
-)
+import prune_methods as pm
+from prune_methods import BasePruningMethod
 
 
 def create_pipeline(
@@ -47,8 +38,12 @@ def create_pipeline(
 ) -> BasePruningPipeline:
     """Create appropriate pipeline based on pruning method type."""
     
-    # Metode yang menggunakan DepGraph
-    depgraph_methods = (DepgraphHSICMethod, DepgraphMethod, IsomorphicMethod)
+    # Methods that rely on the dependency graph implementation
+    depgraph_methods = (
+        pm.DepgraphHSICMethod,
+        pm.DepgraphMethod,
+        pm.IsomorphicMethod,
+    )
     
     if method_cls in depgraph_methods:
         return PruningPipeline2(
@@ -122,15 +117,20 @@ def aggregate_labels(batch):
 
 
 METHODS_MAP = {
-    "l1": L1NormMethod,
-    "random": RandomMethod,
-    "depgraph": DepgraphMethod,
-    "tp_random": TorchRandomMethod,
-    "isomorphic": IsomorphicMethod,
-    "hsic_lasso": HSICLassoMethod,
-    "whc": WeightedHybridMethod,
-    "depgraph_hsic": DepgraphHSICMethod,
+    "l1": "L1NormMethod",
+    "random": "RandomMethod",
+    "depgraph": "DepgraphMethod",
+    "tp_random": "TorchRandomMethod",
+    "isomorphic": "IsomorphicMethod",
+    "hsic_lasso": "HSICLassoMethod",
+    "whc": "WeightedHybridMethod",
+    "depgraph_hsic": "DepgraphHSICMethod",
 }
+
+
+def get_method_class(name: str) -> Type[BasePruningMethod]:
+    """Return pruning method class by name."""
+    return getattr(pm, METHODS_MAP[name])
 
 # Default metrics visualized when no custom list is provided
 DEFAULT_PLOT_METRICS = [
@@ -258,7 +258,7 @@ def execute_pipeline(
             device=config.device,
             label_fn=(
                 aggregate_labels
-                if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
+                if isinstance(getattr(pipeline, "pruning_method", None), pm.DepgraphHSICMethod)
                 else None
             ),
         )
@@ -274,7 +274,7 @@ def execute_pipeline(
         pass
         
     if method_cls is not None:
-        if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod):
+        if isinstance(getattr(pipeline, "pruning_method", None), pm.DepgraphHSICMethod):
             # Ensure analysis runs on the latest model state before mask generation
             pipeline.analyze_structure()
         pipeline.generate_pruning_mask(ratio)
@@ -288,10 +288,10 @@ def execute_pipeline(
         pipeline.model = YOLO(str(snapshot))
         if hasattr(pipeline.model, "to"):
             pipeline.model.to(config.device)
-        pm = getattr(pipeline, "pruning_method", None)
-        if pm is not None:
+        pruner = getattr(pipeline, "pruning_method", None)
+        if pruner is not None:
             try:
-                pm.model = pipeline.model.model
+                pruner.model = pipeline.model.model
             except Exception:  # pragma: no cover - best effort
                 logger.debug("failed to update pruning method model reference")
             if hasattr(pipeline, "_sync_example_inputs_device"):
@@ -315,7 +315,7 @@ def execute_pipeline(
             device=config.device,
             label_fn=(
                 aggregate_labels
-                if isinstance(getattr(pipeline, "pruning_method", None), DepgraphHSICMethod)
+                if isinstance(getattr(pipeline, "pruning_method", None), pm.DepgraphHSICMethod)
                 else None
             ),
         )
@@ -512,7 +512,7 @@ def run_comparison(args: argparse.Namespace) -> None:
             writer.writerow(["baseline", 0, baseline_dir.as_posix()])
 
     for method in args.methods:
-        method_cls = METHODS_MAP[method]
+        method_cls = get_method_class(method)
         for ratio in args.ratios:
             ratio_tag = str(ratio).replace(".", "_")
             run_dir = base_dir / f"{safe_name(str(method))}_r{ratio_tag}"
@@ -584,7 +584,7 @@ def main() -> None:
         ratios=args.ratios,
         device=args.device,
     )
-    methods = [METHODS_MAP[m] for m in args.methods]
+    methods = [get_method_class(m) for m in args.methods]
     logger = get_logger(level=logging.DEBUG if args.debug else logging.INFO)
     runner = ExperimentRunner(
         args.model,

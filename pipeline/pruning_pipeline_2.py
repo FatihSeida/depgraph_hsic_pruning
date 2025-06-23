@@ -8,7 +8,10 @@ from ultralytics.utils.torch_utils import get_flops, get_num_params
 from torch import nn
 
 from .base_pipeline import BasePruningPipeline
-from prune_methods.depgraph_hsic import DepgraphHSICMethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - for type hints only
+    from prune_methods.depgraph_hsic import DepgraphHSICMethod
 from helper import (
     Logger,
     MetricManager,
@@ -26,7 +29,7 @@ class PruningPipeline2(BasePruningPipeline):
         model_path: str,
         data: str,
         workdir: str = "runs/pruning",
-        pruning_method: DepgraphHSICMethod | None = None,
+        pruning_method: "DepgraphHSICMethod" | None = None,
         logger: Logger | None = None,
     ) -> None:
         super().__init__(model_path, data, workdir, pruning_method, logger)
@@ -34,9 +37,16 @@ class PruningPipeline2(BasePruningPipeline):
         self.metrics_mgr = MetricManager()
         self.metrics_csv: Path | None = None
 
+    def _is_depgraph_method(self) -> bool:
+        try:
+            from prune_methods.depgraph_hsic import DepgraphHSICMethod
+        except Exception:
+            return False
+        return isinstance(self.pruning_method, DepgraphHSICMethod)
+
     def _collect_synthetic_activations_for_hsic(self) -> int:
         """Collect activations using synthetic data for HSIC methods."""
-        if not isinstance(self.pruning_method, DepgraphHSICMethod):
+        if not self._is_depgraph_method():
             return 0
             
         self.logger.info("Collecting activations using synthetic data for HSIC")
@@ -49,7 +59,7 @@ class PruningPipeline2(BasePruningPipeline):
     # ------------------------------------------------------------------
     def _register_label_callback(self, label_fn) -> None:
         """Attach a callback to record labels for ``DepgraphHSICMethod``."""
-        if not isinstance(self.pruning_method, DepgraphHSICMethod):
+        if not self._is_depgraph_method():
             return
 
         if self._label_callback is None:
@@ -93,7 +103,7 @@ class PruningPipeline2(BasePruningPipeline):
     def _sync_example_inputs_device(self) -> None:
         """Move ``example_inputs`` to the current model's device if needed."""
         if not (
-            isinstance(self.pruning_method, DepgraphHSICMethod)
+            self._is_depgraph_method()
             and hasattr(self.pruning_method, "example_inputs")
             and self.model is not None
         ):
@@ -193,7 +203,7 @@ class PruningPipeline2(BasePruningPipeline):
         return metrics or {}
 
     def analyze_structure(self) -> None:
-        if not isinstance(self.pruning_method, DepgraphHSICMethod):
+        if not self._is_depgraph_method():
             raise NotImplementedError("PruningPipeline2 requires DepgraphHSICMethod")
         self.logger.info("Analyzing model structure")
         self._sync_pruning_method(reanalyze=True)
@@ -219,7 +229,7 @@ class PruningPipeline2(BasePruningPipeline):
         ratio: float,
         dataloader: Any | None = None,
     ) -> None:
-        if not isinstance(self.pruning_method, DepgraphHSICMethod):
+        if not self._is_depgraph_method():
             raise NotImplementedError
         self.logger.info("Generating pruning mask at ratio %.2f", ratio)
         if self.pruning_method is not None:
@@ -255,7 +265,7 @@ class PruningPipeline2(BasePruningPipeline):
         )
 
     def apply_pruning(self, rebuild: bool = False) -> None:
-        if not isinstance(self.pruning_method, DepgraphHSICMethod):
+        if not self._is_depgraph_method():
             raise NotImplementedError
         self.logger.info("Applying pruning")
         if self.pruning_method is not None:
