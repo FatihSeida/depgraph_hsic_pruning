@@ -106,7 +106,7 @@ def get_logger(
 
 
 @contextmanager
-def timed_step(logger: "Logger", title: str, recover: Optional[Callable] = None, show_header: bool = True):
+def timed_step(logger: "Logger", title: str, recover: Optional[callable] = None):
     """Context manager to log the duration of *title* step.
 
     Example
