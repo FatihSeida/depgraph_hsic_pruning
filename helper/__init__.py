@@ -1,6 +1,12 @@
 """Helper utilities for pruning experiments."""
 
-from .logger import Logger, get_logger, add_file_handler
+from .logger import (
+    Logger,
+    get_logger,
+    add_file_handler,
+    format_header,
+    format_step,
+)
 from .metric_manager import MetricManager
 from .experiment_manager import ExperimentManager
 from .heatmap_visualizer import (
@@ -24,4 +30,6 @@ __all__ = [
     "count_filters",
     "model_size_mb",
     "log_stats_comparison",
+    "format_header",
+    "format_step",
 ]

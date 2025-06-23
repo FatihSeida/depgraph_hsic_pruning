@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List
 from pathlib import Path
+import time
 
 from .base_pipeline import BasePruningPipeline
 from prune_methods.base import BasePruningMethod
@@ -12,6 +13,8 @@ from helper import (
     count_filters,
     model_size_mb,
     log_stats_comparison,
+    format_header,
+    format_step,
 )
 from .model_reconfig import AdaptiveLayerReconfiguration
 from .context import PipelineContext
@@ -54,8 +57,14 @@ class PruningPipeline(BasePruningPipeline):
         )
         context.pipeline = self
         context.metrics_mgr = self.metrics_mgr
-        for step in self.steps:
+        total = len(self.steps)
+        for idx, step in enumerate(self.steps, 1):
+            title = format_step(idx, total, step.__class__.__name__)
+            self.logger.info(format_header(title))
+            start = time.time()
             step.run(context)
+            elapsed = time.time() - start
+            self.logger.info(format_header(f"{title} finished in {elapsed:.2f}s"))
         # sync results back to the pipeline instance
         self.model = context.model
         self.initial_stats = context.initial_stats

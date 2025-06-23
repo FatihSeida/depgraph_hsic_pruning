@@ -20,8 +20,6 @@ class TrainStep(PipelineStep):
         self.train_kwargs = train_kwargs
 
     def run(self, context: PipelineContext) -> None:
-        step = self.__class__.__name__
-        context.logger.info("Starting %s", step)
         if context.model is None:
             raise ValueError("Model is not loaded")
         context.logger.info("Training model (%s)", self.phase)
@@ -94,6 +92,5 @@ class TrainStep(PipelineStep):
                 pass
         context.metrics_mgr.record_training(metrics or {})
         context.metrics[self.phase] = metrics or {}
-        context.logger.info("Finished %s", step)
 
 __all__ = ["TrainStep"]
