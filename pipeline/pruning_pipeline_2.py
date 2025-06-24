@@ -190,12 +190,19 @@ class PruningPipeline2(BasePruningPipeline):
         self.pruning_method.analyze_model()
         if dataloader is None:
             dataloader = getattr(getattr(self.model, "trainer", None), "val_loader", None)
+
+        if isinstance(self.pruning_method, DepgraphHSICMethod):
             if dataloader is None:
                 raise ValueError("dataloader is required")
-        self.pruning_method.generate_pruning_mask(
-            ratio,
-            dataloader=dataloader,
-        )
+            self.pruning_method.generate_pruning_mask(
+                ratio,
+                dataloader=dataloader,
+            )
+        else:
+            self.pruning_method.generate_pruning_mask(
+                ratio,
+                dataloader=dataloader,
+            )
         plan = getattr(self.pruning_method, "pruning_plan", [])
         channels = len(plan)
         total = sum(
