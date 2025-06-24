@@ -51,11 +51,11 @@ class DepGraphHSICMethod2(BasePruningMethod):
         workdir: str | Path = "runs/pruning",
         *,
         sigma: Optional[float] = None,
-        max_samples: int = 1000,
+        max_samples: int = 400,
         seed: int = 42,
-        alpha: float = 0.5,
-        sub_group_clusters: int = 3,
-        iterations: int = 1,
+        alpha: float = 0.8,
+        sub_group_clusters: int = 4,
+        iterations: int = 2,
         example_inputs: torch.Tensor | tuple | None = None,
         pruning_scope: str = "full",
     ) -> None:
@@ -227,7 +227,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
             sigma = self.sigma or 1.0 / max(combined.size(1), 1)
             scores = compute_channel_wise_hsic(combined, labels, sigma)
             if scores.numel() > 1:
-                scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
+                scores = (scores - scores.mean()) / (scores.std() + 1e-8)
             self.group_scores[g_idx] = scores
 
         # Fallback: jika tidak ada skor grup (mis. hanya 1 grup DG tanpa aktivasi terpetakan)
@@ -254,7 +254,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 sigma = self.sigma or 1.0 / max(combined.size(1), 1)
                 scores = compute_channel_wise_hsic(combined, labels, sigma)
                 if scores.numel() > 1:
-                    scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
+                    scores = (scores - scores.mean()) / (scores.std() + 1e-8)
                 # Asumsikan grup indeks 0 (jika tidak ada) – buat dummy jika perlu
                 if not self.pruning_groups:
                     self.pruning_groups = [tuple()]
@@ -267,7 +267,8 @@ class DepGraphHSICMethod2(BasePruningMethod):
         self.sub_groups.clear()
         for g_idx, scores in self.group_scores.items():
             arr = scores.view(-1, 1).cpu().numpy()
-            n_cluster = min(self.sub_group_clusters, len(arr))
+            dynamic = max(2, round(len(arr) / 64))
+            n_cluster = min(max(self.sub_group_clusters, dynamic), len(arr))
             if n_cluster <= 1:
                 self.sub_groups[g_idx] = [list(range(len(arr)))]
                 continue
@@ -294,7 +295,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
             for s_idx, idxs in enumerate(groups):
                 if not idxs:
                     continue
-                hval = hsic[idxs].mean()
+                hval = hsic[idxs].mean() / float(np.log(len(idxs) + 1))
                 score = self.alpha * hval.item() + (1.0 - self.alpha) * struct_norm
                 self.sub_group_scores[(g_idx, s_idx)] = score
 
@@ -319,13 +320,21 @@ class DepGraphHSICMethod2(BasePruningMethod):
         
         selected: List[Tuple[int, int]] = []
         removed = 0
-        for (g_idx, s_idx), _ in ordered:
+        idx = 0
+        while removed < target and idx < len(ordered):
+            g_idx, s_idx = ordered[idx][0]
             sz = len(self.sub_groups[g_idx][s_idx])
-            if removed + sz > target:
-                break
             selected.append((g_idx, s_idx))
             removed += sz
-        
+            idx += 1
+
+        allowed = max(1, int(total_channels * 0.01))
+        if removed > target + allowed:
+            selected.sort(key=lambda p: len(self.sub_groups[p[0]][p[1]]))
+            while selected and removed - target > allowed:
+                g_idx, s_idx = selected.pop(0)
+                removed -= len(self.sub_groups[g_idx][s_idx])
+
         self.logger.info(f"Selected {len(selected)} sub-groups for pruning")
         
         # Fallback jika selected kosong
@@ -370,6 +379,15 @@ class DepGraphHSICMethod2(BasePruningMethod):
             if not convs:
                 continue
             for conv in convs:
+                remain = conv.out_channels - len(prune_idx)
+                min_channels = max(1, int(conv.out_channels * 0.1))
+                if remain < min_channels:
+                    self.logger.debug(
+                        "Skipping pruning for %s to keep at least %d channels",
+                        conv,
+                        min_channels,
+                    )
+                    continue
                 try:
                     sub_group = self.DG.get_pruning_group(conv, tp.prune_conv_out_channels, prune_idx)
                     self.DG.prune_group(sub_group)
@@ -415,9 +433,10 @@ class DepGraphHSICMethod2(BasePruningMethod):
     # ------------------------------------------------------------------
     def iterative_pruning(self, ratio: float, dataloader) -> None:
         iters = max(1, self.iterations)
+        step = ratio / iters
         for i in range(iters):
             self.analyze_model()
-            self.generate_pruning_mask(ratio, dataloader)
+            self.generate_pruning_mask(step, dataloader)
             self.apply_pruning(rebuild=True)
 
             self.activations.clear()
