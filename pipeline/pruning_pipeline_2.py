@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Dict
 from pathlib import Path
+import torch
+
+# Disable multiprocessing to avoid ConnectionResetError
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 from ultralytics import YOLO
 from helper.flops_utils import get_flops_reliable, get_num_params_reliable
@@ -186,6 +190,10 @@ class PruningPipeline2(BasePruningPipeline):
         from ultralytics.utils import DEFAULT_CFG, YAML
         from ultralytics.data import build_yolo_dataset, build_dataloader
         import os
+        import torch
+
+        # Disable multiprocessing to avoid ConnectionResetError
+        torch.multiprocessing.set_sharing_strategy('file_system')
 
         cfg = get_cfg(DEFAULT_CFG)
         cfg.data = self.data
@@ -237,8 +245,7 @@ class PruningPipeline2(BasePruningPipeline):
             batch=cfg.batch, 
             workers=0,  # Disable multiprocessing
             shuffle=False, 
-            rank=-1,
-            pin_memory=False  # Disable pin_memory to avoid multiprocessing issues
+            rank=-1
         )
 
     def generate_pruning_mask(

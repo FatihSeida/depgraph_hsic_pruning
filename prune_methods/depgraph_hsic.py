@@ -12,12 +12,23 @@ consistent during pruning and its reparameterisation is stripped once
 pruning is finished.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 import torch
-from torch import nn
+import torch.nn as nn
 from sklearn.linear_model import LassoLars
-import torch_pruning as tp
+import os
+
+# Disable multiprocessing to avoid ConnectionResetError
+torch.multiprocessing.set_sharing_strategy('file_system')
+
+try:
+    import torch_pruning as tp
+    from torch_pruning import DependencyGraph
+    TORCH_PRUNING_AVAILABLE = True
+except ImportError:
+    TORCH_PRUNING_AVAILABLE = False
+    DependencyGraph = None
 
 from .base import BasePruningMethod
 
@@ -273,7 +284,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.debug("Building dependency graph for model...")
         
         # Create dependency graph
-        self.DG = tp.DependencyGraph()
+        self.DG = DependencyGraph()
         self.DG.build_dependency(model_to_analyze, example_inputs=example_inputs)
         
         self._log_dependency_status()
@@ -305,7 +316,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         self.logger.debug("Refreshing dependency graph...")
         
         # Rebuild dependency graph
-        self.DG = tp.DependencyGraph()
+        self.DG = DependencyGraph()
         self.DG.build_dependency(model_to_analyze, example_inputs=example_inputs)
         
         self._log_dependency_status()
