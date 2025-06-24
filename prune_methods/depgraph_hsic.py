@@ -503,28 +503,16 @@ class DepgraphHSICMethod(BasePruningMethod):
             group_channels = []
             
             for dep_idx, dep in enumerate(group):
-                self.logger.debug(f"  Dependency {dep_idx}: type={type(dep)}, attributes={dir(dep)}")
+                self.logger.debug(
+                    f"  Dependency {dep_idx}: type={type(dep)}, attributes={dir(dep)}")
+
+                target_module = self._extract_target_module(dep)
+                if target_module is None:
+                    self.logger.debug(
+                        f"    ↳ Tidak dapat menentukan module target untuk dependency {dep_idx}")
+                    continue
                 
-                # Handle different types of dependency items
-                target_module = None
-                
-                # Check if it's a GroupItem with module attribute
-                if hasattr(dep, 'module'):
-                    target_module = dep.module
-                elif hasattr(dep, 'target'):
-                    target_module = dep.target
-                elif hasattr(dep, 'layer'):
-                    target_module = dep.layer
-                else:
-                    # Try to get the module from the dependency object
-                    try:
-                        # For newer versions of torch-pruning
-                        if hasattr(dep, '__getitem__'):
-                            target_module = dep[0] if len(dep) > 0 else None
-                    except Exception:
-                        continue
-                
-                if target_module is not None and hasattr(target_module, 'weight') and isinstance(target_module, nn.Conv2d):
+                if hasattr(target_module, 'weight') and isinstance(target_module, nn.Conv2d):
                     layer_idx = None
                     for idx, layer in enumerate(self.layers):
                         if layer is target_module:
@@ -660,25 +648,7 @@ class DepgraphHSICMethod(BasePruningMethod):
         total_channels = 0
         for group in pruning_groups:
             for dep in group:
-                # Handle different types of dependency items
-                target_module = None
-                
-                # Check if it's a GroupItem with module attribute
-                if hasattr(dep, 'module'):
-                    target_module = dep.module
-                elif hasattr(dep, 'target'):
-                    target_module = dep.target
-                elif hasattr(dep, 'layer'):
-                    target_module = dep.layer
-                else:
-                    # Try to get the module from the dependency object
-                    try:
-                        # For newer versions of torch-pruning
-                        if hasattr(dep, '__getitem__'):
-                            target_module = dep[0] if len(dep) > 0 else None
-                    except Exception:
-                        continue
-                
+                target_module = self._extract_target_module(dep)
                 if target_module is not None and hasattr(target_module, 'weight') and isinstance(target_module, nn.Conv2d):
                     total_channels += target_module.weight.size(0)
         
@@ -731,4 +701,42 @@ class DepgraphHSICMethod(BasePruningMethod):
             summary["validation_error"] = str(e)
         
         return summary
+
+    # -------------------------------------------------------------
+    # Helper utilities
+    # -------------------------------------------------------------
+    def _extract_target_module(self, dep):
+        """Return nn.Module target from various dependency item types.
+
+        Supports multiple torch-pruning versions:
+        - GroupItem(namedtuple) → has ``dep`` attribute holding real dependency
+        - Objects with ``module`` / ``target`` / ``layer`` attributes
+        - Tuple-like where first element is the module
+        Returns ``None`` if the module cannot be resolved.
+        """
+        # Resolve nested GroupItem.dep recursively
+        visited = set()
+        while dep is not None and id(dep) not in visited:
+            visited.add(id(dep))
+            # 1. Common attributes
+            for attr in ("module", "target", "layer"):
+                if hasattr(dep, attr):
+                    mod = getattr(dep, attr)
+                    if isinstance(mod, nn.Module):
+                        return mod
+            # 2. torch-pruning GroupItem holds real dependency in ``dep``
+            if hasattr(dep, "dep"):
+                dep = getattr(dep, "dep")
+                continue
+            # 3. Indexable container ‑ return first element if it is module
+            try:
+                if hasattr(dep, "__getitem__"):
+                    first = dep[0]  # type: ignore[index]
+                    if isinstance(first, nn.Module):
+                        return first
+            except Exception:
+                pass
+            # Unable to resolve
+            break
+        return None
 
