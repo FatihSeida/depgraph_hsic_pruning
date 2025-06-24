@@ -82,6 +82,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
         self.sub_group_scores: Dict[Tuple[int, int], float] = {}
         self.masks: List[torch.Tensor] = []
         self._hook_handles: List[torch.utils.hooks.RemovableHandle] = []
+        self.fallback_layerwise: bool = False
 
     # ------------------------------------------------------------------
     # Phase 1 – structural analysis
@@ -337,7 +338,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
 
         self.logger.info(f"Selected {len(selected)} sub-groups for pruning")
         
-        # Fallback jika selected kosong
+        # Fallback jika selected kosong atau hanya 1 grup
         if not selected and 0 in self.group_scores:
             self.logger.warning("No sub-groups selected – switching to layer-wise fallback")
             scores = self.group_scores[0]
@@ -347,6 +348,13 @@ class DepGraphHSICMethod2(BasePruningMethod):
             # assign high dummy score so considered lowest importance
             self.sub_group_scores = {(0, 0): scores[idxs].mean().item()}
             selected = [(0, 0)]
+            # Set flag untuk layerwise fallback
+            self.fallback_layerwise = True
+        
+        # Fallback jika hanya ada satu grup dependency graph
+        if len(self.pruning_groups) == 1:
+            self.logger.warning("Only one dependency group found – switching to layer-wise fallback")
+            self.fallback_layerwise = True
         
         return selected
 
@@ -419,16 +427,15 @@ class DepGraphHSICMethod2(BasePruningMethod):
         self.logger.info("Applying layer-wise pruning fallback")
         total_pruned = 0
 
-        # Jika fallback, langsung prune layer tanpa dependency graph
-        if 0 in self.group_scores and len(self.masks) > 0:
+        # Gunakan mask yang sudah dibuat, bukan membuat indeks baru
+        if len(self.masks) > 0 and 0 in self.group_scores:
             global_mask = self.masks[0]
             scores = self.group_scores[0]
             
-            # Ambil channel dengan HSIC score terendah
-            n_prune = int(len(scores) * 0.2)  # 20% ratio
-            worst_indices = torch.argsort(scores)[:n_prune].tolist()
+            # Ambil channel yang dipangkas berdasarkan mask
+            prune_indices = (~global_mask).nonzero(as_tuple=False).view(-1).tolist()
             
-            self.logger.info("Pruning %d channels with lowest HSIC scores", n_prune)
+            self.logger.info("Pruning %d channels based on generated mask", len(prune_indices))
             
             # Prune layer secara manual
             for layer_idx, layer in enumerate(self.layers):
@@ -441,7 +448,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 
                 # Filter indeks yang valid untuk layer ini
                 layer_prune_indices = [
-                    i - start_idx for i in worst_indices 
+                    i - start_idx for i in prune_indices 
                     if start_idx <= i < end_idx
                 ]
                 
