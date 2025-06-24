@@ -14,6 +14,10 @@ class ApplyPruningStep(PipelineStep):
         context.pruning_method.model = context.model.model
         context.pruning_method.apply_pruning()
 
+        # Clean up pruning method before saving to avoid pickle issues
+        if hasattr(context.pruning_method, 'cleanup_for_saving'):
+            context.pruning_method.cleanup_for_saving()
+
         snapshot = context.workdir / "snapshot.pt"
         try:
             context.logger.info("Saving snapshot to %s", snapshot)

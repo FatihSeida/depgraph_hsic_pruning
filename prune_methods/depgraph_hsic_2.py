@@ -460,6 +460,10 @@ class DepGraphHSICMethod2(BasePruningMethod):
                         total_pruned += len(layer_prune_indices)
                         self.logger.info("Layer %d: pruned %d/%d channels", 
                                        layer_idx, len(layer_prune_indices), layer_channels)
+                        
+                        # Update BatchNorm layers yang terkait
+                        self._update_related_batchnorm(layer, layer_prune_indices)
+                        
                     except Exception as e:
                         self.logger.warning("Failed to prune layer %d: %s", layer_idx, e)
 
@@ -483,13 +487,38 @@ class DepGraphHSICMethod2(BasePruningMethod):
             self.logger.info("Model validation successful - forward pass works after pruning")
         except Exception as e:
             self.logger.error("Model validation failed - forward pass broken after pruning: %s", e)
-            # Try to rebuild dependency graph
-            try:
-                if self.DG is not None:
-                    self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
-                    self.logger.info("Dependency graph rebuilt after pruning")
-            except Exception as rebuild_error:
-                self.logger.error("Failed to rebuild dependency graph: %s", rebuild_error)
+            # Don't try to rebuild dependency graph as it may cause more issues
+
+    def _update_related_batchnorm(self, conv_layer, prune_indices):
+        """Update related BatchNorm layers after pruning a Conv2d layer."""
+        try:
+            # Find the parent module that contains this conv layer
+            for name, module in self.model.named_modules():
+                if module is conv_layer:
+                    parent_name = '.'.join(name.split('.')[:-1])
+                    if parent_name:
+                        parent = self.model.get_submodule(parent_name)
+                        # Look for BatchNorm layers in the same parent
+                        for child_name, child in parent.named_children():
+                            if isinstance(child, torch.nn.BatchNorm2d) and child.num_features == conv_layer.out_channels:
+                                # Update BatchNorm to match pruned conv
+                                keep_indices = list(set(range(conv_layer.out_channels)) - set(prune_indices))
+                                keep_indices.sort()
+                                
+                                # Create new BatchNorm with correct size
+                                new_bn = torch.nn.BatchNorm2d(len(keep_indices))
+                                new_bn.weight.data = child.weight.data[keep_indices].clone()
+                                new_bn.bias.data = child.bias.data[keep_indices].clone()
+                                new_bn.running_mean = child.running_mean[keep_indices].clone()
+                                new_bn.running_var = child.running_var[keep_indices].clone()
+                                
+                                # Replace the old BatchNorm
+                                setattr(parent, child_name, new_bn)
+                                self.logger.debug("Updated BatchNorm %s to match pruned conv", child_name)
+                                break
+                    break
+        except Exception as e:
+            self.logger.warning("Failed to update related BatchNorm: %s", e)
 
     # ------------------------------------------------------------------
     # Public interface
@@ -617,4 +646,32 @@ class DepGraphHSICMethod2(BasePruningMethod):
             except Exception:
                 pass
         self._hook_handles.clear()
+
+    def cleanup_for_saving(self) -> None:
+        """Clean up dependency graph and hooks to make model picklable."""
+        # Remove hooks
+        self.remove_activation_hooks()
+        
+        # Clear dependency graph to avoid pickle issues
+        if hasattr(self, 'DG') and self.DG is not None:
+            try:
+                # Clear any internal state that might cause pickle issues
+                if hasattr(self.DG, '_graph'):
+                    self.DG._graph.clear()
+                if hasattr(self.DG, '_module_to_node'):
+                    self.DG._module_to_node.clear()
+                if hasattr(self.DG, '_node_to_module'):
+                    self.DG._node_to_module.clear()
+            except Exception as e:
+                self.logger.warning("Failed to clear dependency graph state: %s", e)
+        
+        # Clear internal state that might cause issues
+        self.activations.clear()
+        self.labels.clear()
+        self.group_scores.clear()
+        self.sub_groups.clear()
+        self.sub_group_scores.clear()
+        self.masks.clear()
+        
+        self.logger.info("Model cleaned up for saving")
 
