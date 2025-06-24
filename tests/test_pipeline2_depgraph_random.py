@@ -41,6 +41,15 @@ def setup(monkeypatch):
     from helper import flops_utils as fu
     monkeypatch.setattr(fu, "get_flops_reliable", lambda *a, **k: 0, raising=False)
     utils.torch_utils = tu
+    utils.DEFAULT_CFG = types.SimpleNamespace(batch=1, workers=0, imgsz=32)
+    utils.YAML = types.SimpleNamespace(load=lambda f, append_filename=False: {"path": ".", "val": "images"})
+
+    cfg_mod = types.ModuleType('ultralytics.cfg')
+    cfg_mod.get_cfg = lambda cfg=None: types.SimpleNamespace(batch=1, workers=0, imgsz=32, data='d')
+
+    data_mod = types.ModuleType('ultralytics.data')
+    data_mod.build_yolo_dataset = lambda *a, **k: 'ds'
+    data_mod.build_dataloader = lambda *a, **k: object()
 
     class DummyYOLO:
         def __init__(self):
@@ -57,9 +66,14 @@ def setup(monkeypatch):
 
     up.YOLO = lambda *a, **k: DummyYOLO()
     up.utils = utils
+    up.cfg = cfg_mod
+    up.data = data_mod
     monkeypatch.setitem(sys.modules, 'ultralytics', up)
     monkeypatch.setitem(sys.modules, 'ultralytics.utils', utils)
     monkeypatch.setitem(sys.modules, 'ultralytics.utils.torch_utils', tu)
+    monkeypatch.setitem(sys.modules, 'ultralytics.cfg', cfg_mod)
+    monkeypatch.setitem(sys.modules, 'ultralytics.data', data_mod)
+    monkeypatch.setitem(sys.modules, 'ultralytics.data.loaders', data_mod)
 
     pp = importlib.import_module('pipeline.pruning_pipeline_2')
     importlib.reload(pp)

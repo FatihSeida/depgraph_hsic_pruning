@@ -178,6 +178,24 @@ class PruningPipeline2(BasePruningPipeline):
             len(groups),
         )
 
+    def _build_val_loader(self):
+        """Return a validation dataloader built from ``self.data``."""
+        if self.model is None:
+            raise ValueError("Model is not loaded")
+        from ultralytics.cfg import get_cfg
+        from ultralytics.utils import DEFAULT_CFG, YAML
+        from ultralytics.data import build_yolo_dataset, build_dataloader
+
+        cfg = get_cfg(DEFAULT_CFG)
+        cfg.data = self.data
+
+        data_dict = YAML.load(self.data)
+        img_path = data_dict.get("val") or data_dict.get("test") or data_dict.get("train")
+        stride = int(max(getattr(self.model.model, "stride", [32])))
+
+        dataset = build_yolo_dataset(cfg, img_path, cfg.batch, data_dict, mode="val", rect=True, stride=stride)
+        return build_dataloader(dataset, batch=cfg.batch, workers=cfg.workers * 2, shuffle=False, rank=-1)
+
     def generate_pruning_mask(
         self,
         ratio: float,
@@ -190,6 +208,11 @@ class PruningPipeline2(BasePruningPipeline):
         self.pruning_method.analyze_model()
         if dataloader is None:
             dataloader = getattr(getattr(self.model, "trainer", None), "val_loader", None)
+            if dataloader is None:
+                try:
+                    dataloader = self._build_val_loader()
+                except Exception as exc:
+                    raise ValueError("failed to build validation dataloader") from exc
 
         if isinstance(self.pruning_method, DepgraphHSICMethod):
             if dataloader is None:
