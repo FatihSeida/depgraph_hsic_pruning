@@ -258,11 +258,11 @@ def execute_pipeline(
 
     if method_cls is not None:
         # Initialize pruning method with appropriate parameters
-        if method_cls == pm.DepgraphHSICMethod:
+        if method_cls in (pm.DepgraphHSICMethod, pm.DepGraphHSICMethod2):
             pruning_method = method_cls(
-                pipeline.model.model, 
+                pipeline.model.model,
                 workdir=workdir,
-                pruning_scope=pruning_scope
+                pruning_scope=pruning_scope,
             )
         else:
             pruning_method = method_cls(pipeline.model.model, workdir=workdir)

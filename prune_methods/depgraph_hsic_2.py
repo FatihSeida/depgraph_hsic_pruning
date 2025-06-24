@@ -57,6 +57,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
         sub_group_clusters: int = 3,
         iterations: int = 1,
         example_inputs: torch.Tensor | tuple | None = None,
+        pruning_scope: str = "full",
     ) -> None:
         super().__init__(model, workdir, example_inputs)
         self.sigma = sigma
@@ -65,6 +66,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
         self.alpha = float(alpha)
         self.sub_group_clusters = sub_group_clusters
         self.iterations = iterations
+        self.pruning_scope = pruning_scope
 
         # Internal state
         self.DG: Optional[tp.DependencyGraph] = None
@@ -85,12 +87,20 @@ class DepGraphHSICMethod2(BasePruningMethod):
     # Phase 1 – structural analysis
     # ------------------------------------------------------------------
     def analyze_model(self) -> None:  # pragma: no cover - heavy dependency
-        self.logger.info("Building dependency graph and analysing structure")
-        self.layers = [
-            conv
-            for parent_mod, attr, _bn in collect_backbone_convs(self.model, num_modules=10)
-            if isinstance((conv := getattr(parent_mod, attr)), nn.Conv2d) and conv.out_channels > 1
-        ]
+        self.logger.info("Building dependency graph and analysing structure (scope: %s)", self.pruning_scope)
+
+        if self.pruning_scope == "backbone":
+            # Gunakan utilitas untuk mengambil Conv2d backbone pertama (10 modul)
+            self.layers = [
+                conv
+                for parent_mod, attr, _bn in collect_backbone_convs(self.model, num_modules=10)
+                if isinstance((conv := getattr(parent_mod, attr)), nn.Conv2d) and conv.out_channels > 1
+            ]
+        else:  # "full"
+            # Ambil seluruh Conv2d pada model
+            self.layers = [
+                m for m in self.model.modules() if isinstance(m, nn.Conv2d) and m.out_channels > 1
+            ]
         if not self.layers:
             raise RuntimeError("No convolutional layers found for pruning")
 
