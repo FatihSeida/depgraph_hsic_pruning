@@ -18,9 +18,14 @@ class IsomorphicMethod(BasePruningMethod):
 
     requires_reconfiguration = False
 
-    def __init__(self, model: Any, workdir: str = "runs/pruning", round_to: int | None = None) -> None:
-        super().__init__(model, workdir)
-        self.example_inputs = torch.randn(1, 3, 640, 640)
+    def __init__(
+        self,
+        model: Any,
+        workdir: str = "runs/pruning",
+        round_to: int | None = None,
+        example_inputs: torch.Tensor | tuple | None = None,
+    ) -> None:
+        super().__init__(model, workdir, example_inputs)
         self.round_to = round_to
         self.pruner = None
 
