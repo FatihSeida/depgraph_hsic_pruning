@@ -474,6 +474,23 @@ class DepGraphHSICMethod2(BasePruningMethod):
         except Exception as e:
             self.logger.warning("Failed to update model structure: %s", e)
 
+        # Validate model can still do forward pass
+        try:
+            device = next(self.model.parameters()).device
+            test_input = torch.randn(1, 3, 640, 640).to(device)
+            with torch.no_grad():
+                _ = self.model(test_input)
+            self.logger.info("Model validation successful - forward pass works after pruning")
+        except Exception as e:
+            self.logger.error("Model validation failed - forward pass broken after pruning: %s", e)
+            # Try to rebuild dependency graph
+            try:
+                if self.DG is not None:
+                    self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+                    self.logger.info("Dependency graph rebuilt after pruning")
+            except Exception as rebuild_error:
+                self.logger.error("Failed to rebuild dependency graph: %s", rebuild_error)
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------

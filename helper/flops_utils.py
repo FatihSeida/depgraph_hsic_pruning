@@ -75,8 +75,12 @@ def calculate_flops_manual(model: Any, imgsz: int | Iterable[int] = 640) -> floa
     try:
         with torch.no_grad():
             model(dummy)
-    except Exception:
+    except Exception as e:
         # forward failed; return partial FLOPs collected so far
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Forward pass failed during FLOPs calculation: {e}")
+        logger.warning("This may indicate model structure issues after pruning")
         for h in hooks:
             h.remove()
         return totals[0] * 2 / 1e9
