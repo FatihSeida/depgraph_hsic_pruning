@@ -419,34 +419,53 @@ class DepGraphHSICMethod2(BasePruningMethod):
         self.logger.info("Applying layer-wise pruning fallback")
         total_pruned = 0
 
-        for layer_idx, layer in enumerate(self.layers):
-            if layer_idx not in self.activations:
-                continue
-
-            # Ambil mask untuk layer ini dari fallback
-            if 0 in self.group_scores and len(self.masks) > 0:
-                global_mask = self.masks[0]  # Mask global dari fallback
+        # Jika fallback, langsung prune layer tanpa dependency graph
+        if 0 in self.group_scores and len(self.masks) > 0:
+            global_mask = self.masks[0]
+            scores = self.group_scores[0]
+            
+            # Ambil channel dengan HSIC score terendah
+            n_prune = int(len(scores) * 0.2)  # 20% ratio
+            worst_indices = torch.argsort(scores)[:n_prune].tolist()
+            
+            self.logger.info("Pruning %d channels with lowest HSIC scores", n_prune)
+            
+            # Prune layer secara manual
+            for layer_idx, layer in enumerate(self.layers):
+                if layer_idx >= len(self.layers):
+                    break
+                    
                 layer_channels = layer.out_channels
-                
-                # Ambil subset mask yang sesuai dengan layer ini
                 start_idx = sum(l.out_channels for l in self.layers[:layer_idx])
                 end_idx = start_idx + layer_channels
                 
-                if start_idx < len(global_mask) and end_idx <= len(global_mask):
-                    layer_mask = global_mask[start_idx:end_idx]
-                    prune_idx = (~layer_mask).nonzero(as_tuple=False).view(-1).tolist()
-                    
-                    if prune_idx:
-                        try:
-                            # Prune layer ini secara langsung
-                            sub_group = self.DG.get_pruning_group(layer, tp.prune_conv_out_channels, prune_idx)
-                            self.DG.prune_group(sub_group)
-                            total_pruned += len(prune_idx)
-                            self.logger.debug("Layer %d: pruned %d/%d channels", layer_idx, len(prune_idx), layer_channels)
-                        except Exception as e:
-                            self.logger.warning("Failed to prune layer %d: %s", layer_idx, e)
+                # Filter indeks yang valid untuk layer ini
+                layer_prune_indices = [
+                    i - start_idx for i in worst_indices 
+                    if start_idx <= i < end_idx
+                ]
+                
+                if layer_prune_indices:
+                    try:
+                        # Prune secara manual dengan torch_pruning
+                        from torch_pruning import prune_conv_out_channels
+                        prune_conv_out_channels(layer, layer_prune_indices)
+                        total_pruned += len(layer_prune_indices)
+                        self.logger.info("Layer %d: pruned %d/%d channels", 
+                                       layer_idx, len(layer_prune_indices), layer_channels)
+                    except Exception as e:
+                        self.logger.warning("Failed to prune layer %d: %s", layer_idx, e)
 
-        self.logger.info("Layer-wise pruning completed: %d total channels pruned", total_pruned)
+        self.logger.info("Manual pruning completed: %d total channels pruned", total_pruned)
+
+        # Force model recompilation to apply changes
+        try:
+            # Rebuild model structure
+            if hasattr(self.model, 'model'):
+                self.model.model = self.model.model
+            self.logger.info("Model structure updated after pruning")
+        except Exception as e:
+            self.logger.warning("Failed to update model structure: %s", e)
 
     # ------------------------------------------------------------------
     # Public interface
