@@ -122,7 +122,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
     # ------------------------------------------------------------------
     # Activation collection
     # ------------------------------------------------------------------
-    def _register_activation_hooks(self) -> None -> None:
+    def _register_activation_hooks(self) -> None:
         def make_hook(idx: int):
             def hook(_mod: nn.Module, _inp: Tuple[torch.Tensor], out: torch.Tensor) -> None:
                 shp = self.layer_shapes.setdefault(idx, out.shape[2:])
