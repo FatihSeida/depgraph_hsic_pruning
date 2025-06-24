@@ -190,6 +190,10 @@ class PruningPipeline2(BasePruningPipeline):
         cfg.data = self.data
 
         data_dict = YAML.load(self.data)
+        # Ensure required keys for Ultralytics dataset
+        if "channels" not in data_dict:
+            # Assume RGB images when key is missing
+            data_dict["channels"] = 3
         img_path = data_dict.get("val") or data_dict.get("test") or data_dict.get("train")
         stride = int(max(getattr(self.model.model, "stride", [32])))
 
