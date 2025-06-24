@@ -205,6 +205,7 @@ def execute_pipeline(
     *,
     resume: bool = False,
     logger=None,
+    pruning_scope: str = "backbone",
 ) -> tuple[BasePruningPipeline, Path]:
     """Run a full pruning pipeline for ``method_cls`` at ``ratio``."""
     workdir.mkdir(parents=True, exist_ok=True)
@@ -252,7 +253,16 @@ def execute_pipeline(
         log_substep(logger, f"model_size_mb: {stats['model_size_mb']}")
 
     if method_cls is not None:
-        pruning_method = method_cls(pipeline.model.model, workdir=workdir)
+        # Initialize pruning method with appropriate parameters
+        if method_cls == pm.DepgraphHSICMethod:
+            pruning_method = method_cls(
+                pipeline.model.model, 
+                workdir=workdir,
+                pruning_scope=pruning_scope
+            )
+        else:
+            pruning_method = method_cls(pipeline.model.model, workdir=workdir)
+        
         pipeline.set_pruning_method(pruning_method)
         
         # When skipping pretraining, run analysis immediately so hooks are
@@ -370,6 +380,7 @@ class ExperimentRunner:
         resume: bool = False,
         logger: Logger | None = None,
         metrics: List[str] | None = None,
+        pruning_scope: str = "backbone",
     ) -> None:
         self.model_path = model_path
         self.data = data
@@ -381,8 +392,9 @@ class ExperimentRunner:
         self.logger = logger or get_logger()
         self.manager = ExperimentManager(Path(model_path).stem, workdir)
         self.metrics = metrics or DEFAULT_PLOT_METRICS
+        self.pruning_scope = pruning_scope
 
-    def run(self, heatmap_only: bool = False) -> None:
+    def run(self) -> None:
         """Execute all pruning experiments."""
         baseline_dir = self.workdir / "baseline"
         baseline_dir.mkdir(parents=True, exist_ok=True)
@@ -408,6 +420,7 @@ class ExperimentRunner:
                 baseline_dir,
                 resume=self.resume,
                 logger=self.logger,
+                pruning_scope=self.pruning_scope,
             )
             baseline_weights = weights_file
 
@@ -432,17 +445,15 @@ class ExperimentRunner:
                     run_dir,
                     resume=self.resume,
                     logger=self.logger,
+                    pruning_scope=self.pruning_scope,
                 )
                 self.manager.add_result(method_name, ratio, pipeline.record_metrics(), csv_path)
 
         self.manager.compare_pruning_methods()
         # Visualize training metrics across ratios and methods
         for metric in self.metrics:
-            if heatmap_only:
-                self.manager.plot_heatmap(metric)
-            else:
-                self.manager.plot_line(metric)
-                self.manager.plot_heatmap(metric)
+            self.manager.plot_line(metric)
+            self.manager.plot_heatmap(metric)
 
 
 def parse_args() -> argparse.Namespace:
@@ -467,17 +478,22 @@ def parse_args() -> argparse.Namespace:
         default=[0.2, 0.4, 0.6, 0.8],
         help="Pruning ratios to evaluate",
     )
-    parser.add_argument("--methods", nargs="+", default=list(METHODS_MAP.keys()), help="Pruning methods to evaluate")
-    parser.add_argument("--runs-dir", default="experiments", help="Root directory for comparison runs")
-    parser.add_argument("--no-baseline", action="store_true", help="Skip baseline training in comparison mode")
-    parser.add_argument("--debug", action="store_true", help="Enable verbose output")
-    parser.add_argument("--continue", dest="cont", action="store_true", help="Continue incomplete runs")
-    parser.add_argument("--compare", action="store_true", help="Run comparison across methods")
     parser.add_argument(
-        "--heatmap-only",
-        action="store_true",
-        help="Only generate heatmap visualizations",
+        "--methods",
+        nargs="+",
+        choices=list(METHODS_MAP.keys()),
+        default=["l1"],
+        help="Pruning methods to evaluate",
     )
+    parser.add_argument(
+        "--pruning-scope",
+        choices=["backbone", "full"],
+        default="backbone",
+        help="Scope of pruning: 'backbone' for first 10 layers only, 'full' for entire model",
+    )
+    parser.add_argument("--compare", action="store_true", help="Compare results from previous runs")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--quiet", action="store_true", help="Suppress verbose output")
     return parser.parse_args()
 
 
@@ -486,7 +502,7 @@ def run_comparison(args: argparse.Namespace) -> None:
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_dir = repo_root / args.runs_dir / f"pruning_comparison_{timestamp}"
+    base_dir = repo_root / "experiments" / f"pruning_comparison_{timestamp}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
     csv_path = base_dir / "comparison_report.csv"
@@ -506,7 +522,7 @@ def run_comparison(args: argparse.Namespace) -> None:
     # Baseline training
     baseline_dir: Path | None = None
     baseline_weights = args.model
-    if not args.no_baseline:
+    if not getattr(args, 'no_baseline', False):
         baseline_dir = base_dir / "baseline"
         baseline_dir.mkdir(parents=True, exist_ok=True)
         config = TrainConfig(
@@ -525,6 +541,7 @@ def run_comparison(args: argparse.Namespace) -> None:
             baseline_dir,
             resume=args.resume,
             logger=logger,
+            pruning_scope=args.pruning_scope,
         )
         baseline_weights = baseline_dir / "baseline" / "weights" / "best.pt"
         with csv_path.open("a", newline="") as f:
@@ -538,17 +555,17 @@ def run_comparison(args: argparse.Namespace) -> None:
             run_dir = base_dir / f"{safe_name(str(method))}_r{ratio_tag}"
             complete_flag = run_dir / ".experiment_complete"
             run_dir.mkdir(parents=True, exist_ok=True)
-            if args.cont and complete_flag.exists():
+            if getattr(args, 'cont', False) and complete_flag.exists():
                 continue
             config = TrainConfig(
-                baseline_epochs=0 if not args.no_baseline else args.baseline_epochs,
+                baseline_epochs=0 if not getattr(args, 'no_baseline', False) else args.baseline_epochs,
                 finetune_epochs=args.finetune_epochs,
                 batch_size=args.batch_size,
                 ratios=[ratio],
                 device=args.device,
             )
             execute_pipeline(
-                baseline_weights if not args.no_baseline else args.model,
+                baseline_weights if not getattr(args, 'no_baseline', False) else args.model,
                 args.data,
                 method_cls,
                 ratio,
@@ -556,6 +573,7 @@ def run_comparison(args: argparse.Namespace) -> None:
                 run_dir,
                 resume=args.resume,
                 logger=logger,
+                pruning_scope=args.pruning_scope,
             )
             with csv_path.open("a", newline="") as f:
                 writer = csv.writer(f)
@@ -607,15 +625,16 @@ def main() -> None:
     methods = [get_method_class(m) for m in args.methods]
     logger = get_logger(level=logging.DEBUG if args.debug else logging.INFO)
     runner = ExperimentRunner(
-        args.model,
-        args.data,
-        methods,
-        config,
+        model_path=args.model,
+        data=args.data,
+        methods=methods,
+        config=config,
         workdir=args.workdir,
         resume=args.resume,
         logger=logger,
+        pruning_scope=args.pruning_scope,
     )
-    runner.run(heatmap_only=args.heatmap_only)
+    runner.run()
 
 
 if __name__ == "__main__":
