@@ -91,6 +91,16 @@ class PruningPipeline2(BasePruningPipeline):
         if reanalyze:
             self._sync_example_inputs_device()
             self.pruning_method.analyze_model()
+            convs = len(getattr(self.pruning_method, "layers", []))
+            if convs:
+                self.logger.info(
+                    "Dependency graph rebuilt; %d convolution layers registered",
+                    convs,
+                )
+            else:
+                self.logger.warning(
+                    "Dependency graph rebuilt but no convolution layers detected; analysis may have failed"
+                )
 
     # ------------------------------------------------------------------
     # BasePruningPipeline interface
@@ -150,12 +160,6 @@ class PruningPipeline2(BasePruningPipeline):
         if self.pruning_method is not None:
             try:
                 self._sync_pruning_method(reanalyze=model_changed)
-                if model_changed:
-                    convs = len(getattr(self.pruning_method, "layers", []))
-                    self.logger.info(
-                        "Dependency graph rebuilt; %d convolution layers registered",
-                        convs,
-                    )
             except Exception:
                 self.logger.exception("failed to refresh pruning method")
 
