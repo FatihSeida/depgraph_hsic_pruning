@@ -315,11 +315,15 @@ class DepGraphHSICMethod2(BasePruningMethod):
         
         self.logger.info(f"Selected {len(selected)} sub-groups for pruning")
         
-        # FALLBACK: Jika tidak ada yang dipilih tapi ada scores, pilih yang terendah
-        if not selected and self.sub_group_scores:
-            worst_group = min(self.sub_group_scores.items(), key=lambda x: x[1])
-            selected = [worst_group[0]]
-            self.logger.info(f"Fallback: selected worst group {worst_group[0]} with score {worst_group[1]}")
+        # Fallback jika selected kosong
+        if not selected and 0 in self.group_scores:
+            self.logger.warning("No sub-groups selected – switching to layer-wise fallback")
+            scores = self.group_scores[0]
+            n_prune = max(1, int(len(scores) * ratio))
+            idxs = torch.argsort(scores)[:n_prune].tolist()
+            self.sub_groups = {0: [idxs]}
+            self.sub_group_scores = {(0, 0): scores[idxs].mean().item()}
+            selected = [(0, 0)]
         
         return selected
 
@@ -438,4 +442,35 @@ class DepGraphHSICMethod2(BasePruningMethod):
         except Exception:
             pass
         return None
+
+    # ------------------------------------------------------------------
+    # Diagnostic helpers
+    # ------------------------------------------------------------------
+    def _explain_single_group(self) -> None:
+        """Log detail when only one dependency group is found."""
+        self.logger.warning(
+            "DependencyGraph found only a single pruning group – structured pruning cannot proceed"
+        )
+        # Coba klasifikasi koneksi arsitektur sederhana sebagai bukti
+        conv_count = len(self.layers)
+        self.logger.info("Detected %d Conv2d layers in total", conv_count)
+        # Hitung jumlah skip-connection sederhana (Residual) melalui nama module
+        residual_like = sum(1 for n, m in self.model.named_modules() if "add" in n.lower())
+        concat_like = sum(1 for n, m in self.model.named_modules() if "concat" in n.lower() or "cat" in n.lower())
+        split_like = sum(1 for n, m in self.model.named_modules() if "split" in n.lower())
+        basic_like = conv_count - residual_like - concat_like - split_like
+        self.logger.info(
+            "Architecture pattern counts – basic: %d, residual: %d, concat: %d, split: %d",
+            basic_like,
+            residual_like,
+            concat_like,
+            split_like,
+        )
+        if residual_like:
+            reason = "Model terdeteksi banyak operasi 'add' (skip connection) sehingga semua Conv2d tergabung dalam satu grup Residual besar."
+        elif concat_like:
+            reason = "Model menggunakan operasi concat sehingga DepGraph menganggap seluruh backbone sebagai satu grup Concat besar."
+        else:
+            reason = "Topologi linier tanpa cabang membuat semua layer digabung sebagai Basic group tunggal."
+        self.logger.info("Fallback rationale: %s", reason)
 
