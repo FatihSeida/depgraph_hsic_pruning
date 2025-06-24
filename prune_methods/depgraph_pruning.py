@@ -12,9 +12,13 @@ class DepgraphMethod(BasePruningMethod):
 
     requires_reconfiguration = False
 
-    def __init__(self, model: Any, workdir: str = "runs/pruning") -> None:
-        super().__init__(model, workdir)
-        self.example_inputs = torch.randn(1, 3, 640, 640)
+    def __init__(
+        self,
+        model: Any,
+        workdir: str = "runs/pruning",
+        example_inputs: torch.Tensor | tuple | None = None,
+    ) -> None:
+        super().__init__(model, workdir, example_inputs)
         self.pruner: Any | None = None
 
     def analyze_model(self) -> None:

@@ -54,12 +54,19 @@ class DepgraphHSICMethod(BasePruningMethod):
 
     requires_reconfiguration = False
 
-    def __init__(self, model: Any, workdir: str = "runs/pruning", gamma: float = 1.0, num_modules: int = 10, pruning_scope: str = "backbone") -> None:
-        super().__init__(model, workdir)
+    def __init__(
+        self,
+        model: Any,
+        workdir: str = "runs/pruning",
+        gamma: float = 1.0,
+        num_modules: int = 10,
+        pruning_scope: str = "backbone",
+        example_inputs: torch.Tensor | tuple | None = None,
+    ) -> None:
+        super().__init__(model, workdir, example_inputs)
         self.gamma = gamma
         self.num_modules = num_modules
         self.pruning_scope = pruning_scope
-        self.example_inputs = torch.randn(1, 3, 640, 640)
         self.DG = None
         self._dg_model = None
         self.handles: List[torch.utils.hooks.RemovableHandle] = []

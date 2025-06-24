@@ -28,7 +28,12 @@ class BasePruningMethod(abc.ABC):
 
     requires_reconfiguration: bool = True
 
-    def __init__(self, model: Any, workdir: str | Path = "runs/pruning") -> None:
+    def __init__(
+        self,
+        model: Any,
+        workdir: str | Path = "runs/pruning",
+        example_inputs: torch.Tensor | tuple | None = None,
+    ) -> None:
         self.model = model
         self.workdir = Path(workdir)
         self.workdir.mkdir(parents=True, exist_ok=True)
@@ -36,6 +41,7 @@ class BasePruningMethod(abc.ABC):
         self.pruned_stats: Dict[str, float] = {}
         self.logger: Logger = get_logger()
         self.masks: List[torch.Tensor] = []
+        self.example_inputs = example_inputs or torch.randn(1, 3, 640, 640)
 
     # ------------------------------------------------------------------
     # Core pruning steps to be implemented by subclasses

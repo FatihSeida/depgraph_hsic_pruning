@@ -56,16 +56,15 @@ class DepGraphHSICMethod2(BasePruningMethod):
         alpha: float = 0.5,
         sub_group_clusters: int = 3,
         iterations: int = 1,
-        example_inputs: Optional[torch.Tensor] = None,
+        example_inputs: torch.Tensor | tuple | None = None,
     ) -> None:
-        super().__init__(model, workdir)
+        super().__init__(model, workdir, example_inputs)
         self.sigma = sigma
         self.max_samples = max_samples
         self.seed = seed
         self.alpha = float(alpha)
         self.sub_group_clusters = sub_group_clusters
         self.iterations = iterations
-        self.example_inputs = example_inputs or torch.randn(1, 3, 640, 640)
 
         # Internal state
         self.DG: Optional[tp.DependencyGraph] = None
