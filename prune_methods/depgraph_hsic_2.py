@@ -453,6 +453,15 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 ]
                 
                 if layer_prune_indices:
+                    # Pastikan tidak memprune semua channel – harus menyisakan minimal 1
+                    if len(layer_prune_indices) >= layer_channels:
+                        # Buang indeks terakhir agar masih ada 1 channel
+                        layer_prune_indices = layer_prune_indices[:-1]
+                        self.logger.debug(
+                            "Prevented over-pruning on layer %d – keeping 1 channel", layer_idx
+                        )
+                    if not layer_prune_indices:
+                        continue
                     try:
                         # Prune secara manual dengan torch_pruning
                         from torch_pruning import prune_conv_out_channels
