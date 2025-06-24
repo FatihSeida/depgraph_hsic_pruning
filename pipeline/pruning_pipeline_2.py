@@ -300,8 +300,8 @@ class PruningPipeline2(BasePruningPipeline):
                 self._sync_pruning_method(reanalyze=model_changed)
             except Exception:
                 self.logger.exception("failed to sync pruning method")
-        self.logger.debug(metrics)
         if metrics:
+            self.logger.debug("Training summary: %s", format_training_summary(metrics))
             self.logger.info("Training summary: %s", format_training_summary(metrics))
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics or {}
