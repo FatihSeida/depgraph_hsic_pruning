@@ -148,8 +148,8 @@ class PruningPipeline(BasePruningPipeline):
                         self.logger.debug("reanalyzed pruning method model")
                 except Exception:  # pragma: no cover - best effort
                     self.logger.exception("failed to reanalyze model")
-        self.logger.debug(metrics)
         if metrics:
+            self.logger.debug("Training summary: %s", format_training_summary(metrics))
             self.logger.info("Training summary: %s", format_training_summary(metrics))
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics
@@ -242,8 +242,8 @@ class PruningPipeline(BasePruningPipeline):
                         self.logger.debug("reanalyzed pruning method model")
                 except Exception:  # pragma: no cover - best effort
                     self.logger.exception("failed to reanalyze model")
-        self.logger.debug(metrics)
         if metrics:
+            self.logger.debug("Training summary: %s", format_training_summary(metrics))
             self.logger.info("Training summary: %s", format_training_summary(metrics))
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics
