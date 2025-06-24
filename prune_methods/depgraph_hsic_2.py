@@ -1,209 +1,155 @@
-"""
-DepGraph-HSIC Pruning Method v2 - Implementasi yang sesuai dengan BasePruningMethod.
+"""Adaptive DepGraph-HSIC pruning implementation.
+
+This version follows an iterative pipeline composed of six stages:
+
+1. **Structural Constraint Analysis** – build a dependency graph and map
+   convolution layers to pruning groups.  Structural importance for each
+   group is estimated from layer depth, number of dependencies and
+   parameter count.
+2. **HSIC Performance Scoring** – collect activation maps using forward
+   hooks and compute channel wise HSIC values w.r.t. the target labels.
+   Scores are normalised inside every group for comparability.
+3. **Adaptive Sub‑grouping Strategy** – inside each constraint group the
+   filters are clustered based on their HSIC score using ``KMeans`` so
+   that channels with similar importance form sub‑groups.
+4. **Multi‑Criteria Decision Making** – sub‑groups receive a combined
+   score derived from HSIC and structural importance.  The weighting
+   factor ``alpha`` controls the trade‑off.
+5. **Constraint‑Aware Pruning Execution** – the lowest ranked
+   sub‑groups are removed through ``torch‑pruning`` while the dependency
+   graph ensures tensor shapes remain valid.
+6. **Iterative Refinement** – pruning and scoring can be repeated for
+   several iterations.  After each round the dependency graph is rebuilt
+   so subsequent passes operate on the updated model.
 """
 
 from __future__ import annotations
 
-import torch
-import torch.nn as nn
-import numpy as np
-import os
-import matplotlib.pyplot as plt
-from typing import Dict, List, Tuple, Any, Optional
-import torch_pruning as tp
+from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
 
+import numpy as np
+import torch
+from torch import nn
+from sklearn.cluster import KMeans
+import torch_pruning as tp
 from ultralytics import YOLO
+
 from .base import BasePruningMethod
-from .hsic_lasso import compute_channel_wise_hsic, solve_hsic_lasso
+from .hsic_lasso import compute_channel_wise_hsic
 from .utils import collect_backbone_convs
 
 
 class DepGraphHSICMethod2(BasePruningMethod):
-    """
-    Pruning berbasis penggabungan DepGraph (dependency) dan HSIC Lasso (informasi).
-    Implementasi yang sesuai dengan BasePruningMethod abstract.
-    """
-    
+    """Adaptive filter pruning combining structural and HSIC information."""
+
     requires_reconfiguration: bool = True
-    
+
     def __init__(
-        self, 
-        model: YOLO, 
+        self,
+        model: YOLO,
         workdir: str | Path = "runs/pruning",
-        alpha_range: Tuple[float, float] = (1e-3, 1.0),
-        n_alphas: int = 10,
+        *,
         sigma: Optional[float] = None,
         max_samples: int = 1000,
         seed: int = 42,
-        ignored_layers: Optional[List[str]] = None,
-        example_inputs: Optional[torch.Tensor] = None
+        alpha: float = 0.5,
+        sub_group_clusters: int = 3,
+        iterations: int = 1,
+        example_inputs: Optional[torch.Tensor] = None,
     ) -> None:
         super().__init__(model, workdir)
-        
-        # HSIC-Lasso parameters
-        self.alpha_range = alpha_range
-        self.n_alphas = n_alphas
         self.sigma = sigma
         self.max_samples = max_samples
         self.seed = seed
-        self.ignored_layers = ignored_layers or []
+        self.alpha = float(alpha)
+        self.sub_group_clusters = sub_group_clusters
+        self.iterations = iterations
         self.example_inputs = example_inputs or torch.randn(1, 3, 640, 640)
-        
+
         # Internal state
         self.DG: Optional[tp.DependencyGraph] = None
+        self.layers: List[nn.Conv2d] = []
+        self.pruning_groups: List[Any] = []
+        self.group_map: Dict[int, List[int]] = {}
+        self.structural_scores: Dict[int, float] = {}
         self.activations: Dict[int, List[torch.Tensor]] = {}
+        self.layer_shapes: Dict[int, Tuple[int, int]] = {}
         self.labels: List[torch.Tensor] = []
-        self.layer_shapes: Dict[int, Tuple[int, ...]] = {}
-        self.num_activations: Dict[int, int] = {}
-        self.layers: List[nn.Module] = []
-        self.pruning_groups: List = []
         self.group_scores: Dict[int, torch.Tensor] = {}
-        
-        # Cache
-        self._reset_cache()
-    
-    def _reset_cache(self) -> None:
-        """Reset internal cache."""
-        self.activations.clear()
-        self.labels.clear()
-        self.layer_shapes.clear()
-        self.num_activations.clear()
-        self.layers.clear()
-        self.pruning_groups.clear()
-        self.group_scores.clear()
-        self.masks.clear()
-    
-    def analyze_model(self) -> None:
-        """Inspect model structure and gather information for pruning."""
-        self.logger.info("Analyzing model structure for DepGraph-HSIC pruning...")
-        
-        # Get backbone layers
-        self.layers = []
-        backbone_convs = collect_backbone_convs(self.model, num_modules=10)
-        
-        for parent, attr_name, bn in backbone_convs:
-            conv_layer = getattr(parent, attr_name)
-            if isinstance(conv_layer, nn.Conv2d) and conv_layer.out_channels > 1:
-                self.layers.append(conv_layer)
-        
+        self.sub_groups: Dict[int, List[List[int]]] = {}
+        self.sub_group_scores: Dict[Tuple[int, int], float] = {}
+        self.masks: List[torch.Tensor] = []
+
+    # ------------------------------------------------------------------
+    # Phase 1 – structural analysis
+    # ------------------------------------------------------------------
+    def analyze_model(self) -> None:  # pragma: no cover - heavy dependency
+        self.logger.info("Building dependency graph and analysing structure")
+        self.layers = [
+            conv
+            for _, attr, _ in collect_backbone_convs(self.model, num_modules=10)
+            if isinstance((conv := getattr(_, attr)), nn.Conv2d) and conv.out_channels > 1
+        ]
         if not self.layers:
             raise RuntimeError("No convolutional layers found for pruning")
-        
-        self.logger.info(f"Found {len(self.layers)} convolutional layers for pruning")
-        
-        # Build dependency graph
-        try:
-            self.DG = tp.DependencyGraph()
-            # Use the model instance directly like in depgraph_hsic.py
-            example_inputs = self._inputs_tuple()
-            self.DG.build_dependency(self.model, example_inputs)
-            self.logger.info("Dependency graph built successfully")
-        except Exception as e:
-            raise RuntimeError(f"Failed to build dependency graph: {e}")
-        
-        # Get pruning groups
-        try:
-            self.pruning_groups = list(self.DG.get_all_groups(root_module_types=[nn.Conv2d]))
-            self.logger.info(f"Found {len(self.pruning_groups)} pruning groups")
-        except Exception as e:
-            raise RuntimeError(f"Failed to get pruning groups: {e}")
-        
+
+        self.DG = tp.DependencyGraph()
+        self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+        self.pruning_groups = list(self.DG.get_all_groups(root_module_types=[nn.Conv2d]))
         if not self.pruning_groups:
             raise RuntimeError("No pruning groups found in dependency graph")
-        
-        # Register activation hooks
+
+        self.group_map.clear()
+        self.structural_scores.clear()
+        for g_idx, group in enumerate(self.pruning_groups):
+            mods: List[nn.Module] = []
+            for dep in group:
+                mod = self._extract_target_module(dep)
+                if isinstance(mod, nn.Conv2d) and mod in self.layers:
+                    mods.append(mod)
+                    idx = self.layers.index(mod)
+                    self.group_map.setdefault(idx, []).append(g_idx)
+            if not mods:
+                continue
+            depth = min(self.layers.index(m) for m in mods)
+            params = sum(m.weight.numel() for m in mods)
+            connectivity = len(group)
+            self.structural_scores[g_idx] = float(depth + connectivity + params / 1e5)
+
         self._register_activation_hooks()
-    
-    def _register_activation_hooks(self) -> None:
-        """Register hooks to collect activations."""
-        def make_hook(layer_idx: int):
-            def hook(module: nn.Module, input: Tuple[torch.Tensor], output: torch.Tensor) -> None:
-                target_shape = self.layer_shapes.get(layer_idx)
-                if target_shape is None:
-                    self.layer_shapes[layer_idx] = output.shape[2:]
-                    processed = output.detach().cpu()
+
+    # ------------------------------------------------------------------
+    # Activation collection
+    # ------------------------------------------------------------------
+    def _register_activation_hooks(self) -> None -> None:
+        def make_hook(idx: int):
+            def hook(_mod: nn.Module, _inp: Tuple[torch.Tensor], out: torch.Tensor) -> None:
+                shp = self.layer_shapes.setdefault(idx, out.shape[2:])
+                if out.shape[2:] != shp:
+                    processed = torch.nn.functional.adaptive_avg_pool2d(out, shp)
                 else:
-                    if output.shape[2:] != target_shape:
-                        processed = torch.nn.functional.adaptive_avg_pool2d(output, target_shape).detach().cpu()
-                    else:
-                        processed = output.detach().cpu()
-                
-                self.activations.setdefault(layer_idx, []).append(processed)
-                self.num_activations[layer_idx] = self.num_activations.get(layer_idx, 0) + 1
-                
+                    processed = out
+                self.activations.setdefault(idx, []).append(processed.detach().cpu())
             return hook
-        
-        # Register hooks for each layer
+
         for idx, layer in enumerate(self.layers):
             layer.register_forward_hook(make_hook(idx))
-    
-    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
-        """Create a pruning mask with the given sparsity ratio."""
-        if ratio <= 0 or ratio >= 1:
-            raise ValueError(f"Pruning ratio must be between 0 and 1, got {ratio}")
-        
-        if dataloader is None:
-            raise ValueError("Dataloader is required for HSIC computation. No fallback allowed.")
-        
-        self.logger.info(f"Generating pruning mask with ratio {ratio:.3f}")
-        
-        # Analyze model if not done yet
-        if not self.layers:
-            self.analyze_model()
-        
-        # Collect activations and labels
-        self._collect_activations(dataloader)
-        
-        if len(self.labels) < 4:
-            raise ValueError(f"Insufficient labels ({len(self.labels)} < 4) for HSIC computation. Need more data samples.")
-        
-        # Compute HSIC scores for each group
-        self._compute_group_hsic_scores()
-        
-        if not self.group_scores:
-            raise RuntimeError("Failed to compute HSIC scores for any group. Check model structure and data.")
-        
-        # Apply HSIC-Lasso pruning
-        self._apply_hsic_lasso_pruning(ratio)
-        
-        self.logger.info("Pruning mask generated successfully")
-    
+
     def _collect_activations(self, dataloader) -> None:
-        """Collect activations and labels from dataloader."""
-        self.logger.info("Collecting activations and labels...")
-        
-        try:
-            device = next(self.model.parameters()).device
-        except Exception:
-            device = torch.device("cpu")
-        
+        device = next(self.model.parameters()).device
         train_state = self.model.training
         self.model.eval()
-        
         sample_count = 0
         with torch.no_grad():
             for batch in dataloader:
                 if sample_count >= self.max_samples:
                     break
-                
-                # Extract images and labels safely without boolean evaluation on tensors
                 images = None
                 labels = None
-                
                 if isinstance(batch, dict):
-                    # Use explicit None checks to avoid Tensor truth evaluation
-                    images = batch.get("img", None)
-                    if images is None:
-                        images = batch.get("images", None)
-                    if images is None:
-                        images = batch.get("inputs", None)
-
-                    labels = batch.get("cls", None)
-                    if labels is None:
-                        labels = batch.get("label", None)
-                    if labels is None:
-                        labels = batch.get("labels", None)
+                    images = batch.get("img") or batch.get("images") or batch.get("inputs")
+                    labels = batch.get("cls") or batch.get("label") or batch.get("labels")
                 elif isinstance(batch, (list, tuple)):
                     if len(batch) > 0:
                         images = batch[0]
@@ -211,203 +157,208 @@ class DepGraphHSICMethod2(BasePruningMethod):
                         labels = batch[1]
                 else:
                     images = batch
-                
                 if images is None:
-                    self.logger.warning("Skipping batch with no images")
                     continue
-                
-                # Ensure images are float32 and in correct range
-                if images.dtype != torch.float32:
-                    if images.dtype == torch.uint8:
-                        images = images.float() / 255.0
-                    else:
-                        images = images.float()
-                
+                images = images.to(device, dtype=torch.float32)
                 if images.max() > 1.0:
                     images = images / 255.0
-                
-                try:
-                    # Forward pass
-                    self.model(images.to(device))
-                    
-                    # Store labels
-                    if labels is not None and isinstance(labels, torch.Tensor):
-                        self.labels.append(labels.cpu())
-                    else:
-                        self.logger.warning("No valid labels found in batch")
-                    
-                    sample_count += 1
-                    
-                    if sample_count % 10 == 0:
-                        self.logger.debug(f"Collected {sample_count} samples")
-                        
-                except Exception as e:
-                    self.logger.error(f"Error during forward pass: {e}")
-                    raise RuntimeError(f"Failed to process batch during activation collection: {e}")
-        
+                self.model(images)
+                if labels is not None and isinstance(labels, torch.Tensor):
+                    self.labels.append(labels.detach().cpu())
+                sample_count += 1
         self.model.train(train_state)
-        self.logger.info(f"Collected activations from {sample_count} samples")
-        
         if sample_count == 0:
-            raise RuntimeError("No samples were collected. Check dataloader format and data.")
-        
-        if len(self.labels) == 0:
-            raise RuntimeError("No labels were collected. Check dataloader format and label extraction.")
-    
+            raise RuntimeError("No samples were collected for HSIC scoring")
+        if not self.labels:
+            raise RuntimeError("No labels were collected for HSIC scoring")
+
+    # ------------------------------------------------------------------
+    # Phase 2 – HSIC scoring
+    # ------------------------------------------------------------------
     def _compute_group_hsic_scores(self) -> None:
-        """Compute HSIC scores for each pruning group."""
-        self.logger.info("Computing HSIC scores for pruning groups...")
-        
-        if not self.pruning_groups:
-            # No fallback - raise error if no pruning groups found
-            raise RuntimeError("No pruning groups found in dependency graph. Cannot proceed with HSIC computation.")
-        
-        # Process each pruning group
-        for group_idx, group in enumerate(self.pruning_groups):
-            group_activations = []
-            group_channels = []
-            
+        self.group_scores.clear()
+        for g_idx, group in enumerate(self.pruning_groups):
+            acts: List[torch.Tensor] = []
             for dep in group:
-                target_module = self._extract_target_module(dep)
-                if target_module is None:
+                mod = self._extract_target_module(dep)
+                if mod not in self.layers:
                     continue
-                
-                if isinstance(target_module, nn.Conv2d):
-                    layer_idx = None
-                    for idx, layer in enumerate(self.layers):
-                        if layer is target_module:
-                            layer_idx = idx
-                            break
-                    
-                    if layer_idx is not None and layer_idx in self.activations:
-                        acts = torch.cat(self.activations[layer_idx], dim=0)
-                        group_activations.append(acts)
-                        group_channels.append(acts.size(1))
-            
-            if not group_activations:
-                self.logger.warning(f"No activations found for group {group_idx}")
+                l_idx = self.layers.index(mod)
+                if l_idx in self.activations:
+                    acts.append(torch.cat(self.activations[l_idx], dim=0))
+            if not acts:
                 continue
-            
-            # Concatenate activations from all layers in group
-            combined_activations = torch.cat(group_activations, dim=1)
-            
-            # Prepare labels
-            if len(self.labels) == 0:
-                raise RuntimeError("No labels available for HSIC computation")
-            
-            labels_tensor = torch.cat(self.labels, dim=0)
-            
-            # Ensure same number of samples
-            min_samples = min(combined_activations.size(0), labels_tensor.size(0))
-            combined_activations = combined_activations[:min_samples]
-            labels_tensor = labels_tensor[:min_samples]
-            
-            # Compute HSIC scores
-            sigma = self.sigma or (1.0 / combined_activations.size(1) if combined_activations.size(1) > 0 else 1.0)
-            scores = compute_channel_wise_hsic(combined_activations, labels_tensor, sigma)
-            self.group_scores[group_idx] = scores
-    
-    def _extract_target_module(self, dep) -> Optional[nn.Module]:
-        """Extract target module from dependency item."""
-        # Handle different types of dependency items
-        if hasattr(dep, 'module'):
-            return dep.module
-        elif hasattr(dep, 'target'):
-            return dep.target
-        elif hasattr(dep, 'layer'):
-            return dep.layer
-        elif hasattr(dep, 'dep'):
-            # Recursively resolve nested dependencies
-            return self._extract_target_module(dep.dep)
-        else:
-            return None
-    
-    def _apply_hsic_lasso_pruning(self, ratio: float) -> None:
-        """Apply HSIC-Lasso pruning to determine which channels to keep."""
-        # Combine all scores for Lasso regression
-        all_scores = []
-        group_indices = []
-        channel_indices = []
-        
-        for group_idx, scores in self.group_scores.items():
-            all_scores.extend(scores.tolist())
-            group_indices.extend([group_idx] * len(scores))
-            channel_indices.extend(list(range(len(scores))))
-        
-        if not all_scores:
-            raise RuntimeError("No HSIC scores available for pruning")
-        
-        # Apply HSIC-Lasso
-        kept_indices = solve_hsic_lasso(
-            np.array(all_scores),
-            ratio,
-            alpha_range=self.alpha_range,
-            n_alphas=self.n_alphas,
-            seed=self.seed
-        )
-        
-        # Create masks for each group
-        self.masks.clear()
-        
-        # Group-based pruning only (no fallback to layer-based)
-        for group_idx, group in enumerate(self.pruning_groups):
-            group_kept_indices = [i for i, g_idx in enumerate(group_indices) if g_idx == group_idx]
-            group_kept_indices = [i for i in group_kept_indices if i in kept_indices]
-            
-            # Create mask for this group
-            total_channels = len(self.group_scores.get(group_idx, []))
-            if total_channels > 0:
-                mask = torch.zeros(total_channels, dtype=torch.bool)
-                mask[group_kept_indices] = True
-                self.masks.append(mask)
-        
+            combined = torch.cat(acts, dim=1)
+            labels = torch.cat(self.labels, dim=0)
+            m = min(combined.size(0), labels.size(0))
+            combined = combined[:m]
+            labels = labels[:m]
+            sigma = self.sigma or 1.0 / max(combined.size(1), 1)
+            scores = compute_channel_wise_hsic(combined, labels, sigma)
+            if scores.numel() > 1:
+                scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
+            self.group_scores[g_idx] = scores
+
+    # ------------------------------------------------------------------
+    # Phase 3 – adaptive sub grouping
+    # ------------------------------------------------------------------
+    def _create_sub_groups(self) -> None:
+        self.sub_groups.clear()
+        for g_idx, scores in self.group_scores.items():
+            arr = scores.view(-1, 1).cpu().numpy()
+            n_cluster = min(self.sub_group_clusters, len(arr))
+            if n_cluster <= 1:
+                self.sub_groups[g_idx] = [list(range(len(arr)))]
+                continue
+            kmeans = KMeans(n_clusters=n_cluster, random_state=self.seed, n_init="auto")
+            labels = kmeans.fit_predict(arr)
+            groups: List[List[int]] = []
+            for c in range(n_cluster):
+                idxs = np.where(labels == c)[0].tolist()
+                if idxs:
+                    groups.append(idxs)
+            self.sub_groups[g_idx] = groups
+
+    # ------------------------------------------------------------------
+    # Phase 4 – multi criteria decision
+    # ------------------------------------------------------------------
+    def _score_sub_groups(self) -> None:
+        self.sub_group_scores.clear()
+        max_struct = max(self.structural_scores.values()) if self.structural_scores else 1.0
+        for g_idx, groups in self.sub_groups.items():
+            struct_norm = self.structural_scores.get(g_idx, 0.0) / max_struct
+            hsic = self.group_scores.get(g_idx)
+            if hsic is None:
+                continue
+            for s_idx, idxs in enumerate(groups):
+                if not idxs:
+                    continue
+                hval = hsic[idxs].mean()
+                score = self.alpha * hval.item() + (1.0 - self.alpha) * struct_norm
+                self.sub_group_scores[(g_idx, s_idx)] = score
+
+    def _select_pruned_sub_groups(self, ratio: float) -> List[Tuple[int, int]]:
+        ordered = sorted(self.sub_group_scores.items(), key=lambda x: x[1])
+        total_channels = sum(len(sg) for groups in self.sub_groups.values() for sg in groups)
+        target = int(total_channels * ratio)
+        selected: List[Tuple[int, int]] = []
+        removed = 0
+        for (g_idx, s_idx), _ in ordered:
+            sz = len(self.sub_groups[g_idx][s_idx])
+            if removed + sz > target:
+                break
+            selected.append((g_idx, s_idx))
+            removed += sz
+        return selected
+
+    def _build_masks(self, to_prune: List[Tuple[int, int]]) -> None:
+        self.masks = []
+        prune_set = {(g, s) for g, s in to_prune}
+        for g_idx, scores in self.group_scores.items():
+            mask = torch.ones(len(scores), dtype=torch.bool)
+            groups = self.sub_groups.get(g_idx, [])
+            for s_idx, idxs in enumerate(groups):
+                if (g_idx, s_idx) in prune_set:
+                    mask[idxs] = False
+            self.masks.append(mask)
+
+    # ------------------------------------------------------------------
+    # Phase 5 – execute pruning
+    # ------------------------------------------------------------------
+    def _apply_masks(self) -> None:
+        if self.DG is None:
+            raise RuntimeError("Dependency graph not built")
+        for (g_idx, group), mask in zip(enumerate(self.pruning_groups), self.masks):
+            prune_idx = (~mask).nonzero(as_tuple=False).view(-1).tolist()
+            if not prune_idx:
+                continue
+            convs = [
+                self._extract_target_module(dep)
+                for dep in group
+                if isinstance(self._extract_target_module(dep), nn.Conv2d)
+            ]
+            if not convs:
+                continue
+            for conv in convs:
+                sub_group = self.DG.get_pruning_group(conv, tp.prune_conv_out_channels, prune_idx)
+                self.DG.prune_group(sub_group)
+        tp.utils.remove_pruning_reparametrization(self.model)
+
+    # ------------------------------------------------------------------
+    # Public interface
+    # ------------------------------------------------------------------
+    def generate_pruning_mask(self, ratio: float, dataloader=None) -> None:
+        if ratio <= 0 or ratio >= 1:
+            raise ValueError("Pruning ratio must be between 0 and 1")
+        if dataloader is None:
+            raise ValueError("Dataloader is required for HSIC computation")
+        if not self.layers:
+            self.analyze_model()
+        self._collect_activations(dataloader)
+        self._compute_group_hsic_scores()
+        self._create_sub_groups()
+        self._score_sub_groups()
+        to_prune = self._select_pruned_sub_groups(ratio)
+        self._build_masks(to_prune)
+
+    def apply_pruning(self, rebuild: bool = False) -> None:  # pragma: no cover - heavy dependency
         if not self.masks:
-            raise RuntimeError("No pruning masks were created. Check HSIC-Lasso computation.")
-    
-    def apply_pruning(self, rebuild: bool = False) -> None:
-        """Apply the previously generated pruning mask to the model."""
-        if not self.masks:
-            raise RuntimeError("No pruning mask available. Call generate_pruning_mask first.")
-        
-        self.logger.info("Applying pruning masks to model...")
-        
-        # Note: This is a simplified implementation that only creates masks
-        # For full model pruning, you would need to use torch-pruning's DG.prune_group() method
-        # or implement custom module replacement logic
-        
-        self.logger.info(f"Created {len(self.masks)} pruning masks")
-        self.logger.warning("Note: This implementation only creates pruning masks. "
-                           "For actual model pruning, use torch-pruning's DG.prune_group() method "
-                           "or implement custom module replacement logic.")
-        
-        # Log mask statistics
-        for i, mask in enumerate(self.masks):
-            kept_channels = mask.sum().item()
-            total_channels = len(mask)
-            self.logger.info(f"Mask {i}: {kept_channels}/{total_channels} channels kept "
-                           f"({100 * kept_channels / total_channels:.1f}%)")
-    
-    def visualize_hsic_scores(self) -> None:
-        """Visualize HSIC scores for each group."""
+            raise RuntimeError("No pruning mask generated")
+        self._apply_masks()
+        if rebuild and self.DG is not None:
+            self.DG.build_dependency(self.model, example_inputs=self._inputs_tuple())
+
+    # ------------------------------------------------------------------
+    # Phase 6 – iterative refinement
+    # ------------------------------------------------------------------
+    def iterative_pruning(self, ratio: float, dataloader) -> None:
+        for _ in range(max(1, self.iterations)):
+            self.generate_pruning_mask(ratio, dataloader)
+            self.apply_pruning(rebuild=True)
+            self.activations.clear()
+            self.labels.clear()
+            self.group_scores.clear()
+            self.sub_groups.clear()
+            self.sub_group_scores.clear()
+
+    # ------------------------------------------------------------------
+    # Optional visualisation
+    # ------------------------------------------------------------------
+    def visualize_hsic_scores(self) -> None:  # pragma: no cover - optional
         if not self.group_scores:
-            self.logger.warning("No HSIC scores available for visualization")
             return
-        
+        import matplotlib.pyplot as plt
+
+        fig, axes = plt.subplots(len(self.group_scores), 1, figsize=(10, 4 * len(self.group_scores)))
+        if len(self.group_scores) == 1:
+            axes = [axes]
+        for i, (g_idx, scores) in enumerate(self.group_scores.items()):
+            axes[i].bar(range(len(scores)), scores.cpu().numpy())
+            axes[i].set_title(f"Group {g_idx} HSIC scores")
+            axes[i].set_xlabel("Channel")
+            axes[i].set_ylabel("Normalised HSIC")
+        plt.tight_layout()
+        plt.savefig(self.workdir / "hsic_scores.png")
+        plt.close(fig)
+
+    # ------------------------------------------------------------------
+    # Helper utilities
+    # ------------------------------------------------------------------
+    def _extract_target_module(self, dep) -> Optional[nn.Module]:
+        if hasattr(dep, "module"):
+            return dep.module
+        if hasattr(dep, "target"):
+            return dep.target
+        if hasattr(dep, "layer"):
+            return dep.layer
+        if hasattr(dep, "dep"):
+            return self._extract_target_module(dep.dep)
         try:
-            fig, axes = plt.subplots(len(self.group_scores), 1, figsize=(12, 4 * len(self.group_scores)))
-            if len(self.group_scores) == 1:
-                axes = [axes]
-            
-            for i, (group_idx, scores) in enumerate(self.group_scores.items()):
-                axes[i].bar(range(len(scores)), scores.cpu().numpy())
-                axes[i].set_title(f'HSIC Scores for Group {group_idx}')
-                axes[i].set_xlabel('Channel Index')
-                axes[i].set_ylabel('HSIC Score')
-            
-            plt.tight_layout()
-            plt.savefig(self.workdir / "hsic_scores.png")
-            plt.close(fig)
-            self.logger.info("HSIC scores visualization saved")
-            
-        except Exception as e:
-            self.logger.warning(f"Failed to create HSIC scores visualization: {e}") 
+            if hasattr(dep, "__getitem__"):
+                first = dep[0]
+                if isinstance(first, nn.Module):
+                    return first
+        except Exception:
+            pass
+        return None
+
