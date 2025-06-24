@@ -50,7 +50,9 @@ class Logger:
 
     def __init__(self, name: str = "pruning", log_file: Optional[str] = None) -> None:
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.INFO)
+        # Default to DEBUG level so detailed information is captured unless
+        # overridden by ``set_level`` or ``get_logger`` parameters.
+        self.logger.setLevel(logging.DEBUG)
         # Prevent messages from propagating to ancestor loggers
         # which can lead to duplicate entries if the root logger is configured.
         self.logger.propagate = False
@@ -105,7 +107,7 @@ def add_file_handler(logger: Logger, log_file: str) -> None:
 
 def get_logger(
     name: str = "pruning",
-    level: int = logging.INFO,
+    level: int = logging.DEBUG,
     log_file: Optional[str] = None,
 ) -> Logger:
     """Return a :class:`Logger` configured with ``name`` and ``level``."""

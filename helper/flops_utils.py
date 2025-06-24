@@ -13,9 +13,11 @@ except Exception:  # pragma: no cover - torch may be missing
 try:
     from ultralytics.utils.torch_utils import (
         get_num_params as _get_num_params,
+        get_flops_with_torch_profiler,
     )  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
     _get_num_params = None  # type: ignore
+    get_flops_with_torch_profiler = None  # type: ignore
 
 
 def _conv_hook(module: Any, _inp: Iterable[Any], output: Any, totals: list[int]) -> None:
@@ -74,17 +76,24 @@ def calculate_flops_manual(model: Any, imgsz: int | Iterable[int] = 640) -> floa
         with torch.no_grad():
             model(dummy)
     except Exception:
+        # forward failed; return partial FLOPs collected so far
         for h in hooks:
             h.remove()
-        return 0.0
+        return totals[0] * 2 / 1e9
     for h in hooks:
         h.remove()
     return totals[0] * 2 / 1e9
 
 
 def get_flops_reliable(model: Any, imgsz: int | Iterable[int] = 640) -> float:
-    """Return FLOPs using the built-in manual calculation."""
-    return calculate_flops_manual(model, imgsz)
+    """Return FLOPs using manual calculation with a torch profiler fallback."""
+    flops = calculate_flops_manual(model, imgsz)
+    if flops == 0 and get_flops_with_torch_profiler is not None:
+        try:  # pragma: no cover - best effort
+            flops = float(get_flops_with_torch_profiler(model, imgsz))
+        except Exception:
+            flops = 0.0
+    return flops
 
 
 def get_num_params_reliable(model: Any) -> int:

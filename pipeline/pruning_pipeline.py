@@ -148,8 +148,8 @@ class PruningPipeline(BasePruningPipeline):
                         self.logger.debug("reanalyzed pruning method model")
                 except Exception:  # pragma: no cover - best effort
                     self.logger.exception("failed to reanalyze model")
-        self.logger.debug(metrics)
         if metrics:
+            self.logger.debug("Training summary: %s", format_training_summary(metrics))
             self.logger.info("Training summary: %s", format_training_summary(metrics))
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["pretrain"] = metrics
@@ -168,7 +168,15 @@ class PruningPipeline(BasePruningPipeline):
     def apply_pruning(self, rebuild: bool = False) -> None:
         """Apply the generated pruning mask."""
         if self.pruning_method is not None:
-            self.pruning_method.apply_pruning(rebuild=rebuild)
+            import inspect
+            try:
+                sig = inspect.signature(self.pruning_method.apply_pruning)
+                if 'rebuild' in sig.parameters:
+                    self.pruning_method.apply_pruning(rebuild=rebuild)
+                else:
+                    self.pruning_method.apply_pruning()
+            except (ValueError, TypeError):  # pragma: no cover - fallback
+                self.pruning_method.apply_pruning(rebuild=rebuild)
 
     def reconfigure_model(self, output_path: str | None = None) -> None:
         """Reconfigure the model after pruning."""
@@ -234,8 +242,8 @@ class PruningPipeline(BasePruningPipeline):
                         self.logger.debug("reanalyzed pruning method model")
                 except Exception:  # pragma: no cover - best effort
                     self.logger.exception("failed to reanalyze model")
-        self.logger.debug(metrics)
         if metrics:
+            self.logger.debug("Training summary: %s", format_training_summary(metrics))
             self.logger.info("Training summary: %s", format_training_summary(metrics))
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics

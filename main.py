@@ -211,7 +211,9 @@ def execute_pipeline(
     workdir.mkdir(parents=True, exist_ok=True)
     log_file = workdir / "pipeline.log"
     if logger is None:
-        logger = get_logger(log_file=str(log_file))
+        # Default to DEBUG logging when no logger is provided so that pipeline
+        # executions capture detailed information.
+        logger = get_logger(level=logging.DEBUG, log_file=str(log_file))
     else:
         for h in list(logger.logger.handlers):
             if isinstance(h, logging.FileHandler):
@@ -517,7 +519,8 @@ def run_comparison(args: argparse.Namespace) -> None:
         writer = csv.writer(f)
         writer.writerow(["method", "ratio", "run"])
 
-    logger = get_logger()
+    # Always log at DEBUG level when running comparisons for maximum detail.
+    logger = get_logger(level=logging.DEBUG)
 
     # Baseline training
     baseline_dir: Path | None = None
@@ -623,7 +626,9 @@ def main() -> None:
         device=args.device,
     )
     methods = [get_method_class(m) for m in args.methods]
-    logger = get_logger(level=logging.DEBUG if args.debug else logging.INFO)
+    # Use DEBUG logging for all runs.  The ``--debug`` flag is retained for
+    # backward compatibility but no longer controls the log level.
+    logger = get_logger(level=logging.DEBUG)
     runner = ExperimentRunner(
         model_path=args.model,
         data=args.data,
