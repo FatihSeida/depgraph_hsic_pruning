@@ -42,7 +42,7 @@ def setup(monkeypatch):
     monkeypatch.setattr(fu, "get_flops_reliable", lambda *a, **k: 0, raising=False)
     utils.torch_utils = tu
     utils.DEFAULT_CFG = types.SimpleNamespace(batch=1, workers=0, imgsz=32)
-    utils.YAML = types.SimpleNamespace(load=lambda f, append_filename=False: {"path": ".", "val": "images"})
+    utils.yaml_load = lambda f, append_filename=False: {"path": ".", "val": "images"}
 
     cfg_mod = types.ModuleType('ultralytics.cfg')
     cfg_mod.get_cfg = lambda cfg=None: types.SimpleNamespace(batch=1, workers=0, imgsz=32, data='d')
