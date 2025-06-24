@@ -125,44 +125,6 @@ class BasePruningPipeline(abc.ABC):
         except Exception:
             self.logger.exception("failed to sync example inputs device")
 
-    def _collect_synthetic_activations(self, num_samples=4) -> int:
-        """Collect activations using synthetic data for HSIC methods."""
-        try:
-            from prune_methods.depgraph_hsic import DepgraphHSICMethod
-        except Exception:
-            DepgraphHSICMethod = None
-
-        if DepgraphHSICMethod is None or not isinstance(self.pruning_method, DepgraphHSICMethod):
-            return 0
-
-        if not hasattr(self.pruning_method, 'register_hooks'):
-            return 0
-
-        self.pruning_method.register_hooks()
-        device = next(self.model.model.parameters()).device
-
-        try:
-            for i in range(num_samples):
-                # Generate synthetic data
-                synthetic_image = torch.randn(1, 3, 640, 640)
-                synthetic_label = torch.randint(0, 80, (1,)).float()  # Convert to float for cdist compatibility
-
-                # Forward pass
-                with torch.no_grad():
-                    self.model.model(synthetic_image.to(device))
-
-                # Add labels for HSIC computation
-                if hasattr(self.pruning_method, 'add_labels'):
-                    self.pruning_method.add_labels(synthetic_label)
-
-                # Cleanup
-                del synthetic_image, synthetic_label
-                torch.cuda.empty_cache() if torch.cuda.is_available() else None
-
-        finally:
-            self.pruning_method.remove_hooks()
-
-        return num_samples
 
     @abc.abstractmethod
     def load_model(self) -> None:

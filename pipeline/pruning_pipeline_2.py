@@ -51,17 +51,6 @@ class PruningPipeline2(BasePruningPipeline):
             return False
         return isinstance(self.pruning_method, DepgraphHSICMethod)
 
-    def _collect_synthetic_activations_for_hsic(self) -> int:
-        """Collect activations using synthetic data for HSIC methods."""
-        if not self._is_depgraph_method():
-            return 0
-            
-        self.logger.info("Collecting activations using synthetic data for HSIC")
-        collected = self._collect_synthetic_activations(num_samples=4)
-        self.logger.info(f"Collected activations from {collected} synthetic samples")
-        return collected
-
-
     def _sync_example_inputs_device(self) -> None:
         """Move ``example_inputs`` to the current model's device if needed."""
         if not (
@@ -158,8 +147,6 @@ class PruningPipeline2(BasePruningPipeline):
                         "Dependency graph rebuilt; %d convolution layers registered",
                         convs,
                     )
-                # Use synthetic data collection instead of short forward pass
-                self._collect_synthetic_activations_for_hsic()
             except Exception:
                 self.logger.exception("failed to refresh pruning method")
 
@@ -201,24 +188,10 @@ class PruningPipeline2(BasePruningPipeline):
         self.pruning_method.model = self.model.model
         self.logger.info("Reanalyzing model before mask generation")
         self.pruning_method.analyze_model()
-        if (
-            isinstance(self.pruning_method, DepgraphHSICMethod)
-            and dataloader is None
-            and (
-                not getattr(self.pruning_method, "activations", None)
-                or not getattr(self.pruning_method, "labels", None)
-            )
-        ):
-            self.logger.info(
-                "No activations/labels found; collecting synthetic activations"
-            )
-            self._collect_synthetic_activations_for_hsic()
-            if not getattr(self.pruning_method, "activations", None) or not getattr(self.pruning_method, "labels", None):
-                self.logger.warning(
-                    "Synthetic activation collection did not record activations/labels"
-                )
         if dataloader is None:
             dataloader = getattr(getattr(self.model, "trainer", None), "val_loader", None)
+            if dataloader is None:
+                raise ValueError("dataloader is required")
         self.pruning_method.generate_pruning_mask(
             ratio,
             dataloader=dataloader,

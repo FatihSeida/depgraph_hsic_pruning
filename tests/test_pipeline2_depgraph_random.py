@@ -2,6 +2,7 @@ import importlib
 import sys
 import types
 import torch
+import pytest
 
 
 def setup(monkeypatch):
@@ -77,5 +78,5 @@ def test_pipeline2_depgraph_and_random_methods(monkeypatch):
         pipeline = pp.PruningPipeline2('m', 'd', pruning_method=method)
         pipeline.load_model()
         pipeline.analyze_structure()
-        pipeline.generate_pruning_mask(0.5)
-        pipeline.apply_pruning()
+        with pytest.raises(ValueError):
+            pipeline.generate_pruning_mask(0.5)
