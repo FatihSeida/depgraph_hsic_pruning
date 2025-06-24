@@ -156,8 +156,14 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 images = None
                 labels = None
                 if isinstance(batch, dict):
-                    images = batch.get("img") or batch.get("images") or batch.get("inputs")
-                    labels = batch.get("cls") or batch.get("label") or batch.get("labels")
+                    for key in ("img", "images", "inputs"):
+                        if key in batch and batch[key] is not None:
+                            images = batch[key]
+                            break
+                    for key in ("cls", "label", "labels"):
+                        if key in batch and batch[key] is not None:
+                            labels = batch[key]
+                            break
                 elif isinstance(batch, (list, tuple)):
                     if len(batch) > 0:
                         images = batch[0]
