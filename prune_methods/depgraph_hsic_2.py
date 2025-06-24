@@ -370,6 +370,23 @@ class DepGraphHSICMethod2(BasePruningMethod):
         # Lepas semua forward hook agar model bisa dipickle
         self.remove_activation_hooks()
 
+        # Jika fallback layerwise, terapkan pruning per-layer
+        if getattr(self, 'fallback_layerwise', False):
+            self._apply_layerwise_pruning()
+        else:
+            self._apply_depgraph_pruning()
+
+        # Be compatible with different torch_pruning versions
+        try:
+            if hasattr(tp.utils, "remove_pruning_reparametrization"):
+                tp.utils.remove_pruning_reparametrization(self.model)
+            elif hasattr(tp, "remove_pruning_reparametrization"):
+                tp.remove_pruning_reparametrization(self.model)
+        except Exception:
+            self.logger.warning("remove_pruning_reparametrization not available in current torch_pruning version")
+
+    def _apply_depgraph_pruning(self) -> None:
+        """Apply pruning using dependency graph groups."""
         try:
             for (g_idx, group), mask in zip(enumerate(self.pruning_groups), self.masks):
                 prune_idx = (~mask).nonzero(as_tuple=False).view(-1).tolist()
@@ -383,27 +400,53 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 if not convs:
                     continue
                 for conv in convs:
-                    remain = conv.out_channels - len(prune_idx)
-                    min_channels = max(1, int(conv.out_channels * 0.1))
-                    if remain < min_channels:
-                        self.logger.debug(
-                            "Skipping pruning for %s to keep at least %d channels",
-                            conv,
-                            min_channels,
-                        )
-                        continue
                     try:
-                        sub_group = self.DG.get_pruning_group(conv, tp.prune_conv_out_channels, prune_idx)
-                        self.DG.prune_group(sub_group)
+                        # Validasi indeks sebelum prune
+                        valid_idx = [i for i in prune_idx if i < conv.out_channels]
+                        if valid_idx:
+                            sub_group = self.DG.get_pruning_group(conv, tp.prune_conv_out_channels, valid_idx)
+                            self.DG.prune_group(sub_group)
+                            self.logger.debug("Pruned %d channels from %s", len(valid_idx), conv)
+                        else:
+                            self.logger.warning("No valid indices for %s (out_channels=%d)", conv, conv.out_channels)
                     except Exception:
                         self.logger.exception("Failed to prune group for conv %s", conv)
-            # Be compatible with different torch_pruning versions
-            if hasattr(tp.utils, "remove_pruning_reparametrization"):
-                tp.utils.remove_pruning_reparametrization(self.model)
-            elif hasattr(tp, "remove_pruning_reparametrization"):
-                tp.remove_pruning_reparametrization(self.model)
         except Exception:
             self.logger.warning("remove_pruning_reparametrization not available in current torch_pruning version")
+
+    def _apply_layerwise_pruning(self) -> None:
+        """Apply pruning per-layer when dependency graph fails."""
+        self.logger.info("Applying layer-wise pruning fallback")
+        total_pruned = 0
+
+        for layer_idx, layer in enumerate(self.layers):
+            if layer_idx not in self.activations:
+                continue
+
+            # Ambil mask untuk layer ini dari fallback
+            if 0 in self.group_scores and len(self.masks) > 0:
+                global_mask = self.masks[0]  # Mask global dari fallback
+                layer_channels = layer.out_channels
+                
+                # Ambil subset mask yang sesuai dengan layer ini
+                start_idx = sum(l.out_channels for l in self.layers[:layer_idx])
+                end_idx = start_idx + layer_channels
+                
+                if start_idx < len(global_mask) and end_idx <= len(global_mask):
+                    layer_mask = global_mask[start_idx:end_idx]
+                    prune_idx = (~layer_mask).nonzero(as_tuple=False).view(-1).tolist()
+                    
+                    if prune_idx:
+                        try:
+                            # Prune layer ini secara langsung
+                            sub_group = self.DG.get_pruning_group(layer, tp.prune_conv_out_channels, prune_idx)
+                            self.DG.prune_group(sub_group)
+                            total_pruned += len(prune_idx)
+                            self.logger.debug("Layer %d: pruned %d/%d channels", layer_idx, len(prune_idx), layer_channels)
+                        except Exception as e:
+                            self.logger.warning("Failed to prune layer %d: %s", layer_idx, e)
+
+        self.logger.info("Layer-wise pruning completed: %d total channels pruned", total_pruned)
 
     # ------------------------------------------------------------------
     # Public interface
