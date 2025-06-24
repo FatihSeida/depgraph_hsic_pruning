@@ -335,6 +335,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
             n_prune = max(1, int(len(scores) * ratio))
             idxs = torch.argsort(scores)[:n_prune].tolist()
             self.sub_groups = {0: [idxs]}
+            # assign high dummy score so considered lowest importance
             self.sub_group_scores = {(0, 0): scores[idxs].mean().item()}
             selected = [(0, 0)]
         
@@ -369,9 +370,19 @@ class DepGraphHSICMethod2(BasePruningMethod):
             if not convs:
                 continue
             for conv in convs:
-                sub_group = self.DG.get_pruning_group(conv, tp.prune_conv_out_channels, prune_idx)
-                self.DG.prune_group(sub_group)
-        tp.utils.remove_pruning_reparametrization(self.model)
+                try:
+                    sub_group = self.DG.get_pruning_group(conv, tp.prune_conv_out_channels, prune_idx)
+                    self.DG.prune_group(sub_group)
+                except Exception:
+                    self.logger.exception("Failed to prune group for conv %s", conv)
+        # Be compatible with different torch_pruning versions
+        try:
+            if hasattr(tp.utils, "remove_pruning_reparametrization"):
+                tp.utils.remove_pruning_reparametrization(self.model)
+            elif hasattr(tp, "remove_pruning_reparametrization"):
+                tp.remove_pruning_reparametrization(self.model)
+        except Exception:
+            self.logger.warning("remove_pruning_reparametrization not available in current torch_pruning version")
 
     # ------------------------------------------------------------------
     # Public interface
