@@ -484,7 +484,7 @@ def parse_args() -> argparse.Namespace:
         "--methods",
         nargs="+",
         choices=list(METHODS_MAP.keys()),
-        default=["l1"],
+        default=list(METHODS_MAP.keys()),
         help="Pruning methods to evaluate",
     )
     parser.add_argument(

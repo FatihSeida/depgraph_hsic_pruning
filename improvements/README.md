@@ -31,11 +31,17 @@ Dokumentasi lengkap tentang perbaikan yang telah dibuat pada implementasi DepGra
 ## Cara Penggunaan
 
 ```bash
-# Backbone-only pruning (default)
-python main.py --model yolov8n.pt --data data.yaml --methods depgraph_hsic --pruning-scope backbone
+# Menggunakan semua method yang tersedia (default)
+python main.py --model yolov8n-seg.pt --data data.yaml
 
-# Full model pruning
-python main.py --model yolov8n.pt --data data.yaml --methods depgraph_hsic --pruning-scope full
+# Backbone-only pruning dengan DepGraph-HSIC
+python main.py --model yolov8n-seg.pt --data data.yaml --methods depgraph_hsic --pruning-scope backbone
+
+# Full model pruning dengan DepGraph-HSIC
+python main.py --model yolov8n-seg.pt --data data.yaml --methods depgraph_hsic --pruning-scope full
+
+# Menggunakan method tertentu saja
+python main.py --model yolov8n-seg.pt --data data.yaml --methods l1 random depgraph_hsic
 ```
 
 ## Testing
@@ -54,3 +60,16 @@ Jika Anda ingin menambahkan perbaikan baru, silakan:
 2. Update test yang sesuai
 3. Pastikan integrasi dengan utilitas yang sudah ada
 4. Dokumentasikan perubahan dengan jelas 
+
+## Method yang Tersedia
+
+Saat ini tersedia 8 method pruning yang akan dijalankan secara default:
+
+- `l1`: L1NormMethod
+- `random`: RandomMethod  
+- `depgraph`: DepgraphMethod
+- `tp_random`: TorchRandomMethod
+- `isomorphic`: IsomorphicMethod
+- `hsic_lasso`: HSICLassoMethod
+- `whc`: WeightedHybridMethod
+- `depgraph_hsic`: DepgraphHSICMethod 

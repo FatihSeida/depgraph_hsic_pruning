@@ -118,14 +118,20 @@ print(f"Pruning ratio achieved: {validation['pruning_ratio_achieved']:.3f}")
 ### 2. **Command Line Usage**
 
 ```bash
-# Backbone-only pruning (default)
-python main.py --model yolov8n.pt --data biotech_model_train.yaml --methods depgraph_hsic --pruning-scope backbone
+# Menggunakan semua method yang tersedia (default)
+python main.py --model yolov8n-seg.pt --data biotech_model_train.yaml
 
-# Full model pruning
-python main.py --model yolov8n.pt --data biotech_model_train.yaml --methods depgraph_hsic --pruning-scope full
+# Backbone-only pruning dengan DepGraph-HSIC
+python main.py --model yolov8n-seg.pt --data biotech_model_train.yaml --methods depgraph_hsic --pruning-scope backbone
+
+# Full model pruning dengan DepGraph-HSIC
+python main.py --model yolov8n-seg.pt --data biotech_model_train.yaml --methods depgraph_hsic --pruning-scope full
 
 # Multiple methods dengan scope yang sama
-python main.py --model yolov8n.pt --data biotech_model_train.yaml --methods depgraph_hsic l1 random --pruning-scope backbone
+python main.py --model yolov8n-seg.pt --data biotech_model_train.yaml --methods depgraph_hsic l1 random --pruning-scope backbone
+
+# Menggunakan method tertentu saja
+python main.py --model yolov8n-seg.pt --data biotech_model_train.yaml --methods l1 random depgraph_hsic
 ```
 
 ### 3. **Error Handling**
@@ -158,6 +164,7 @@ except RuntimeError as e:
 4. **Monitoring**: Validasi dan ringkasan hasil pruning
 5. **Flexibility**: Kontrol scope pruning (backbone vs full)
 6. **Integration**: Menggunakan utilitas yang sudah ada (`collect_backbone_convs`)
+7. **Comprehensive**: Default menggunakan semua method yang tersedia
 
 ## Troubleshooting
 
@@ -175,4 +182,15 @@ except RuntimeError as e:
 
 ### Perbedaan Scope Pruning
 **Backbone (default):** Hanya 10 layer pertama, lebih cepat, fokus pada feature extraction
-**Full:** Semua layer, lebih lambat, pruning komprehensif 
+**Full:** Semua layer, lebih lambat, pruning komprehensif
+
+### Method yang Tersedia
+Saat ini tersedia 8 method pruning:
+- `l1`: L1NormMethod
+- `random`: RandomMethod  
+- `depgraph`: DepgraphMethod
+- `tp_random`: TorchRandomMethod
+- `isomorphic`: IsomorphicMethod
+- `hsic_lasso`: HSICLassoMethod
+- `whc`: WeightedHybridMethod
+- `depgraph_hsic`: DepgraphHSICMethod
