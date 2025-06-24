@@ -5,7 +5,10 @@ from pathlib import Path
 import torch
 
 # Disable multiprocessing to avoid ConnectionResetError
-torch.multiprocessing.set_sharing_strategy('file_system')
+try:  # pragma: no cover - best effort
+    torch.multiprocessing.set_sharing_strategy('file_system')
+except Exception:
+    pass
 
 from ultralytics import YOLO
 from helper.flops_utils import get_flops_reliable, get_num_params_reliable
@@ -187,18 +190,21 @@ class PruningPipeline2(BasePruningPipeline):
         if self.model is None:
             raise ValueError("Model is not loaded")
         from ultralytics.cfg import get_cfg
-        from ultralytics.utils import DEFAULT_CFG, YAML
+        from ultralytics.utils import DEFAULT_CFG, yaml_load
         from ultralytics.data import build_yolo_dataset, build_dataloader
         import os
         import torch
 
         # Disable multiprocessing to avoid ConnectionResetError
-        torch.multiprocessing.set_sharing_strategy('file_system')
+        try:  # pragma: no cover - best effort
+            torch.multiprocessing.set_sharing_strategy('file_system')
+        except Exception:
+            pass
 
         cfg = get_cfg(DEFAULT_CFG)
         cfg.data = self.data
 
-        data_dict = YAML.load(self.data)
+        data_dict = yaml_load(self.data)
         # Ensure required keys for Ultralytics dataset
         if "channels" not in data_dict:
             # Assume RGB images when key is missing

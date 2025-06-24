@@ -16,12 +16,10 @@ def test_pipeline2_uses_auto_loader_when_no_baseline(monkeypatch, tmp_path):
     utils.torch_utils = torch_utils
     utils.DEFAULT_CFG = types.SimpleNamespace(batch=1, workers=0, imgsz=32)
 
-    class DummyYAML:
-        @staticmethod
-        def load(file, append_filename=False):
-            return {"path": str(Path(file).parent), "val": "images"}
+    def dummy_yaml_load(file, append_filename=False):
+        return {"path": str(Path(file).parent), "val": "images"}
 
-    utils.YAML = DummyYAML
+    utils.yaml_load = dummy_yaml_load
     from helper import flops_utils as fu
     monkeypatch.setattr(fu, "get_flops_reliable", lambda *a, **k: 0, raising=False)
 
