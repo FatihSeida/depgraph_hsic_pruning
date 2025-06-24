@@ -79,6 +79,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
         self.sub_groups: Dict[int, List[List[int]]] = {}
         self.sub_group_scores: Dict[Tuple[int, int], float] = {}
         self.masks: List[torch.Tensor] = []
+        self._hook_handles: List[torch.utils.hooks.RemovableHandle] = []
 
     # ------------------------------------------------------------------
     # Phase 1 – structural analysis
@@ -87,8 +88,8 @@ class DepGraphHSICMethod2(BasePruningMethod):
         self.logger.info("Building dependency graph and analysing structure")
         self.layers = [
             conv
-            for _, attr, _ in collect_backbone_convs(self.model, num_modules=10)
-            if isinstance((conv := getattr(_, attr)), nn.Conv2d) and conv.out_channels > 1
+            for parent_mod, attr, _bn in collect_backbone_convs(self.model, num_modules=10)
+            if isinstance((conv := getattr(parent_mod, attr)), nn.Conv2d) and conv.out_channels > 1
         ]
         if not self.layers:
             raise RuntimeError("No convolutional layers found for pruning")
@@ -122,6 +123,13 @@ class DepGraphHSICMethod2(BasePruningMethod):
     # Activation collection
     # ------------------------------------------------------------------
     def _register_activation_hooks(self) -> None:
+        for h in getattr(self, "_hook_handles", []):
+            try:
+                h.remove()
+            except Exception:
+                pass
+        self._hook_handles.clear()
+
         def make_hook(idx: int):
             def hook(_mod: nn.Module, _inp: Tuple[torch.Tensor], out: torch.Tensor) -> None:
                 shp = self.layer_shapes.setdefault(idx, out.shape[2:])
@@ -133,7 +141,8 @@ class DepGraphHSICMethod2(BasePruningMethod):
             return hook
 
         for idx, layer in enumerate(self.layers):
-            layer.register_forward_hook(make_hook(idx))
+            handle = layer.register_forward_hook(make_hook(idx))
+            self._hook_handles.append(handle)
 
     def _collect_activations(self, dataloader) -> None:
         device = next(self.model.parameters()).device
@@ -311,9 +320,12 @@ class DepGraphHSICMethod2(BasePruningMethod):
     # Phase 6 – iterative refinement
     # ------------------------------------------------------------------
     def iterative_pruning(self, ratio: float, dataloader) -> None:
-        for _ in range(max(1, self.iterations)):
+        iters = max(1, self.iterations)
+        for i in range(iters):
+            self.analyze_model()
             self.generate_pruning_mask(ratio, dataloader)
             self.apply_pruning(rebuild=True)
+
             self.activations.clear()
             self.labels.clear()
             self.group_scores.clear()
