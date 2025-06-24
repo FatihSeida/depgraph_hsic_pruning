@@ -262,9 +262,15 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 self.sub_group_scores[(g_idx, s_idx)] = score
 
     def _select_pruned_sub_groups(self, ratio: float) -> List[Tuple[int, int]]:
+        self.logger.info(f"Selecting sub-groups for pruning with ratio {ratio}")
+        self.logger.info(f"Available sub-group scores: {len(self.sub_group_scores)}")
+        self.logger.info(f"Sub-groups: {len(self.sub_groups)}")
+        
         ordered = sorted(self.sub_group_scores.items(), key=lambda x: x[1])
         total_channels = sum(len(sg) for groups in self.sub_groups.values() for sg in groups)
         target = int(total_channels * ratio)
+        self.logger.info(f"Total channels: {total_channels}, target to prune: {target}")
+        
         selected: List[Tuple[int, int]] = []
         removed = 0
         for (g_idx, s_idx), _ in ordered:
@@ -273,6 +279,15 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 break
             selected.append((g_idx, s_idx))
             removed += sz
+        
+        self.logger.info(f"Selected {len(selected)} sub-groups for pruning")
+        
+        # FALLBACK: Jika tidak ada yang dipilih tapi ada scores, pilih yang terendah
+        if not selected and self.sub_group_scores:
+            worst_group = min(self.sub_group_scores.items(), key=lambda x: x[1])
+            selected = [worst_group[0]]
+            self.logger.info(f"Fallback: selected worst group {worst_group[0]} with score {worst_group[1]}")
+        
         return selected
 
     def _build_masks(self, to_prune: List[Tuple[int, int]]) -> None:
