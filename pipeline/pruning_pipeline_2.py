@@ -185,6 +185,7 @@ class PruningPipeline2(BasePruningPipeline):
         from ultralytics.cfg import get_cfg
         from ultralytics.utils import DEFAULT_CFG, YAML
         from ultralytics.data import build_yolo_dataset, build_dataloader
+        import os
 
         cfg = get_cfg(DEFAULT_CFG)
         cfg.data = self.data
@@ -194,7 +195,37 @@ class PruningPipeline2(BasePruningPipeline):
         if "channels" not in data_dict:
             # Assume RGB images when key is missing
             data_dict["channels"] = 3
-        img_path = data_dict.get("val") or data_dict.get("test") or data_dict.get("train")
+        
+        # Debug: print current working directory and data paths
+        self.logger.debug("Current working directory: %s", os.getcwd())
+        self.logger.debug("Data YAML path: %s", self.data)
+        self.logger.debug("Data dict: %s", data_dict)
+        
+        # Get base path and validation path
+        base_path = data_dict.get("path", "")
+        val_path = data_dict.get("val") or data_dict.get("test") or data_dict.get("train")
+        
+        # Construct absolute path
+        if base_path and val_path:
+            if os.path.isabs(val_path):
+                img_path = val_path
+            else:
+                img_path = os.path.join(base_path, val_path)
+        else:
+            img_path = val_path
+            
+        self.logger.debug("Constructed image path: %s", img_path)
+        
+        # Verify path exists
+        if not os.path.exists(img_path):
+            self.logger.error("Image path does not exist: %s", img_path)
+            self.logger.error("Available paths to check:")
+            if base_path and os.path.exists(base_path):
+                import glob
+                for item in glob.glob(os.path.join(base_path, "*")):
+                    self.logger.error("  - %s", item)
+            raise FileNotFoundError(f"Image path does not exist: {img_path}")
+        
         stride = int(max(getattr(self.model.model, "stride", [32])))
 
         dataset = build_yolo_dataset(cfg, img_path, cfg.batch, data_dict, mode="val", rect=True, stride=stride)
