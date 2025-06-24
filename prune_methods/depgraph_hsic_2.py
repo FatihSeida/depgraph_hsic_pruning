@@ -95,9 +95,9 @@ class DepGraphHSICMethod2(BasePruningMethod):
         # Build dependency graph
         try:
             self.DG = tp.DependencyGraph()
-            backbone_modules = self.model.model.model[:10]  # First 10 modules
+            # Use the model instance directly like in depgraph_hsic.py
             example_inputs = self._inputs_tuple()
-            self.DG.build_dependency(backbone_modules, example_inputs)
+            self.DG.build_dependency(self.model, example_inputs)
             self.logger.info("Dependency graph built successfully")
         except Exception as e:
             raise RuntimeError(f"Failed to build dependency graph: {e}")
