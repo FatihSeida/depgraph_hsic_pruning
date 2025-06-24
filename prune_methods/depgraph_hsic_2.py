@@ -212,7 +212,14 @@ class DepGraphHSICMethod2(BasePruningMethod):
                     acts.append(torch.cat(self.activations[l_idx], dim=0))
             if not acts:
                 continue
-            combined = torch.cat(acts, dim=1)
+            if acts:
+                # Samakan resolusi spasial dengan adaptive pooling
+                min_h, min_w = min(t.shape[2] for t in acts), min(t.shape[3] for t in acts)
+                pooled = [
+                    (t if (t.shape[2] == min_h and t.shape[3] == min_w) else torch.nn.functional.adaptive_avg_pool2d(t, (min_h, min_w)))
+                    for t in acts
+                ]
+                combined = torch.cat(pooled, dim=1)
             labels = torch.cat(self.labels, dim=0)
             m = min(combined.size(0), labels.size(0))
             combined = combined[:m]
@@ -233,7 +240,13 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 except Exception:
                     continue
             if acts_all:
-                combined = torch.cat(acts_all, dim=1)
+                # Samakan resolusi spasial dengan adaptive pooling
+                min_h, min_w = min(t.shape[2] for t in acts_all), min(t.shape[3] for t in acts_all)
+                pooled = [
+                    (t if (t.shape[2] == min_h and t.shape[3] == min_w) else torch.nn.functional.adaptive_avg_pool2d(t, (min_h, min_w)))
+                    for t in acts_all
+                ]
+                combined = torch.cat(pooled, dim=1)
                 labels = torch.cat(self.labels, dim=0)
                 m = min(combined.size(0), labels.size(0))
                 combined = combined[:m]
