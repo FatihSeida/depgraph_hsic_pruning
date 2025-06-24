@@ -396,35 +396,69 @@ class DepgraphHSICMethod(BasePruningMethod):
                 images = None
                 labels = None
                 
-                # Extract images and labels from batch
-                if isinstance(batch, dict):
-                    images = batch.get("img") or batch.get("images") or batch.get("inputs")
-                    labels = batch.get("cls") or batch.get("label") or batch.get("labels")
-                elif isinstance(batch, (list, tuple)):
-                    if len(batch) > 0:
-                        images = batch[0]
-                    if len(batch) > 1:
-                        labels = batch[1]
-                else:
-                    images = batch
-                
-                if images is None:
+                # Extract images and labels from batch with better error handling
+                try:
+                    if isinstance(batch, dict):
+                        # Try different possible keys for images
+                        for key in ["img", "images", "inputs"]:
+                            if key in batch and batch[key] is not None:
+                                images = batch[key]
+                                break
+                        
+                        # Try different possible keys for labels
+                        for key in ["cls", "label", "labels"]:
+                            if key in batch and batch[key] is not None:
+                                labels = batch[key]
+                                break
+                    elif isinstance(batch, (list, tuple)):
+                        if len(batch) > 0 and batch[0] is not None:
+                            images = batch[0]
+                        if len(batch) > 1 and batch[1] is not None:
+                            labels = batch[1]
+                    else:
+                        # Assume batch is directly the images
+                        images = batch
+                        
+                except Exception as e:
+                    self.logger.warning(f"Error processing batch: {e}")
                     continue
                 
-                # Forward pass to collect activations
-                self.model(images.to(device))
+                # Skip if no images found
+                if images is None:
+                    self.logger.debug("No images found in batch, skipping")
+                    continue
                 
-                # Store labels if available
-                if labels is not None:
-                    self.add_labels(labels)
+                # Ensure images is a tensor and has correct shape
+                if not isinstance(images, torch.Tensor):
+                    self.logger.warning(f"Images is not a tensor: {type(images)}")
+                    continue
                 
-                sample_count += 1
+                if images.dim() != 4:  # Should be [batch, channels, height, width]
+                    self.logger.warning(f"Images tensor has wrong dimensions: {images.shape}")
+                    continue
                 
-                if sample_count % 10 == 0:
-                    self.logger.debug(f"Collected {sample_count} samples")
+                try:
+                    # Forward pass to collect activations
+                    self.model(images.to(device))
+                    
+                    # Store labels if available
+                    if labels is not None and isinstance(labels, torch.Tensor):
+                        self.add_labels(labels)
+                    
+                    sample_count += 1
+                    
+                    if sample_count % 10 == 0:
+                        self.logger.debug(f"Collected {sample_count} samples")
+                        
+                except Exception as e:
+                    self.logger.warning(f"Error during forward pass: {e}")
+                    continue
         
         self.model.train(train_state)
         self.logger.info(f"Collected activations from {sample_count} samples")
+        
+        if sample_count == 0:
+            raise RuntimeError("No samples were collected. Check dataloader format and data.")
 
     def _compute_group_hsic_scores(self, pruning_groups) -> Dict[int, torch.Tensor]:
         """Compute HSIC scores for each pruning group."""

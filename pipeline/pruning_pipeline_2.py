@@ -229,7 +229,17 @@ class PruningPipeline2(BasePruningPipeline):
         stride = int(max(getattr(self.model.model, "stride", [32])))
 
         dataset = build_yolo_dataset(cfg, img_path, cfg.batch, data_dict, mode="val", rect=True, stride=stride)
-        return build_dataloader(dataset, batch=cfg.batch, workers=cfg.workers * 2, shuffle=False, rank=-1)
+        
+        # Disable multiprocessing to avoid ConnectionResetError
+        # Use workers=0 to disable multiprocessing
+        return build_dataloader(
+            dataset, 
+            batch=cfg.batch, 
+            workers=0,  # Disable multiprocessing
+            shuffle=False, 
+            rank=-1,
+            pin_memory=False  # Disable pin_memory to avoid multiprocessing issues
+        )
 
     def generate_pruning_mask(
         self,
@@ -245,22 +255,38 @@ class PruningPipeline2(BasePruningPipeline):
             dataloader = getattr(getattr(self.model, "trainer", None), "val_loader", None)
             if dataloader is None:
                 try:
+                    self.logger.info("Building validation dataloader...")
                     dataloader = self._build_val_loader()
+                    self.logger.info("Validation dataloader built successfully")
                 except Exception as exc:
-                    raise ValueError("failed to build validation dataloader") from exc
+                    self.logger.error("Failed to build validation dataloader: %s", exc)
+                    raise ValueError(f"Failed to build validation dataloader: {exc}") from exc
 
         if isinstance(self.pruning_method, DepgraphHSICMethod):
             if dataloader is None:
-                raise ValueError("dataloader is required")
-            self.pruning_method.generate_pruning_mask(
-                ratio,
-                dataloader=dataloader,
-            )
+                raise ValueError("dataloader is required for DepGraph-HSIC method")
+            try:
+                self.logger.info("Generating pruning mask with DepGraph-HSIC method...")
+                self.pruning_method.generate_pruning_mask(
+                    ratio,
+                    dataloader=dataloader,
+                )
+                self.logger.info("Pruning mask generated successfully")
+            except Exception as exc:
+                self.logger.error("Failed to generate pruning mask: %s", exc)
+                raise RuntimeError(f"Failed to generate pruning mask: {exc}") from exc
         else:
-            self.pruning_method.generate_pruning_mask(
-                ratio,
-                dataloader=dataloader,
-            )
+            try:
+                self.logger.info("Generating pruning mask...")
+                self.pruning_method.generate_pruning_mask(
+                    ratio,
+                    dataloader=dataloader,
+                )
+                self.logger.info("Pruning mask generated successfully")
+            except Exception as exc:
+                self.logger.error("Failed to generate pruning mask: %s", exc)
+                raise RuntimeError(f"Failed to generate pruning mask: {exc}") from exc
+                
         plan = getattr(self.pruning_method, "pruning_plan", [])
         channels = len(plan)
         total = sum(
