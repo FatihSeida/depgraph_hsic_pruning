@@ -448,8 +448,26 @@ class DepgraphHSICMethod(BasePruningMethod):
                     self.logger.warning(f"Images tensor has wrong dimensions: {images.shape}")
                     continue
                 
+                # Log tensor info for debugging
+                self.logger.debug(f"Images tensor - dtype: {images.dtype}, shape: {images.shape}, min: {images.min()}, max: {images.max()}")
+                
                 try:
                     # Forward pass to collect activations
+                    # Ensure images are float32 and in correct range [0, 1]
+                    if images.dtype != torch.float32:
+                        if images.dtype == torch.uint8:
+                            # Convert from uint8 [0, 255] to float32 [0, 1]
+                            images = images.float() / 255.0
+                        else:
+                            # Convert to float32
+                            images = images.float()
+                    
+                    # Ensure images are in range [0, 1]
+                    if images.max() > 1.0:
+                        images = images / 255.0
+                    
+                    self.logger.debug(f"After conversion - dtype: {images.dtype}, shape: {images.shape}, min: {images.min()}, max: {images.max()}")
+                    
                     self.model(images.to(device))
                     
                     # Store labels if available
