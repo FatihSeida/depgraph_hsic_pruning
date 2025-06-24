@@ -187,13 +187,23 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 if sample_count >= self.max_samples:
                     break
                 
-                # Extract images and labels
+                # Extract images and labels safely without boolean evaluation on tensors
                 images = None
                 labels = None
                 
                 if isinstance(batch, dict):
-                    images = batch.get("img") or batch.get("images") or batch.get("inputs")
-                    labels = batch.get("cls") or batch.get("label") or batch.get("labels")
+                    # Use explicit None checks to avoid Tensor truth evaluation
+                    images = batch.get("img", None)
+                    if images is None:
+                        images = batch.get("images", None)
+                    if images is None:
+                        images = batch.get("inputs", None)
+
+                    labels = batch.get("cls", None)
+                    if labels is None:
+                        labels = batch.get("label", None)
+                    if labels is None:
+                        labels = batch.get("labels", None)
                 elif isinstance(batch, (list, tuple)):
                     if len(batch) > 0:
                         images = batch[0]
