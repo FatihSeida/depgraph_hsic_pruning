@@ -367,34 +367,37 @@ class DepGraphHSICMethod2(BasePruningMethod):
     def _apply_masks(self) -> None:
         if self.DG is None:
             raise RuntimeError("Dependency graph not built")
-        for (g_idx, group), mask in zip(enumerate(self.pruning_groups), self.masks):
-            prune_idx = (~mask).nonzero(as_tuple=False).view(-1).tolist()
-            if not prune_idx:
-                continue
-            convs = [
-                self._extract_target_module(dep)
-                for dep in group
-                if isinstance(self._extract_target_module(dep), nn.Conv2d)
-            ]
-            if not convs:
-                continue
-            for conv in convs:
-                remain = conv.out_channels - len(prune_idx)
-                min_channels = max(1, int(conv.out_channels * 0.1))
-                if remain < min_channels:
-                    self.logger.debug(
-                        "Skipping pruning for %s to keep at least %d channels",
-                        conv,
-                        min_channels,
-                    )
-                    continue
-                try:
-                    sub_group = self.DG.get_pruning_group(conv, tp.prune_conv_out_channels, prune_idx)
-                    self.DG.prune_group(sub_group)
-                except Exception:
-                    self.logger.exception("Failed to prune group for conv %s", conv)
-        # Be compatible with different torch_pruning versions
+        # Lepas semua forward hook agar model bisa dipickle
+        self.remove_activation_hooks()
+
         try:
+            for (g_idx, group), mask in zip(enumerate(self.pruning_groups), self.masks):
+                prune_idx = (~mask).nonzero(as_tuple=False).view(-1).tolist()
+                if not prune_idx:
+                    continue
+                convs = [
+                    self._extract_target_module(dep)
+                    for dep in group
+                    if isinstance(self._extract_target_module(dep), nn.Conv2d)
+                ]
+                if not convs:
+                    continue
+                for conv in convs:
+                    remain = conv.out_channels - len(prune_idx)
+                    min_channels = max(1, int(conv.out_channels * 0.1))
+                    if remain < min_channels:
+                        self.logger.debug(
+                            "Skipping pruning for %s to keep at least %d channels",
+                            conv,
+                            min_channels,
+                        )
+                        continue
+                    try:
+                        sub_group = self.DG.get_pruning_group(conv, tp.prune_conv_out_channels, prune_idx)
+                        self.DG.prune_group(sub_group)
+                    except Exception:
+                        self.logger.exception("Failed to prune group for conv %s", conv)
+            # Be compatible with different torch_pruning versions
             if hasattr(tp.utils, "remove_pruning_reparametrization"):
                 tp.utils.remove_pruning_reparametrization(self.model)
             elif hasattr(tp, "remove_pruning_reparametrization"):
@@ -516,4 +519,16 @@ class DepGraphHSICMethod2(BasePruningMethod):
         else:
             reason = "Topologi linier tanpa cabang membuat semua layer digabung sebagai Basic group tunggal."
         self.logger.info("Fallback rationale: %s", reason)
+
+    # ------------------------------------------------------------------
+    # Public helper – detach hooks so model is picklable
+    # ------------------------------------------------------------------
+    def remove_activation_hooks(self) -> None:
+        """Remove all forward hooks registered for activation collection."""
+        for h in getattr(self, "_hook_handles", []):
+            try:
+                h.remove()
+            except Exception:
+                pass
+        self._hook_handles.clear()
 
