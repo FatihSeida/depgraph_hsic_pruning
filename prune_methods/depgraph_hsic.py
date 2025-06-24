@@ -493,16 +493,41 @@ class DepgraphHSICMethod(BasePruningMethod):
         """Compute HSIC scores for each pruning group."""
         group_scores = {}
         
+        self.logger.debug(f"Processing {len(pruning_groups)} pruning groups")
+        
         for group_idx, group in enumerate(pruning_groups):
+            self.logger.debug(f"Processing group {group_idx} with {len(group)} dependencies")
+            
             # Collect activations for all layers in this group
             group_activations = []
             group_channels = []
             
-            for dep in group:
-                if hasattr(dep.target, 'weight') and isinstance(dep.target, nn.Conv2d):
+            for dep_idx, dep in enumerate(group):
+                self.logger.debug(f"  Dependency {dep_idx}: type={type(dep)}, attributes={dir(dep)}")
+                
+                # Handle different types of dependency items
+                target_module = None
+                
+                # Check if it's a GroupItem with module attribute
+                if hasattr(dep, 'module'):
+                    target_module = dep.module
+                elif hasattr(dep, 'target'):
+                    target_module = dep.target
+                elif hasattr(dep, 'layer'):
+                    target_module = dep.layer
+                else:
+                    # Try to get the module from the dependency object
+                    try:
+                        # For newer versions of torch-pruning
+                        if hasattr(dep, '__getitem__'):
+                            target_module = dep[0] if len(dep) > 0 else None
+                    except Exception:
+                        continue
+                
+                if target_module is not None and hasattr(target_module, 'weight') and isinstance(target_module, nn.Conv2d):
                     layer_idx = None
                     for idx, layer in enumerate(self.layers):
-                        if layer is dep.target:
+                        if layer is target_module:
                             layer_idx = idx
                             break
                     
@@ -510,8 +535,10 @@ class DepgraphHSICMethod(BasePruningMethod):
                         acts = torch.cat(self.activations[layer_idx], dim=0)
                         group_activations.append(acts)
                         group_channels.append(acts.size(1))
+                        self.logger.debug(f"Added activations from layer {layer_idx} to group {group_idx}")
             
             if not group_activations:
+                self.logger.warning(f"No activations found for group {group_idx}")
                 continue
             
             # Concatenate activations from all layers in group
@@ -633,8 +660,27 @@ class DepgraphHSICMethod(BasePruningMethod):
         total_channels = 0
         for group in pruning_groups:
             for dep in group:
-                if hasattr(dep.target, 'weight') and isinstance(dep.target, nn.Conv2d):
-                    total_channels += dep.target.weight.size(0)
+                # Handle different types of dependency items
+                target_module = None
+                
+                # Check if it's a GroupItem with module attribute
+                if hasattr(dep, 'module'):
+                    target_module = dep.module
+                elif hasattr(dep, 'target'):
+                    target_module = dep.target
+                elif hasattr(dep, 'layer'):
+                    target_module = dep.layer
+                else:
+                    # Try to get the module from the dependency object
+                    try:
+                        # For newer versions of torch-pruning
+                        if hasattr(dep, '__getitem__'):
+                            target_module = dep[0] if len(dep) > 0 else None
+                    except Exception:
+                        continue
+                
+                if target_module is not None and hasattr(target_module, 'weight') and isinstance(target_module, nn.Conv2d):
+                    total_channels += target_module.weight.size(0)
         
         validation_results["total_channels_remaining"] = total_channels
         
