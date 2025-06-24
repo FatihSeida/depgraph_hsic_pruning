@@ -313,6 +313,8 @@ class DepGraphHSICMethod2(BasePruningMethod):
         self._create_sub_groups()
         self._score_sub_groups()
         to_prune = self._select_pruned_sub_groups(ratio)
+        # Simpan rencana pruning agar pipeline bisa membuat ringkasan
+        self.pruning_plan = to_prune
         self._build_masks(to_prune)
 
     def apply_pruning(self, rebuild: bool = False) -> None:  # pragma: no cover - heavy dependency
