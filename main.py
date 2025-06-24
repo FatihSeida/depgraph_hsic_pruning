@@ -38,6 +38,7 @@ def create_pipeline(
     # Methods that rely on the dependency graph implementation
     depgraph_methods = (
         pm.DepgraphHSICMethod,
+        pm.DepGraphHSICMethod2,
         pm.DepgraphMethod,
         pm.IsomorphicMethod,
         pm.TorchRandomMethod,
@@ -123,6 +124,7 @@ METHODS_MAP = {
     "hsic_lasso": "HSICLassoMethod",
     "whc": "WeightedHybridMethod",
     "depgraph_hsic": "DepgraphHSICMethod",
+    "depgraph_hsic_2": "DepGraphHSICMethod2",
 }
 
 

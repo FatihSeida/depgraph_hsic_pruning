@@ -11,6 +11,7 @@ __all__ = [
     "IsomorphicMethod",
     "HSICLassoMethod",
     "DepgraphHSICMethod",
+    "DepGraphHSICMethod2",
     "WeightedHybridMethod",
 ]
 
@@ -23,6 +24,7 @@ _MAPPING = {
     "IsomorphicMethod": ("prune_methods.isomorphic_pruning", "IsomorphicMethod"),
     "HSICLassoMethod": ("prune_methods.hsic_lasso", "HSICLassoMethod"),
     "DepgraphHSICMethod": ("prune_methods.depgraph_hsic", "DepgraphHSICMethod"),
+    "DepGraphHSICMethod2": ("prune_methods.depgraph_hsic_2", "DepGraphHSICMethod2"),
     "WeightedHybridMethod": ("prune_methods.weighted_hybrid", "WeightedHybridMethod"),
 }
 

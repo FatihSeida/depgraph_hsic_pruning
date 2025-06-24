@@ -16,6 +16,7 @@ from torch import nn
 
 from .base_pipeline import BasePruningPipeline
 from prune_methods.depgraph_hsic import DepgraphHSICMethod
+from prune_methods.depgraph_hsic_2 import DepGraphHSICMethod2
 from prune_methods.base import BasePruningMethod
 
 from helper import (
@@ -54,9 +55,10 @@ class PruningPipeline2(BasePruningPipeline):
     def _is_depgraph_method(self) -> bool:
         try:
             from prune_methods.depgraph_hsic import DepgraphHSICMethod
+            from prune_methods.depgraph_hsic_2 import DepGraphHSICMethod2
         except Exception:
             return False
-        return isinstance(self.pruning_method, DepgraphHSICMethod)
+        return isinstance(self.pruning_method, (DepgraphHSICMethod, DepGraphHSICMethod2))
 
     def _sync_example_inputs_device(self) -> None:
         """Move ``example_inputs`` to the current model's device if needed."""
