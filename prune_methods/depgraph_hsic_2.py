@@ -223,6 +223,30 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
             self.group_scores[g_idx] = scores
 
+        # Fallback: jika tidak ada skor grup (mis. hanya 1 grup DG tanpa aktivasi terpetakan)
+        if not self.group_scores:
+            self.logger.warning("No HSIC scores computed per group – falling back to aggregated layer scoring")
+            acts_all: List[torch.Tensor] = []
+            for lst in self.activations.values():
+                try:
+                    acts_all.append(torch.cat(lst, dim=0))
+                except Exception:
+                    continue
+            if acts_all:
+                combined = torch.cat(acts_all, dim=1)
+                labels = torch.cat(self.labels, dim=0)
+                m = min(combined.size(0), labels.size(0))
+                combined = combined[:m]
+                labels = labels[:m]
+                sigma = self.sigma or 1.0 / max(combined.size(1), 1)
+                scores = compute_channel_wise_hsic(combined, labels, sigma)
+                if scores.numel() > 1:
+                    scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
+                # Asumsikan grup indeks 0 (jika tidak ada) – buat dummy jika perlu
+                if not self.pruning_groups:
+                    self.pruning_groups = [tuple()]
+                self.group_scores[0] = scores
+
     # ------------------------------------------------------------------
     # Phase 3 – adaptive sub grouping
     # ------------------------------------------------------------------
@@ -266,6 +290,15 @@ class DepGraphHSICMethod2(BasePruningMethod):
         self.logger.info(f"Available sub-group scores: {len(self.sub_group_scores)}")
         self.logger.info(f"Sub-groups: {len(self.sub_groups)}")
         
+        if not self.sub_group_scores:
+            # Tidak ada skor sub-grup – pilih saluran terendah dari grup pertama
+            self.logger.warning("No sub-group scores available – selecting fallback channels")
+            if 0 in self.group_scores:
+                scores = self.group_scores[0]
+                n_prune = max(1, int(len(scores) * ratio))
+                idxs = torch.argsort(scores)[:n_prune].tolist()
+                return [(0, 0)]  # satu sub-grup dummy, akan ditangani di _build_masks
+
         ordered = sorted(self.sub_group_scores.items(), key=lambda x: x[1])
         total_channels = sum(len(sg) for groups in self.sub_groups.values() for sg in groups)
         target = int(total_channels * ratio)
