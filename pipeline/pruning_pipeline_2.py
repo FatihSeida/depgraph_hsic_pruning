@@ -196,16 +196,16 @@ class PruningPipeline2(BasePruningPipeline):
         if self.model is None:
             raise ValueError("Model is not loaded")
         from ultralytics.cfg import get_cfg
-        from ultralytics.utils import DEFAULT_CFG, yaml_load
-        from ultralytics.data import build_yolo_dataset, build_dataloader
-        import os
-        import torch
+        try:
+            from ultralytics.utils import DEFAULT_CFG, yaml_load  # type: ignore
+        except ImportError:  # ultralytics>=8.1.0 moved helper
+            from ultralytics.utils import DEFAULT_CFG  # type: ignore
+            import yaml  # fallback to PyYAML
 
-        # Disable multiprocessing to avoid ConnectionResetError
-        try:  # pragma: no cover - best effort
-            torch.multiprocessing.set_sharing_strategy('file_system')
-        except Exception:
-            pass
+            def yaml_load(file):  # type: ignore
+                """Minimal replacement for ultralytics.utils.yaml_load."""
+                with open(file, "r", encoding="utf-8") as f:
+                    return yaml.safe_load(f)
 
         cfg = get_cfg(DEFAULT_CFG)
         cfg.data = self.data
