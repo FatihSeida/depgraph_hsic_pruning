@@ -10,6 +10,9 @@ try:  # pragma: no cover - best effort
 except Exception:
     pass
 
+import os
+import torch
+
 from ultralytics import YOLO
 from helper.flops_utils import get_flops_reliable, get_num_params_reliable
 from torch import nn
