@@ -466,7 +466,11 @@ class DepGraphHSICMethod2(BasePruningMethod):
                         old_out_channels = layer.out_channels
                         keep_indices = list(set(range(old_out_channels)) - set(layer_prune_indices))
                         keep_indices.sort()
-                        prune_conv_out_channels(layer, layer_prune_indices)
+                        if self.DG is not None:
+                            sub_group = self.DG.get_pruning_group(layer, prune_conv_out_channels, layer_prune_indices)
+                            sub_group.prune()
+                        else:
+                            prune_conv_out_channels(layer, layer_prune_indices)
                         total_pruned += len(layer_prune_indices)
                         self.logger.info(
                             "Layer %d: pruned %d/%d channels", layer_idx, len(layer_prune_indices), old_out_channels
@@ -486,6 +490,14 @@ class DepGraphHSICMethod2(BasePruningMethod):
             self.logger.info("Model structure updated after pruning")
         except Exception as e:
             self.logger.warning("Failed to update model structure: %s", e)
+
+        # Reconfigure in/out channels if needed
+        try:
+            from pipeline.model_reconfig import AdaptiveLayerReconfiguration
+            if hasattr(self.model, "model"):
+                AdaptiveLayerReconfiguration(logger=self.logger).reconfigure_model(self.model)
+        except Exception as e:
+            self.logger.warning("AdaptiveLayerReconfiguration failed: %s", e)
 
         # Validate model can still do forward pass
         try:
@@ -507,23 +519,26 @@ class DepGraphHSICMethod2(BasePruningMethod):
                     parent_name = '.'.join(name.split('.')[:-1])
                     if parent_name:
                         parent = self.model.get_submodule(parent_name)
-                        # Look for BatchNorm layers in the same parent
-                        for child_name, child in parent.named_children():
-                            if isinstance(child, torch.nn.BatchNorm2d) and child.num_features == old_out_channels:
-                                # Update BatchNorm to match pruned conv
-                                keep_indices.sort()
-                                
-                                # Create new BatchNorm with correct size
-                                new_bn = torch.nn.BatchNorm2d(len(keep_indices))
-                                new_bn.weight.data = child.weight.data[keep_indices].clone()
-                                new_bn.bias.data = child.bias.data[keep_indices].clone()
-                                new_bn.running_mean = child.running_mean[keep_indices].clone()
-                                new_bn.running_var = child.running_var[keep_indices].clone()
-                                
-                                # Replace the old BatchNorm
-                                setattr(parent, child_name, new_bn)
-                                self.logger.debug("Updated BatchNorm %s to match pruned conv", child_name)
-                                break
+                    else:
+                        parent = self.model
+
+                    # Look for BatchNorm layers in the same parent
+                    for child_name, child in parent.named_children():
+                        if isinstance(child, torch.nn.BatchNorm2d) and child.num_features == old_out_channels:
+                            # Update BatchNorm to match pruned conv
+                            keep_indices.sort()
+
+                            # Create new BatchNorm with correct size
+                            new_bn = torch.nn.BatchNorm2d(len(keep_indices))
+                            new_bn.weight.data = child.weight.data[keep_indices].clone()
+                            new_bn.bias.data = child.bias.data[keep_indices].clone()
+                            new_bn.running_mean = child.running_mean[keep_indices].clone()
+                            new_bn.running_var = child.running_var[keep_indices].clone()
+
+                            # Replace the old BatchNorm
+                            setattr(parent, child_name, new_bn)
+                            self.logger.debug("Updated BatchNorm %s to match pruned conv", child_name)
+                            break
                     break
         except Exception as e:
             self.logger.warning("Failed to update related BatchNorm: %s", e)
