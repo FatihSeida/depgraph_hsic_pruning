@@ -76,14 +76,11 @@ def calculate_flops_manual(model: Any, imgsz: int | Iterable[int] = 640) -> floa
         with torch.no_grad():
             model(dummy)
     except Exception as e:
-        # forward failed; return partial FLOPs collected so far
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Forward pass failed during FLOPs calculation: {e}")
-        logger.warning("This may indicate model structure issues after pruning")
         for h in hooks:
             h.remove()
-        return totals[0] * 2 / 1e9
+        raise RuntimeError(
+            f"forward pass failed during FLOPs calculation: {e}"
+        ) from e
     for h in hooks:
         h.remove()
     return totals[0] * 2 / 1e9
@@ -91,7 +88,15 @@ def calculate_flops_manual(model: Any, imgsz: int | Iterable[int] = 640) -> floa
 
 def get_flops_reliable(model: Any, imgsz: int | Iterable[int] = 640) -> float:
     """Return FLOPs using manual calculation with a torch profiler fallback."""
-    flops = calculate_flops_manual(model, imgsz)
+    try:
+        flops = calculate_flops_manual(model, imgsz)
+    except Exception as exc:  # pragma: no cover - best effort
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Manual FLOPs calculation failed: %s", exc
+        )
+        flops = 0.0
     if flops == 0 and get_flops_with_torch_profiler is not None:
         try:  # pragma: no cover - best effort
             flops = float(get_flops_with_torch_profiler(model, imgsz))
