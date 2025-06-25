@@ -336,7 +336,13 @@ class PruningPipeline2(BasePruningPipeline):
             self.pruning_method.apply_pruning(rebuild=rebuild)
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
-        """Reconfigure the model when required by the pruning method."""
+        """Reconfigure the model when required by the pruning method.
+
+        For metode berbasis *DepGraph* proses re-konfigurasi (penyesuaian kanal
+        adaptif) tidak dibutuhkan sehingga langkah ini di-skip sepenuhnya. Jika
+        ``output_path`` disediakan, model pruned tetap akan disimpan ke lokasi
+        tersebut agar alur kerja upstream (mis. *main.py*) tidak berubah.
+        """
         needs_reconfig = False
         if self.pruning_method is not None:
             needs_reconfig = bool(
@@ -344,8 +350,19 @@ class PruningPipeline2(BasePruningPipeline):
                 or getattr(self.pruning_method, "fallback_layerwise", False)
             )
 
+        # ------------------------------------------------------------------
+        # DepGraph methods -> langsung skip tanpa AdaptiveLayerReconfiguration
+        # ------------------------------------------------------------------
         if not needs_reconfig:
-            self.logger.info("Skipping reconfiguration (not required for DepGraph methods)")
+            self.logger.info("Skipping reconfiguration – not required for DepGraph methods")
+            # Tetap simpan model jika user meminta output_path
+            if output_path and self.model is not None:
+                try:
+                    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+                    self.model.save(str(output_path))
+                    self.logger.debug("Pruned model saved to %s tanpa reconfiguration", output_path)
+                except Exception:  # pragma: no cover ‑ best effort
+                    self.logger.exception("Failed to save pruned model to %s", output_path)
             return
 
         if self.model is None:

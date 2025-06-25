@@ -43,7 +43,9 @@ from .utils import collect_backbone_convs
 class DepGraphHSICMethod2(BasePruningMethod):
     """Adaptive filter pruning combining structural and HSIC information."""
 
-    requires_reconfiguration: bool = True
+    # Reconfiguration di‐disable untuk metode DepGraph agar pipeline tidak
+    # menjalankan AdaptiveLayerReconfiguration.
+    requires_reconfiguration: bool = False
 
     def __init__(
         self,
@@ -495,7 +497,9 @@ class DepGraphHSICMethod2(BasePruningMethod):
         try:
             from pipeline.model_reconfig import AdaptiveLayerReconfiguration
             if hasattr(self.model, "model"):
-                AdaptiveLayerReconfiguration(logger=self.logger).reconfigure_model(self.model)
+                # Adaptive reconfiguration dinonaktifkan – panggilan diabaikan
+                # AdaptiveLayerReconfiguration(logger=self.logger).reconfigure_model(self.model)
+                pass
         except Exception as e:
             self.logger.warning("AdaptiveLayerReconfiguration failed: %s", e)
 

@@ -334,8 +334,18 @@ def execute_pipeline(
                 except Exception:  # pragma: no cover - best effort
                     logger.debug("failed to sync example inputs device")
         final_path = workdir / f"pruned_model_{method_cls.__name__}_{ratio}.pt"
-        pipeline.reconfigure_model(output_path=final_path)
-        logger.info("Saved pruned model to %s", final_path)
+        # Reconfiguration hanya dijalankan jika memang diperlukan oleh metode
+        # pruning. Metode berbasis DepGraph tidak memerlukan langkah ini.
+        needs_reconfig = bool(
+            getattr(pipeline.pruning_method, "requires_reconfiguration", False)
+            or getattr(pipeline.pruning_method, "fallback_layerwise", False)
+        )
+        if needs_reconfig:
+            pipeline.reconfigure_model(output_path=final_path)
+        else:
+            # Tidak ada re-konfigurasi: cukup simpan snapshot sebagai hasil akhir.
+            pipeline.model.save(str(final_path))
+            logger.info("Saved pruned model to %s (tanpa reconfiguration)", final_path)
         pipeline.calc_pruned_stats()
         monitor = MonitorComputationStep("finetune")
         monitor.start()
