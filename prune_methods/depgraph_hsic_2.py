@@ -233,7 +233,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
 
         # Fallback: jika tidak ada skor grup (mis. hanya 1 grup DG tanpa aktivasi terpetakan)
         if not self.group_scores:
-            self.logger.warning("No HSIC scores computed per group – falling back to aggregated layer scoring")
+            self.logger.warning("HSIC per-group tidak tersedia – menggunakan HSIC global (semua layer)")
             acts_all: List[torch.Tensor] = []
             for lst in self.activations.values():
                 try:
@@ -307,7 +307,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
         
         if not self.sub_group_scores:
             # Tidak ada skor sub-grup – pilih saluran terendah dari grup pertama
-            self.logger.warning("No sub-group scores available – selecting fallback channels")
+            self.logger.warning("Sub-group scoring gagal – menggunakan HSIC langsung per-layer")
             if 0 in self.group_scores:
                 scores = self.group_scores[0]
                 n_prune = max(1, int(len(scores) * ratio))
@@ -340,7 +340,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
         
         # Fallback jika selected kosong atau hanya 1 grup
         if not selected and 0 in self.group_scores:
-            self.logger.warning("No sub-groups selected – switching to layer-wise fallback")
+            self.logger.warning("Sub-group selection gagal – menggunakan HSIC langsung per-layer")
             scores = self.group_scores[0]
             n_prune = max(1, int(len(scores) * ratio))
             idxs = torch.argsort(scores)[:n_prune].tolist()
@@ -353,7 +353,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
         
         # Fallback jika hanya ada satu grup dependency graph
         if len(self.pruning_groups) == 1:
-            self.logger.warning("Only one dependency group found – switching to layer-wise fallback")
+            self.logger.warning("DependencyGraph menghasilkan satu grup besar – menggunakan HSIC langsung per-layer")
             self.fallback_layerwise = True
         
         return selected
@@ -424,7 +424,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
 
     def _apply_layerwise_pruning(self) -> None:
         """Apply pruning per-layer when dependency graph fails."""
-        self.logger.info("Applying layer-wise pruning fallback")
+        self.logger.info("Menerapkan pruning HSIC per-layer (bypass dependency graph)")
         total_pruned = 0
 
         # Gunakan mask yang sudah dibuat, bukan membuat indeks baru
@@ -455,7 +455,6 @@ class DepGraphHSICMethod2(BasePruningMethod):
                 if layer_prune_indices:
                     # Pastikan tidak memprune semua channel – harus menyisakan minimal 1
                     if len(layer_prune_indices) >= layer_channels:
-                        # Buang indeks terakhir agar masih ada 1 channel
                         layer_prune_indices = layer_prune_indices[:-1]
                         self.logger.debug(
                             "Prevented over-pruning on layer %d – keeping 1 channel", layer_idx
@@ -463,16 +462,17 @@ class DepGraphHSICMethod2(BasePruningMethod):
                     if not layer_prune_indices:
                         continue
                     try:
-                        # Prune secara manual dengan torch_pruning
                         from torch_pruning import prune_conv_out_channels
+                        old_out_channels = layer.out_channels
+                        keep_indices = list(set(range(old_out_channels)) - set(layer_prune_indices))
+                        keep_indices.sort()
                         prune_conv_out_channels(layer, layer_prune_indices)
                         total_pruned += len(layer_prune_indices)
-                        self.logger.info("Layer %d: pruned %d/%d channels", 
-                                       layer_idx, len(layer_prune_indices), layer_channels)
-                        
-                        # Update BatchNorm layers yang terkait
-                        self._update_related_batchnorm(layer, layer_prune_indices)
-                        
+                        self.logger.info(
+                            "Layer %d: pruned %d/%d channels", layer_idx, len(layer_prune_indices), old_out_channels
+                        )
+                        # Update BatchNorm sesuai channel yang dipertahankan
+                        self._update_related_batchnorm(layer, old_out_channels, keep_indices)
                     except Exception as e:
                         self.logger.warning("Failed to prune layer %d: %s", layer_idx, e)
 
@@ -498,7 +498,7 @@ class DepGraphHSICMethod2(BasePruningMethod):
             self.logger.error("Model validation failed - forward pass broken after pruning: %s", e)
             # Don't try to rebuild dependency graph as it may cause more issues
 
-    def _update_related_batchnorm(self, conv_layer, prune_indices):
+    def _update_related_batchnorm(self, conv_layer, old_out_channels, keep_indices):
         """Update related BatchNorm layers after pruning a Conv2d layer."""
         try:
             # Find the parent module that contains this conv layer
@@ -509,9 +509,8 @@ class DepGraphHSICMethod2(BasePruningMethod):
                         parent = self.model.get_submodule(parent_name)
                         # Look for BatchNorm layers in the same parent
                         for child_name, child in parent.named_children():
-                            if isinstance(child, torch.nn.BatchNorm2d) and child.num_features == conv_layer.out_channels:
+                            if isinstance(child, torch.nn.BatchNorm2d) and child.num_features == old_out_channels:
                                 # Update BatchNorm to match pruned conv
-                                keep_indices = list(set(range(conv_layer.out_channels)) - set(prune_indices))
                                 keep_indices.sort()
                                 
                                 # Create new BatchNorm with correct size
