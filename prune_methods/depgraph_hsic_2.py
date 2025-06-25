@@ -512,9 +512,13 @@ class DepGraphHSICMethod2(BasePruningMethod):
         try:
             from pipeline.model_reconfig import AdaptiveLayerReconfiguration
             if hasattr(self.model, "model"):
-                # Adaptive reconfiguration dinonaktifkan – panggilan diabaikan
-                # AdaptiveLayerReconfiguration(logger=self.logger).reconfigure_model(self.model)
-                pass
+                # Jalankan re-konfigurasi adaptif hanya jika terdeteksi mismatch
+                try:
+                    AdaptiveLayerReconfiguration(logger=self.logger).reconfigure_model(self.model)
+                except Exception as re_err:
+                    self.logger.warning(
+                        "AdaptiveLayerReconfiguration gagal memperbaiki mismatch: %s", re_err
+                    )
         except Exception as e:
             self.logger.warning("AdaptiveLayerReconfiguration failed: %s", e)
 
