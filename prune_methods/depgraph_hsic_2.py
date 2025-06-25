@@ -468,11 +468,26 @@ class DepGraphHSICMethod2(BasePruningMethod):
                         old_out_channels = layer.out_channels
                         keep_indices = list(set(range(old_out_channels)) - set(layer_prune_indices))
                         keep_indices.sort()
+                        pruned_ok = False
                         if self.DG is not None:
-                            sub_group = self.DG.get_pruning_group(layer, prune_conv_out_channels, layer_prune_indices)
-                            sub_group.prune()
-                        else:
+                            try:
+                                sub_group = self.DG.get_pruning_group(
+                                    layer,
+                                    prune_conv_out_channels,
+                                    layer_prune_indices,
+                                )
+                                sub_group.prune()
+                                pruned_ok = True
+                            except Exception as dg_err:
+                                # Layer tidak terdaftar di DG – fallback ke pruning manual
+                                self.logger.debug(
+                                    "Layer %d tidak ditemukan di DG (%s) – fallback prune_conv_out_channels langsung",
+                                    layer_idx,
+                                    dg_err,
+                                )
+                        if not pruned_ok:
                             prune_conv_out_channels(layer, layer_prune_indices)
+                            pruned_ok = True
                         total_pruned += len(layer_prune_indices)
                         self.logger.info(
                             "Layer %d: pruned %d/%d channels", layer_idx, len(layer_prune_indices), old_out_channels
