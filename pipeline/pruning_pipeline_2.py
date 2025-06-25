@@ -6,7 +6,7 @@ import torch
 
 # Disable multiprocessing to avoid ConnectionResetError
 try:  # pragma: no cover - best effort
-    torch.multiprocessing.set_sharing_strategy('file_system')
+    torch.multiprocessing.set_sharing_strategy("file_system")
 except Exception:
     pass
 
@@ -21,6 +21,7 @@ from .base_pipeline import BasePruningPipeline
 from prune_methods.depgraph_hsic import DepgraphHSICMethod
 from prune_methods.depgraph_hsic_2 import DepGraphHSICMethod2
 from prune_methods.base import BasePruningMethod
+from .model_reconfig import AdaptiveLayerReconfiguration
 
 from helper import (
     Logger,
@@ -46,7 +47,6 @@ class PruningPipeline2(BasePruningPipeline):
         model_path: str,
         data: str,
         workdir: str = "runs/pruning",
-
         pruning_method: BasePruningMethod | None = None,
         logger: Logger | None = None,
     ) -> None:
@@ -80,9 +80,7 @@ class PruningPipeline2(BasePruningPipeline):
             if torch.is_tensor(ex_inputs):
                 self.pruning_method.example_inputs = ex_inputs.to(device)
                 ex_device = self.pruning_method.example_inputs.device
-            self.logger.debug(
-                "Model device: %s, example_inputs device: %s", device, ex_device
-            )
+            self.logger.debug("Model device: %s, example_inputs device: %s", device, ex_device)
         except Exception:
             pass
 
@@ -123,9 +121,7 @@ class PruningPipeline2(BasePruningPipeline):
         params = get_num_params_reliable(self.model.model)
         flops = get_flops_reliable(self.model.model)
         if flops == 0:
-            self.logger.warning(
-                "FLOPs reported as 0; fallback calculation may be inaccurate"
-            )
+            self.logger.warning("FLOPs reported as 0; fallback calculation may be inaccurate")
         filters = count_filters(self.model.model)
         size_mb = model_size_mb(self.model.model)
         self.initial_stats = {
@@ -134,15 +130,19 @@ class PruningPipeline2(BasePruningPipeline):
             "filters": filters,
             "model_size_mb": size_mb,
         }
-        self.metrics_mgr.record_pruning({
-            "parameters": {"original": params},
-            "flops": {"original": flops},
-            "filters": {"original": filters},
-            "model_size_mb": {"original": size_mb},
-        })
+        self.metrics_mgr.record_pruning(
+            {
+                "parameters": {"original": params},
+                "flops": {"original": flops},
+                "filters": {"original": filters},
+                "model_size_mb": {"original": size_mb},
+            }
+        )
         return self.initial_stats
 
-    def pretrain(self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any) -> Dict[str, Any]:
+    def pretrain(
+        self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any
+    ) -> Dict[str, Any]:
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Training model to collect activations")
@@ -180,11 +180,7 @@ class PruningPipeline2(BasePruningPipeline):
         groups = []
         if getattr(self.pruning_method, "DG", None) is not None:
             try:
-                groups = list(
-                    self.pruning_method.DG.get_all_groups(
-                        root_module_types=(nn.Conv2d,)
-                    )
-                )
+                groups = list(self.pruning_method.DG.get_all_groups(root_module_types=(nn.Conv2d,)))
             except Exception:
                 groups = []
         convs = len(getattr(self.pruning_method, "layers", []))
@@ -199,6 +195,7 @@ class PruningPipeline2(BasePruningPipeline):
         if self.model is None:
             raise ValueError("Model is not loaded")
         from ultralytics.cfg import get_cfg
+
         try:
             from ultralytics.utils import DEFAULT_CFG, yaml_load  # type: ignore
         except ImportError:  # ultralytics>=8.1.0 moved helper
@@ -220,16 +217,16 @@ class PruningPipeline2(BasePruningPipeline):
         if "channels" not in data_dict:
             # Assume RGB images when key is missing
             data_dict["channels"] = 3
-        
+
         # Debug: print current working directory and data paths
         self.logger.debug("Current working directory: %s", os.getcwd())
         self.logger.debug("Data YAML path: %s", self.data)
         self.logger.debug("Data dict: %s", data_dict)
-        
+
         # Get base path and validation path
         base_path = data_dict.get("path", "")
         val_path = data_dict.get("val") or data_dict.get("test") or data_dict.get("train")
-        
+
         # Construct absolute path
         if base_path and val_path:
             if os.path.isabs(val_path):
@@ -238,31 +235,30 @@ class PruningPipeline2(BasePruningPipeline):
                 img_path = os.path.join(base_path, val_path)
         else:
             img_path = val_path
-            
+
         self.logger.debug("Constructed image path: %s", img_path)
-        
+
         # Verify path exists
         if not os.path.exists(img_path):
             self.logger.error("Image path does not exist: %s", img_path)
             self.logger.error("Available paths to check:")
             if base_path and os.path.exists(base_path):
                 import glob
+
                 for item in glob.glob(os.path.join(base_path, "*")):
                     self.logger.error("  - %s", item)
             raise FileNotFoundError(f"Image path does not exist: {img_path}")
-        
+
         stride = int(max(getattr(self.model.model, "stride", [32])))
 
-        dataset = build_yolo_dataset(cfg, img_path, cfg.batch, data_dict, mode="val", rect=True, stride=stride)
-        
+        dataset = build_yolo_dataset(
+            cfg, img_path, cfg.batch, data_dict, mode="val", rect=True, stride=stride
+        )
+
         # Disable multiprocessing to avoid ConnectionResetError
         # Use workers=0 to disable multiprocessing
         return build_dataloader(
-            dataset, 
-            batch=cfg.batch, 
-            workers=0,  # Disable multiprocessing
-            shuffle=False, 
-            rank=-1
+            dataset, batch=cfg.batch, workers=0, shuffle=False, rank=-1  # Disable multiprocessing
         )
 
     def generate_pruning_mask(
@@ -310,7 +306,7 @@ class PruningPipeline2(BasePruningPipeline):
             except Exception as exc:
                 self.logger.error("Failed to generate pruning mask: %s", exc)
                 raise RuntimeError(f"Failed to generate pruning mask: {exc}") from exc
-                
+
         plan = getattr(self.pruning_method, "pruning_plan", [])
         channels = len(plan)
         total = sum(
@@ -329,9 +325,10 @@ class PruningPipeline2(BasePruningPipeline):
         if self.pruning_method is None:
             raise ValueError("No pruning method set")
         import inspect
+
         try:
             sig = inspect.signature(self.pruning_method.apply_pruning)
-            if 'rebuild' in sig.parameters:
+            if "rebuild" in sig.parameters:
                 self.pruning_method.apply_pruning(rebuild=rebuild)
             else:
                 self.pruning_method.apply_pruning()
@@ -339,8 +336,23 @@ class PruningPipeline2(BasePruningPipeline):
             self.pruning_method.apply_pruning(rebuild=rebuild)
 
     def reconfigure_model(self, output_path: str | Path | None = None) -> None:
-        # DepGraph methods don't require reconfiguration
-        self.logger.info("Skipping reconfiguration (not required for DepGraph methods)")
+        """Reconfigure the model when required by the pruning method."""
+        needs_reconfig = False
+        if self.pruning_method is not None:
+            needs_reconfig = bool(
+                getattr(self.pruning_method, "requires_reconfiguration", False)
+                or getattr(self.pruning_method, "fallback_layerwise", False)
+            )
+
+        if not needs_reconfig:
+            self.logger.info("Skipping reconfiguration (not required for DepGraph methods)")
+            return
+
+        if self.model is None:
+            raise ValueError("Model is not loaded")
+
+        self.logger.info("Reconfiguring model")
+        AdaptiveLayerReconfiguration(logger=self.logger).reconfigure_model(self.model, output_path)
 
     def calc_pruned_stats(self) -> Dict[str, float]:
         if self.model is None:
@@ -349,9 +361,7 @@ class PruningPipeline2(BasePruningPipeline):
         params = get_num_params_reliable(self.model.model)
         flops = get_flops_reliable(self.model.model)
         if flops == 0:
-            self.logger.warning(
-                "FLOPs reported as 0; fallback calculation may be inaccurate"
-            )
+            self.logger.warning("FLOPs reported as 0; fallback calculation may be inaccurate")
         filters = count_filters(self.model.model)
         size_mb = model_size_mb(self.model.model)
         self.pruned_stats = {
@@ -360,16 +370,20 @@ class PruningPipeline2(BasePruningPipeline):
             "filters": filters,
             "model_size_mb": size_mb,
         }
-        self.metrics_mgr.record_pruning({
-            "parameters": {"pruned": params},
-            "flops": {"pruned": flops},
-            "filters": {"pruned": filters},
-            "model_size_mb": {"pruned": size_mb},
-        })
+        self.metrics_mgr.record_pruning(
+            {
+                "parameters": {"pruned": params},
+                "flops": {"pruned": flops},
+                "filters": {"pruned": filters},
+                "model_size_mb": {"pruned": size_mb},
+            }
+        )
         log_stats_comparison(self.initial_stats, self.pruned_stats, self.logger)
         return self.pruned_stats
 
-    def finetune(self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any) -> Dict[str, Any]:
+    def finetune(
+        self, *, device: str | int | list = 0, label_fn=None, **train_kwargs: Any
+    ) -> Dict[str, Any]:
         if self.model is None:
             raise ValueError("Model is not loaded")
         self.logger.info("Finetuning pruned model")
@@ -394,5 +408,6 @@ class PruningPipeline2(BasePruningPipeline):
         self.metrics_mgr.record_training(metrics or {})
         self.metrics["finetune"] = metrics or {}
         return metrics or {}
+
 
 __all__ = ["PruningPipeline2"]
