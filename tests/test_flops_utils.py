@@ -1,6 +1,7 @@
 import importlib
 import types
 import sys
+import pytest
 
 
 def test_calculate_flops_manual_no_torch(monkeypatch):
@@ -89,6 +90,5 @@ def test_calculate_flops_manual_handles_errors(monkeypatch):
 
     model = BadModel()
 
-    flops = fu.calculate_flops_manual(model, imgsz=8)
-
-    assert flops > 0
+    with pytest.raises(RuntimeError):
+        fu.calculate_flops_manual(model, imgsz=8)
